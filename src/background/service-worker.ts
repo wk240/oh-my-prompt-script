@@ -25,12 +25,17 @@ chrome.runtime.onMessage.addListener(
         return true // Required for async response
 
       case MessageType.SET_STORAGE:
+        console.log('[Lovart Injector] SET_STORAGE payload:', message.payload)
         if (!message.payload) {
+          console.error('[Lovart Injector] SET_STORAGE: No payload provided')
           sendResponse({ success: false, error: 'No payload provided' })
           return true
         }
         storageManager.saveData(message.payload as StorageSchema)
-          .then(() => sendResponse({ success: true } as MessageResponse))
+          .then(() => {
+            console.log('[Lovart Injector] SET_STORAGE: Save successful')
+            sendResponse({ success: true } as MessageResponse)
+          })
           .catch(error => {
             console.error('[Lovart Injector] SET_STORAGE error:', error)
             sendResponse({ success: false, error: 'Storage save failed' })

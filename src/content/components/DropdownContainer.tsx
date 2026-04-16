@@ -13,6 +13,8 @@ interface DropdownContainerProps {
   onSelect: (prompt: Prompt) => void
   isOpen: boolean
   selectedPromptId: string | null
+  onAddPrompt: () => void
+  onImport: () => void
 }
 
 interface DropdownPosition {
@@ -98,6 +100,8 @@ export function DropdownContainer({
   onSelect,
   isOpen,
   selectedPromptId,
+  onAddPrompt,
+  onImport,
 }: DropdownContainerProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<DropdownPosition>({
@@ -164,50 +168,68 @@ export function DropdownContainer({
       {prompts.length === 0 ? (
         <div className="empty-state">
           <div className="empty-message">暂无提示词</div>
-          <div className="empty-subtext">请先添加提示词</div>
+          <div className="empty-subtext">点击下方按钮添加</div>
+          <div className="empty-state-actions">
+            <button className="empty-state-btn" onClick={onAddPrompt}>
+              新增提示词
+            </button>
+            <button className="empty-state-btn" onClick={onImport}>
+              导入数据
+            </button>
+          </div>
         </div>
       ) : (
-        categories.map((category) => {
-          const categoryPrompts = prompts.filter(
-            (p) => p.categoryId === category.id
-          )
+        <>
+          {categories.map((category) => {
+            const categoryPrompts = prompts.filter(
+              (p) => p.categoryId === category.id
+            )
 
-          if (categoryPrompts.length === 0) return null
+            if (categoryPrompts.length === 0) return null
 
-          return (
-            <div key={category.id} className="category-group">
-              <div className="category-header">
-                {category.name} ({categoryPrompts.length})
-              </div>
-              {categoryPrompts.map((prompt) => (
-                <div
-                  key={prompt.id}
-                  className={`prompt-item${selectedPromptId === prompt.id ? ' selected' : ''}`}
-                  onMouseDown={(e) => {
-                    // CRITICAL: Prevent focus transfer to dropdown item
-                    // This keeps the cursor position intact in the Lovart input
-                    // onClick will still fire, but focus remains on the input
-                    e.preventDefault()
-                  }}
-                  onClick={() => onSelect(prompt)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      onSelect(prompt)
-                    }
-                  }}
-                >
-                  <div className="prompt-name">{prompt.name}</div>
-                  <div className="prompt-preview">
-                    {truncatePreview(prompt.content)}
-                  </div>
+            return (
+              <div key={category.id} className="category-group">
+                <div className="category-header">
+                  {category.name} ({categoryPrompts.length})
                 </div>
-              ))}
-            </div>
-          )
-        })
+                {categoryPrompts.map((prompt) => (
+                  <div
+                    key={prompt.id}
+                    className={`prompt-item${selectedPromptId === prompt.id ? ' selected' : ''}`}
+                    onMouseDown={(e) => {
+                      // CRITICAL: Prevent focus transfer to dropdown item
+                      // This keeps the cursor position intact in the Lovart input
+                      // onClick will still fire, but focus remains on the input
+                      e.preventDefault()
+                    }}
+                    onClick={() => onSelect(prompt)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onSelect(prompt)
+                      }
+                    }}
+                  >
+                    <div className="prompt-name">{prompt.name}</div>
+                    <div className="prompt-preview">
+                      {truncatePreview(prompt.content)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+          <div className="dropdown-footer">
+            <button className="dropdown-footer-btn" onClick={onImport}>
+              导入
+            </button>
+            <button className="dropdown-footer-btn primary" onClick={onAddPrompt}>
+              新增
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

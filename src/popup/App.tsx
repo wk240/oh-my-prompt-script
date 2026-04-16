@@ -143,8 +143,11 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="w-[300px] h-[200px] flex items-center justify-center">
-        <span className="text-muted-foreground">加载中...</span>
+      <div className="w-[300px] min-h-[400px] flex flex-col bg-background">
+        <Header onImport={handleImport} onExport={handleExport} />
+        <div className="flex flex-1 items-center justify-center">
+          <span className="text-muted-foreground">加载中...</span>
+        </div>
       </div>
     )
   }

@@ -1,3 +1,5 @@
+@import './styles/globals.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,5 +15,4 @@ body {
   width: 300px;
   min-height: 400px;
   max-height: 600px;
-  background-color: var(--background);
 }
