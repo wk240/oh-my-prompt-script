@@ -3,7 +3,7 @@ import { MessageType, MessageResponse } from '../shared/messages'
 console.log('[Lovart Injector] Service Worker started')
 
 chrome.runtime.onMessage.addListener(
-  (message, sender, sendResponse) => {
+  (message, _sender, sendResponse) => {
     console.log('[Lovart Injector] Received message:', message.type)
 
     switch (message.type) {
