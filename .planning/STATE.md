@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-last_updated: "2026-04-16T15:09:57.779Z"
+status: complete
+last_updated: "2026-04-16T16:30:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 27
-  completed_plans: 21
-  percent: 78
+  completed_plans: 27
+  percent: 100
 ---
 
 # STATE.md
@@ -25,7 +25,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** 一键插入预设提示词，提升Lovart平台创作效率
-**Current focus:** Phase 04 — polish-end-to-end-testing
+**Current focus:** Milestone v1.0 Complete
 
 ---
 
@@ -36,7 +36,7 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 | 1 | Foundation & Manifest Setup | ✓ Complete | 8/8 | 100% |
 | 2 | Lovart Integration & Content Script | ✓ Complete | 4/4 | 100% |
 | 3 | Data Management & Popup UI | ✓ Complete | 9/9 | 100% |
-| 4 | Polish & End-to-End Testing | ○ Pending | 0/0 | 0% |
+| 4 | Polish & End-to-End Testing | ✓ Complete | 6/6 | 100% |
 
 **Phase progress legend:**
 
@@ -51,19 +51,19 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 
 | Category | v1 Requirements | Covered | Status |
 |----------|-----------------|---------|--------|
-| Core Functionality | 4 | 4 | Implemented (Phase 2) |
-| Prompt Management | 6 | 6 | Implemented (Phase 3) |
-| Data Persistence | 4 | 4 | Implemented (Phase 3) |
-| Extension Behavior | 4 | 4 | Complete (Phase 1-2) |
-| **Total** | **18** | **18** | **75% Complete** |
+| Core Functionality | 4 | 4 | ✓ Complete |
+| Prompt Management | 6 | 6 | ✓ Complete |
+| Data Persistence | 4 | 4 | ✓ Complete |
+| Extension Behavior | 4 | 4 | ✓ Complete |
+| **Total** | **18** | **18** | **100% Complete** |
 
 ---
 
 ## Current Phase
 
-**Phase:** 4 - Polish & End-to-End Testing
-**Status:** Executing Phase 04
-**Next:** /gsd-discuss-phase 4
+**Phase:** All phases complete
+**Status:** Milestone v1.0 Ready
+**Next:** Manual testing via TEST-CHECKLIST.md, Chrome Web Store submission
 
 ---
 
@@ -81,6 +81,7 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 | 2026-04-16 | Phase 2 executed | 4 plans completed, content script injects dropdown UI |
 | 2026-04-16 | Phase 3 planned | 9 plans created: Storage, Service Worker, Zustand, UI, CRUD, Import/Export |
 | 2026-04-16 | Phase 3 executed | 9 plans completed, full Popup UI with data management |
+| 2026-04-16 | Phase 4 executed | 6 plans completed, error handling, SPA nav, edge cases, docs, packaging |
 
 ---
 
@@ -96,6 +97,9 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 | Lightning bolt图标 | 暗示"快速/一键"效率价值 | 2 | ✓ Implemented |
 | 插入后保持下拉打开 | 支持连续插入多个提示词 | 2 | ✓ Implemented |
 | 光标位置插入 | 保留前后文本，不替换 | 2 | ✓ Implemented |
+| History API interception | SPA导航检测更可靠 | 4 | ✓ Implemented |
+| Toast on CRUD actions | 用户操作反馈 | 4 | ✓ Implemented |
+| Large dataset limit (100) | 下拉性能优化 | 4 | ✓ Implemented |
 
 ---
 
@@ -107,10 +111,10 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 
 ## Next Action
 
-**Recommended:** `/gsd-discuss-phase 4` — gather context for Polish & Testing phase
+**Recommended:** Manual testing via TEST-CHECKLIST.md
 
-**Alternative:** `/gsd-verify-work` — verify Phase 3 implementation before proceeding
+**Alternative:** Chrome Web Store submission preparation
 
 ---
 
-*STATE.md updated: 2026-04-16 after Phase 3 execution*
+*STATE.md updated: 2026-04-16 after Phase 4 execution - Milestone v1.0 Complete*
