@@ -14,6 +14,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    cors: true,
+  },
   build: {
     outDir: 'dist',
     sourcemap: true
