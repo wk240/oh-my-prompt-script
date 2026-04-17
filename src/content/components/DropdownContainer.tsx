@@ -87,15 +87,6 @@ function getDropdownStyles(): string {
       border-radius: 12px 0 0 12px;
     }
 
-    #${PORTAL_ID} .sidebar-title {
-      font-size: 10px;
-      font-weight: 600;
-      color: #64748B;
-      letter-spacing: 1px;
-      padding: 8px 12px;
-      text-transform: uppercase;
-    }
-
     #${PORTAL_ID} .sidebar-categories {
       display: flex;
       flex-direction: column;
@@ -330,8 +321,8 @@ export function DropdownContainer({
       const rect = hostElement.getBoundingClientRect()
       const viewportWidth = window.innerWidth
 
-      // Position dropdown above the button, right-aligned
-      const rightPos = viewportWidth - rect.right
+      // Position dropdown above the button, right edge aligned to button's left edge
+      const rightPos = viewportWidth - rect.left
       const topPos = rect.top - dropdownGap
 
       setPosition({ top: topPos, right: rightPos })
@@ -414,7 +405,6 @@ export function DropdownContainer({
     >
       {/* Left Sidebar - Categories */}
       <div className="dropdown-sidebar">
-        <span className="sidebar-title">分类</span>
         <div className="sidebar-categories">
           {categories.map((category) => {
             const IconComponent = getCategoryIcon(category.id)
