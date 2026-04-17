@@ -18,11 +18,6 @@ const ICON_MAP = {
 }
 
 function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardProps) {
-  // Show description if available, otherwise show truncated content
-  const displayText = prompt.description
-    ? (prompt.description.length > 80 ? prompt.description.slice(0, 80) + '...' : prompt.description)
-    : (prompt.content.length > 80 ? prompt.content.slice(0, 80) + '...' : prompt.content)
-
   // Determine icon based on category
   const IconComponent = ICON_MAP[prompt.categoryId === 'design' ? 'design' : prompt.categoryId === 'style' ? 'style' : 'default']
 
@@ -31,48 +26,42 @@ function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardPr
 
   return (
     <div
-      className="flex items-start gap-5 p-5 bg-white border border-[#E5E5E5] rounded-sm hover:bg-gray-50 transition-colors"
+      className="group relative flex flex-col items-center justify-center p-3 bg-white border border-[#E5E5E5] rounded-sm hover:bg-gray-50 transition-colors cursor-pointer min-h-[80px]"
+      onClick={() => onEdit(prompt)}
     >
-      {/* Icon Frame */}
+      {/* Icon */}
       <div
-        className="w-[40px] h-[40px] flex items-center justify-center border shrink-0"
+        className="w-[32px] h-[32px] flex items-center justify-center border shrink-0 mb-2"
         style={{ borderColor }}
       >
         <IconComponent
-          className="w-5 h-5"
+          className="w-4 h-4"
           style={{ color: iconColor }}
         />
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col gap-2 min-w-0">
-        <span
-          className="text-[15px] font-medium text-[#171717]"
-          style={{ fontFamily: 'Inter, sans-serif' }}
-        >
-          {prompt.name}
-        </span>
-        <span
-          className="text-[13px] text-[#64748B] leading-relaxed"
-          style={{ fontFamily: 'Inter, sans-serif' }}
-        >
-          {displayText}
-        </span>
-      </div>
+      {/* Name */}
+      <span
+        className="text-[13px] font-medium text-[#171717] text-center truncate w-full"
+        style={{ fontFamily: 'Inter, sans-serif' }}
+        title={prompt.name}
+      >
+        {prompt.name}
+      </span>
 
       {/* Action Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-9 w-9 p-0 hover:bg-gray-100 shrink-0">
-            <MoreVertical className="h-4 w-4 text-[#171717]" />
+          <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-gray-100 absolute top-1 right-1 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+            <MoreVertical className="h-3 w-3 text-[#171717]" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem onClick={() => onEdit(prompt)} className="text-[13px] py-2">
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(prompt); }} className="text-[13px] py-2">
             编辑
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => onDelete(prompt.id)}
+            onClick={(e) => { e.stopPropagation(); onDelete(prompt.id); }}
             className="text-[13px] text-red-500 focus:text-red-500 py-2"
           >
             删除

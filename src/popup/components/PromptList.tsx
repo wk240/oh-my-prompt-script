@@ -65,7 +65,7 @@ function PromptList({ onEditPrompt, onDeletePrompt, onAddPrompt }: PromptListPro
 
       {/* Prompt Cards */}
       <div className="flex-1 overflow-y-auto scrollbar-thin pr-1">
-        <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-4 gap-3">
           {filteredPrompts.map((prompt, index) => (
             <PromptCard
               key={prompt.id}
