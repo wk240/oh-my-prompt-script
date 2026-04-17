@@ -1,5 +1,5 @@
 /**
- * PromptItem - Prompt entry with name and preview
+ * PromptItem - Prompt entry with name and description
  * Handles selection state and keyboard interaction
  */
 
@@ -12,11 +12,11 @@ interface PromptItemProps {
 }
 
 /**
- * Truncate preview text to ~50 chars (D-06)
+ * Truncate description text to ~50 chars (D-06)
  */
-function truncatePreview(content: string): string {
-  if (content.length <= 50) return content
-  return content.substring(0, 50) + '...'
+function truncateDescription(text: string): string {
+  if (text.length <= 50) return text
+  return text.substring(0, 50) + '...'
 }
 
 export function PromptItem({ prompt, isSelected, onClick }: PromptItemProps) {
@@ -33,6 +33,11 @@ export function PromptItem({ prompt, isSelected, onClick }: PromptItemProps) {
     }
   }
 
+  // Show description if available, otherwise show truncated content
+  const displayText = prompt.description
+    ? truncateDescription(prompt.description)
+    : truncateDescription(prompt.content)
+
   return (
     <div
       className={`prompt-item${isSelected ? ' selected' : ''}`}
@@ -42,9 +47,7 @@ export function PromptItem({ prompt, isSelected, onClick }: PromptItemProps) {
       onKeyDown={handleKeyDown}
     >
       <div className="prompt-name">{prompt.name}</div>
-      <div className="prompt-preview">
-        {truncatePreview(prompt.content)}
-      </div>
+      <div className="prompt-preview">{displayText}</div>
     </div>
   )
 }

@@ -37,6 +37,7 @@ function PromptEditDialog({
   const { toast } = useToast()
 
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [content, setContent] = useState('')
   const [categoryId, setCategoryId] = useState(selectedCategoryId || categories[0]?.id || '')
 
@@ -45,10 +46,12 @@ function PromptEditDialog({
     if (open) {
       if (prompt) {
         setName(prompt.name)
+        setDescription(prompt.description || '')
         setContent(prompt.content)
         setCategoryId(prompt.categoryId)
       } else {
         setName('')
+        setDescription('')
         setContent('')
         setCategoryId(selectedCategoryId || categories[0]?.id || '')
       }
@@ -60,11 +63,21 @@ function PromptEditDialog({
 
     if (prompt) {
       // Edit mode - update existing prompt
-      updatePrompt(prompt.id, { name: name.trim(), content: content.trim(), categoryId })
+      updatePrompt(prompt.id, {
+        name: name.trim(),
+        description: description.trim(),
+        content: content.trim(),
+        categoryId
+      })
       toast({ title: '提示词已更新' })
     } else {
       // Add mode - create new prompt
-      addPrompt({ name: name.trim(), content: content.trim(), categoryId })
+      addPrompt({
+        name: name.trim(),
+        description: description.trim(),
+        content: content.trim(),
+        categoryId
+      })
       toast({ title: '提示词已添加' })
     }
     onClose()
@@ -92,6 +105,16 @@ function PromptEditDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="提示词名称"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-2 block">
+              描述（选填）
+            </label>
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="简短描述，用于列表展示"
             />
           </div>
           <div>

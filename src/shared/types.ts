@@ -4,6 +4,7 @@ export interface Prompt {
   name: string
   content: string
   categoryId: string
+  description?: string // Optional description for display in selection UI
 }
 
 // Phase 3: Category types

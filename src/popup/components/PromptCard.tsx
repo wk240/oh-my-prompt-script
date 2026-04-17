@@ -18,9 +18,10 @@ const ICON_MAP = {
 }
 
 function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardProps) {
-  const previewContent = prompt.content.length > 80
-    ? prompt.content.slice(0, 80) + '...'
-    : prompt.content
+  // Show description if available, otherwise show truncated content
+  const displayText = prompt.description
+    ? (prompt.description.length > 80 ? prompt.description.slice(0, 80) + '...' : prompt.description)
+    : (prompt.content.length > 80 ? prompt.content.slice(0, 80) + '...' : prompt.content)
 
   // Determine icon based on category
   const IconComponent = ICON_MAP[prompt.categoryId === 'design' ? 'design' : prompt.categoryId === 'style' ? 'style' : 'default']
@@ -55,7 +56,7 @@ function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardPr
           className="text-[13px] text-[#64748B] leading-relaxed"
           style={{ fontFamily: 'Inter, sans-serif' }}
         >
-          {previewContent}
+          {displayText}
         </span>
       </div>
 

@@ -73,6 +73,10 @@ export function validateImportData(json: unknown): ValidationResult {
         typeof p.content !== 'string' || typeof p.categoryId !== 'string') {
       return { valid: false, error: '提示词缺少必要字段：id、name、content、categoryId' }
     }
+    // description is optional, validate if present
+    if (p.description !== undefined && typeof p.description !== 'string') {
+      return { valid: false, error: 'description 字段必须为字符串类型' }
+    }
   }
 
   // Validate category structure
