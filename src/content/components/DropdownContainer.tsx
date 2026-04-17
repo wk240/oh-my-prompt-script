@@ -8,7 +8,7 @@ import { useRef, useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { MessageType } from '../../shared/messages'
 import type { Prompt, Category } from '../../shared/types'
-import { Sparkles, Palette, Shapes, ArrowUpRight, X, ChevronDown, FolderOpen, Settings } from 'lucide-react'
+import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush } from 'lucide-react'
 
 interface DropdownContainerProps {
   prompts: Prompt[]
@@ -65,40 +65,104 @@ function getDropdownStyles(): string {
   return `
     #${PORTAL_ID} .dropdown-container {
       position: fixed;
-      width: 360px;
+      width: 480px;
       max-height: 400px;
-      overflow-y: auto;
-      overflow-x: hidden;
       background: #ffffff;
       border: 1px solid #E5E5E5;
       border-radius: 12px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-      padding: 16px;
       box-sizing: border-box;
       z-index: 2147483647;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
     }
 
-    #${PORTAL_ID} .dropdown-items {
+    #${PORTAL_ID} .dropdown-sidebar {
+      width: 120px;
+      background: #f8f8f8;
+      border-right: 1px solid #E5E5E5;
       display: flex;
       flex-direction: column;
+      padding: 12px 0;
+      border-radius: 12px 0 0 12px;
+    }
+
+    #${PORTAL_ID} .sidebar-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: #64748B;
+      letter-spacing: 1px;
+      padding: 8px 12px;
+      text-transform: uppercase;
+    }
+
+    #${PORTAL_ID} .sidebar-categories {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow-y: auto;
+    }
+
+    #${PORTAL_ID} .sidebar-category-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 500;
+      color: #171717;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    #${PORTAL_ID} .sidebar-category-item span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    #${PORTAL_ID} .sidebar-category-item:hover {
+      background: #f0f0f0;
+    }
+
+    #${PORTAL_ID} .sidebar-category-item.selected {
+      background: #ffffff;
+      color: #A16207;
+      border-left: 2px solid #A16207;
+    }
+
+    #${PORTAL_ID} .sidebar-category-icon {
+      width: 14px;
+      height: 14px;
+      color: #64748B;
+    }
+
+    #${PORTAL_ID} .sidebar-category-item.selected .sidebar-category-icon {
+      color: #A16207;
+    }
+
+    #${PORTAL_ID} .dropdown-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 0 12px 12px 0;
     }
 
     #${PORTAL_ID} .dropdown-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 12px;
+      padding: 12px 16px;
       border-bottom: 1px solid #E5E5E5;
-      margin-bottom: 12px;
-    }
-
-    #${PORTAL_ID} .dropdown-header-left {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      flex: 1;
-      min-width: 0;
     }
 
     #${PORTAL_ID} .dropdown-header-title {
@@ -133,96 +197,15 @@ function getDropdownStyles(): string {
       background: #f8f8f8;
     }
 
-    #${PORTAL_ID} .category-selector {
-      position: relative;
-      display: flex;
-      align-items: center;
+    #${PORTAL_ID} .dropdown-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
     }
 
-    #${PORTAL_ID} .category-selector-button {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      background: #f8f8f8;
-      border: 1px solid #E5E5E5;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 500;
-      color: #171717;
-      transition: background 0.15s ease, border-color 0.15s ease;
-      white-space: nowrap;
-    }
-
-    #${PORTAL_ID} .category-selector-button:hover {
-      background: #f0f0f0;
-      border-color: #d0d0d0;
-    }
-
-    #${PORTAL_ID} .category-icon {
-      color: #64748B;
-      width: 12px;
-      height: 12px;
-    }
-
-    #${PORTAL_ID} .category-name {
-      max-width: 100px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    #${PORTAL_ID} .category-chevron {
-      color: #64748B;
-      width: 12px;
-      height: 12px;
-      transition: transform 0.15s ease;
-    }
-
-    #${PORTAL_ID} .category-chevron.open {
-      transform: rotate(180deg);
-    }
-
-    #${PORTAL_ID} .category-menu {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      margin-top: 4px;
-      min-width: 120px;
-      background: #ffffff;
-      border: 1px solid #E5E5E5;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-      z-index: 1000;
-      padding: 4px;
+    #${PORTAL_ID} .dropdown-items {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-    }
-
-    #${PORTAL_ID} .category-menu-item {
-      display: block;
-      width: 100%;
-      padding: 8px 12px;
-      background: transparent;
-      border: none;
-      border-radius: 4px;
-      text-align: left;
-      font-size: 12px;
-      font-weight: 500;
-      color: #171717;
-      cursor: pointer;
-      transition: background 0.15s ease;
-      white-space: nowrap;
-    }
-
-    #${PORTAL_ID} .category-menu-item:hover {
-      background: #f8f8f8;
-    }
-
-    #${PORTAL_ID} .category-menu-item.selected {
-      background: #fef3e2;
-      color: #A16207;
     }
 
     #${PORTAL_ID} .dropdown-item {
@@ -291,23 +274,35 @@ function getDropdownStyles(): string {
       color: #64748B;
     }
 
-    #${PORTAL_ID} .dropdown-container::-webkit-scrollbar {
+    #${PORTAL_ID} .dropdown-content::-webkit-scrollbar,
+    #${PORTAL_ID} .sidebar-categories::-webkit-scrollbar {
       width: 6px;
     }
 
-    #${PORTAL_ID} .dropdown-container::-webkit-scrollbar-track {
+    #${PORTAL_ID} .dropdown-content::-webkit-scrollbar-track,
+    #${PORTAL_ID} .sidebar-categories::-webkit-scrollbar-track {
       background: transparent;
     }
 
-    #${PORTAL_ID} .dropdown-container::-webkit-scrollbar-thumb {
+    #${PORTAL_ID} .dropdown-content::-webkit-scrollbar-thumb,
+    #${PORTAL_ID} .sidebar-categories::-webkit-scrollbar-thumb {
       background: #ddd;
       border-radius: 3px;
     }
 
-    #${PORTAL_ID} .dropdown-container::-webkit-scrollbar-thumb:hover {
+    #${PORTAL_ID} .dropdown-content::-webkit-scrollbar-thumb:hover,
+    #${PORTAL_ID} .sidebar-categories::-webkit-scrollbar-thumb:hover {
       background: #ccc;
     }
   `
+}
+
+// Category icon mapping for sidebar
+const CATEGORY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  all: FolderOpen,
+  design: Sparkle,
+  style: Brush,
+  other: Layers,
 }
 
 export function DropdownContainer({
@@ -321,8 +316,6 @@ export function DropdownContainer({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0 })
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
-  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false)
-  const categoryMenuRef = useRef<HTMLDivElement>(null)
 
   const dropdownGap = 8
 
@@ -373,20 +366,6 @@ export function DropdownContainer({
     return prompts.filter((p) => p.categoryId === selectedCategoryId)
   }, [prompts, selectedCategoryId])
 
-  // Close category menu when clicking outside
-  useEffect(() => {
-    if (!isCategoryMenuOpen) return
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (categoryMenuRef.current && !categoryMenuRef.current.contains(e.target as Node)) {
-        setIsCategoryMenuOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isCategoryMenuOpen])
-
   // Close dropdown when clicking outside
   useEffect(() => {
     if (!isOpen) return
@@ -410,8 +389,6 @@ export function DropdownContainer({
     return content.substring(0, 40) + '...'
   }
 
-  const selectedCategory = categories.find((c) => c.id === selectedCategoryId) || categories[0]
-
   const dropdownStyle: React.CSSProperties = {
     top: position.top,
     right: position.right,
@@ -424,104 +401,106 @@ export function DropdownContainer({
     onClose?.()
   }
 
+  // Get category icon
+  const getCategoryIcon = (categoryId: string) => {
+    return CATEGORY_ICON_MAP[categoryId] || Layers
+  }
+
   return createPortal(
     <div
       ref={dropdownRef}
       className="dropdown-container"
       style={dropdownStyle}
     >
-      {/* Header with Category Selector */}
-      <div className="dropdown-header">
-        <div className="dropdown-header-left">
-          <span className="dropdown-header-title">PROMPTS</span>
-          <div className="category-selector" ref={categoryMenuRef}>
-            <button
-              className="category-selector-button"
-              onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
-              aria-label="选择分类"
-            >
-              <FolderOpen className="category-icon" />
-              <span className="category-name">{selectedCategory.name}</span>
-              <ChevronDown className={`category-chevron ${isCategoryMenuOpen ? 'open' : ''}`} />
-            </button>
-            {isCategoryMenuOpen && (
-              <div className="category-menu">
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    className={`category-menu-item ${selectedCategoryId === category.id ? 'selected' : ''}`}
-                    onClick={() => {
-                      setSelectedCategoryId(category.id)
-                      setIsCategoryMenuOpen(false)
-                    }}
-                  >
-                    {category.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="dropdown-header-actions">
-          <button
-            className="dropdown-settings"
-            onClick={handleOpenSettings}
-            aria-label="设置"
-          >
-            <Settings style={{ width: 12, height: 12 }} />
-          </button>
-          <button
-            className="dropdown-close"
-            onClick={onClose}
-            aria-label="关闭"
-          >
-            <X style={{ width: 12, height: 12 }} />
-          </button>
-        </div>
-      </div>
-
-      {/* Content Area */}
-      {isLoading ? (
-        <div className="empty-state">
-          <div className="empty-message">加载中...</div>
-        </div>
-      ) : filteredPrompts.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-message">
-            {selectedCategoryId === 'all' ? '暂无提示词，请点击设置添加' : '该分类暂无提示词'}
-          </div>
-        </div>
-      ) : (
-        <div className="dropdown-items">
-          {filteredPrompts.map((prompt, index) => {
-            const IconComponent = ICON_MAP[prompt.categoryId === 'design' ? 'design' : prompt.categoryId === 'style' ? 'style' : 'default']
-
+      {/* Left Sidebar - Categories */}
+      <div className="dropdown-sidebar">
+        <span className="sidebar-title">分类</span>
+        <div className="sidebar-categories">
+          {categories.map((category) => {
+            const IconComponent = getCategoryIcon(category.id)
             return (
-              <div
-                key={prompt.id}
-                className={`dropdown-item${selectedPromptId === prompt.id ? ' selected' : ''}${index === filteredPrompts.length - 1 ? ' last' : ''}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onSelect(prompt)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onSelect(prompt)
-                  }
-                }}
+              <button
+                key={category.id}
+                className={`sidebar-category-item ${selectedCategoryId === category.id ? 'selected' : ''}`}
+                onClick={() => setSelectedCategoryId(category.id)}
+                aria-label={category.name}
               >
-                <IconComponent className="dropdown-item-icon" />
-                <div className="dropdown-item-text">
-                  <span className="dropdown-item-name">{prompt.name}</span>
-                  <span className="dropdown-item-preview">{truncatePreview(prompt.content)}</span>
-                </div>
-                <ArrowUpRight className="dropdown-item-arrow" />
-              </div>
+                <IconComponent className="sidebar-category-icon" />
+                <span>{category.name}</span>
+              </button>
             )
           })}
         </div>
-      )}
+      </div>
+
+      {/* Main Content Area */}
+      <div className="dropdown-main">
+        {/* Header */}
+        <div className="dropdown-header">
+          <span className="dropdown-header-title">PROMPTS</span>
+          <div className="dropdown-header-actions">
+            <button
+              className="dropdown-settings"
+              onClick={handleOpenSettings}
+              aria-label="设置"
+            >
+              <Settings style={{ width: 14, height: 14 }} />
+            </button>
+            <button
+              className="dropdown-close"
+              onClick={onClose}
+              aria-label="关闭"
+            >
+              <X style={{ width: 14, height: 14 }} />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="dropdown-content">
+          {isLoading ? (
+            <div className="empty-state">
+              <div className="empty-message">加载中...</div>
+            </div>
+          ) : filteredPrompts.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-message">
+                {selectedCategoryId === 'all' ? '暂无提示词，请点击设置添加' : '该分类暂无提示词'}
+              </div>
+            </div>
+          ) : (
+            <div className="dropdown-items">
+              {filteredPrompts.map((prompt, index) => {
+                const IconComponent = ICON_MAP[prompt.categoryId === 'design' ? 'design' : prompt.categoryId === 'style' ? 'style' : 'default']
+
+                return (
+                  <div
+                    key={prompt.id}
+                    className={`dropdown-item${selectedPromptId === prompt.id ? ' selected' : ''}${index === filteredPrompts.length - 1 ? ' last' : ''}`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => onSelect(prompt)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onSelect(prompt)
+                      }
+                    }}
+                  >
+                    <IconComponent className="dropdown-item-icon" />
+                    <div className="dropdown-item-text">
+                      <span className="dropdown-item-name">{prompt.name}</span>
+                      <span className="dropdown-item-preview">{truncatePreview(prompt.content)}</span>
+                    </div>
+                    <ArrowUpRight className="dropdown-item-arrow" />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>,
     getPortalContainer()
   )
