@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
@@ -15,69 +19,135 @@
 - **浏览器支持:** Chrome/Edge/Brave等Chromium系浏览器
 <!-- GSD:project-end -->
 
+## Commands
+
+```bash
+# Development with hot reload
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+
+# TypeScript check (no emit)
+npx tsc --noEmit
+```
+
+After running `npm run dev`, load the extension from `dist/` folder in Chrome via `chrome://extensions` (enable Developer Mode).
+
 <!-- GSD:stack-start source:research/STACK.md -->
 ## Technology Stack
 
-## Recommended Stack
-### Core Technologies
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| TypeScript | 5.x | Primary language | Type safety, better IDE support, widely adopted for extensions |
-| Chrome Extension Manifest V3 | - | Extension platform | Required by Chrome since 2024, modern security model |
-| Vite | 6.x | Build tool | Fast HMR, native ES modules, excellent extension support via @crxjs/vite-plugin |
-| React | 19.x | UI framework | Component-based, Shadow DOM compatible, familiar to most developers |
-| chrome.storage.local | - | Data persistence | Native API, synchronous access, quota sufficient for prompt data |
-### Supporting Libraries
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| @crxjs/vite-plugin | 2.x | Vite CRX bundler | Required for building extension with Vite |
-| Zustand | 5.x | State management | Lightweight, no providers, perfect for extension popup |
-| uuid | 11.x | ID generation | For prompt IDs, category IDs |
-| react-shadow-dom | - | Shadow DOM integration | For isolated content script UI |
-### Development Tools
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| Chrome DevTools | Extension debugging | Use chrome://extensions for reload |
-| web-ext | Firefox testing | Optional, for cross-browser testing |
-| ESLint + Prettier | Code quality | Standard TypeScript config |
-## Installation
-# Core
-# Build tools
-# Dev tools
-## Alternatives Considered
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| Vite + @crxjs | webpack + webpack-extension-reloader | Legacy projects, complex bundling needs |
-| React | Vue/Svelte | Team preference, smaller bundle needed |
-| Zustand | Redux/Jotai | Complex state logic, team familiarity |
-| TypeScript | JavaScript | Quick prototypes, no build step needed |
-## What NOT to Use
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| Manifest V2 | Deprecated, will be blocked by Chrome | Manifest V3 |
-| jQuery | Large, conflicts with host page | React/Vue or vanilla DOM |
-| chrome.storage.sync for large data | 100KB limit, sync conflicts | chrome.storage.local |
-| Background pages | Removed in V3 | Service workers |
-| Remote code execution | Blocked in V3 | Bundle all code locally |
-| eval() / new Function() | Blocked by CSP | Static code only |
-## Sources
-- Chrome Extension Manifest V3 official docs
-- @crxjs/vite-plugin documentation
-- Zustand documentation
-- Chrome Web Store best practices
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| TypeScript | 5.x | Primary language |
+| Chrome Extension Manifest V3 | - | Extension platform |
+| Vite + @crxjs/vite-plugin | 6.x / 2.x | Build tool with CRX bundler |
+| React | 19.x | UI framework |
+| Zustand | 5.x | State management (popup only) |
+| Radix UI primitives | - | UI components (popup dialogs) |
+| Tailwind CSS | 3.x | Styling (popup only) |
+| chrome.storage.local | - | Data persistence |
+
+### What NOT to Use
+- Manifest V2 (deprecated)
+- jQuery (conflicts with host page)
+- chrome.storage.sync for large data (100KB limit)
+- Remote code execution / eval() (blocked by CSP)
 <!-- GSD:stack-end -->
-
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
-## Conventions
-
-Conventions not yet established. Will populate as patterns emerge during development.
-<!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
-Architecture not yet mapped. Follow existing patterns found in the codebase.
+### Three-Part Extension Structure
+
+```
+src/
+├── content/           # Runs on Lovart pages (Shadow DOM isolated)
+│   ├── content-script.ts    # Entry point, coordinates components
+│   ├── input-detector.ts    # MutationObserver for Lovart input
+│   ├── ui-injector.tsx      # Shadow DOM container + React mount
+│   ├── insert-handler.ts    # Prompt text insertion
+│   └── components/          # Dropdown UI React components
+│
+├── background/        # Service worker (no DOM access)
+│   └── service-worker.ts    # Message routing, storage ops
+│
+├── popup/             # Extension popup (React + Tailwind)
+│   ├── App.tsx              # Main management UI
+│   ├── components/          # Category list, prompt editor, dialogs
+│   └── components/ui/       # Radix UI primitives (button, dialog, etc.)
+│
+├── lib/               # Shared utilities
+│   ├── store.ts             # Zustand store (CRUD + storage sync)
+│   ├── storage.ts           # StorageManager singleton
+│   ├── import-export.ts     # JSON download/upload
+│
+├── shared/            # Cross-context shared
+│   ├── types.ts             # Prompt, Category, StorageSchema
+│   ├── messages.ts          # MessageType enum for communication
+│   └── constants.ts         # STORAGE_KEY, PLATFORM_DOMAIN
+│
+├── data/              # Initial data
+│   └── built-in-data.ts     # Default prompts and categories
+```
+
+### Communication Patterns
+
+| Context | Access | Pattern |
+|---------|--------|---------|
+| Content Script | chrome.runtime.sendMessage | Message to service worker for storage |
+| Service Worker | chrome.storage.local | Direct storage access, message routing |
+| Popup | chrome.storage.local + sendMessage | Direct storage + notify content script |
+| Content ↔ Popup | chrome.tabs.sendMessage | Tab-targeted messaging |
+
+### Data Flow
+
+1. **Storage-First:** All state derives from `chrome.storage.local` via `StorageSchema`
+2. **Message Types:** `GET_STORAGE`, `SET_STORAGE`, `PING`, `INSERT_PROMPT`, `OPEN_SETTINGS`
+3. **Zustand Sync:** Popup store calls `saveToStorage()` after each CRUD operation
+
+### Lovart Platform Integration
+
+Content script detects Lovart's Lexical editor input element:
+- Primary selector: `[data-testid="agent-message-input"]`
+- Alternative: `[data-lexical-editor="true"]`
+- UI injection target: `[data-testid="agent-input-bottom-more-button"]`
+
+Prompt insertion uses `execCommand('insertText')` for React/Lexical compatibility, followed by input/change event dispatch.
 <!-- GSD:architecture-end -->
+
+<!-- GSD:conventions-start source:CONVENTIONS.md -->
+## Conventions
+
+### Path Alias
+- Use `@/` for imports: `import { foo } from '@/lib/utils'`
+
+### Storage Key
+- Single key `prompt_script_data` stores entire `StorageSchema` object
+
+### Category ID
+- `'all'` is reserved for "show all prompts" filter (not a real category)
+- `'default'` is the required default category in imported data
+
+### Shadow DOM Isolation
+- Content script UI must use Shadow DOM to prevent host page CSS conflicts
+- All styles defined inline in `UIInjector.getStyles()`
+
+### React Editor Compatibility
+- Use `execCommand('insertText')` instead of direct DOM manipulation
+- Dispatch both `input` and `change` events after insertion
+- Call native value setter for form controls (React tracking)
+
+### Console Logging
+- Prefix all logs: `[Prompt-Script]` for easy filtering
+
+### Message Response Pattern
+- Service worker must `return true` for async `sendResponse`
+- Response format: `{ success: boolean, data?: T, error?: string }`
+<!-- GSD:conventions-end -->
 
 <!-- GSD:skills-start source:skills/ -->
 ## Project Skills
@@ -97,8 +167,6 @@ Use these entry points:
 
 Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
 <!-- GSD:workflow-end -->
-
-
 
 <!-- GSD:profile-start -->
 ## Developer Profile
