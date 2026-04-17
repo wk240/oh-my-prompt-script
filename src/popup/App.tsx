@@ -9,8 +9,9 @@ import PromptList from './components/PromptList'
 import PromptEditDialog from './components/PromptEditDialog'
 import AddCategoryDialog from './components/AddCategoryDialog'
 import DeleteConfirmDialog from './components/DeleteConfirmDialog'
-import { Plus } from 'lucide-react'
 import { Toaster } from './components/ui/toaster'
+
+const ALL_CATEGORY_ID = 'all'
 
 function App() {
   const { loadFromStorage, isLoading, deletePrompt, deleteCategory, prompts, categories, setSelectedCategory } = usePromptStore()
@@ -29,18 +30,8 @@ function App() {
   } | null>(null)
 
   useEffect(() => {
-    const load = async () => {
-      const result = await loadFromStorage()
-      if (!result.success) {
-        toast({
-          title: '加载失败',
-          description: result.error || '数据加载失败',
-          variant: 'destructive'
-        })
-      }
-    }
-    load()
-  }, [loadFromStorage, toast])
+    loadFromStorage()
+  }, [loadFromStorage])
 
   const handleImport = async () => {
     // Create file input
@@ -60,7 +51,7 @@ function App() {
         usePromptStore.setState({
           prompts,
           categories,
-          selectedCategoryId: 'default'
+          selectedCategoryId: 'all'
         })
         // Persist to chrome.storage
         await usePromptStore.getState().saveToStorage()
@@ -114,29 +105,18 @@ function App() {
   const confirmDelete = () => {
     if (categoryToDelete) {
       deleteCategory(categoryToDelete.id)
-      // Auto-select default category after deletion
-      setSelectedCategory('default')
-      toast({ title: '分类已删除', description: '提示词已移至默认分类' })
+      // Auto-select 'all' category after deletion
+      setSelectedCategory(ALL_CATEGORY_ID)
       setCategoryToDelete(null)
       setDeleteDialogOpen(false)
     } else if (promptToDelete) {
       deletePrompt(promptToDelete.id)
-      toast({ title: '提示词已删除' })
       setPromptToDelete(null)
       setDeleteDialogOpen(false)
     }
   }
 
   const handleDeleteCategory = (id: string, name: string) => {
-    // Prevent deleting default category
-    if (id === 'default') {
-      toast({
-        title: '无法删除',
-        description: '默认分类不可删除',
-        variant: 'destructive'
-      })
-      return
-    }
     setCategoryToDelete({ id, name })
     setPromptToDelete(null)
     setDeleteDialogOpen(true)
@@ -164,19 +144,16 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="w-[300px] min-h-[400px] flex flex-col bg-background">
-        <Header onImport={handleImport} onExport={handleExport} />
-        <div className="flex flex-1 items-center justify-center">
-          <span className="text-muted-foreground">加载中...</span>
-        </div>
+      <div className="w-[680px] h-[520px] flex items-center justify-center p-6">
+        <span className="text-muted-foreground text-base">加载中...</span>
       </div>
     )
   }
 
   return (
-    <div className="w-[300px] h-[500px] flex flex-col bg-white overflow-hidden">
+    <div className="w-[680px] h-[520px] flex flex-col bg-white overflow-hidden">
       <Header onImport={handleImport} onExport={handleExport} />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         <CategorySidebar
           onDeleteCategory={handleDeleteCategory}
           onAddCategory={handleAddCategory}
@@ -184,22 +161,8 @@ function App() {
         <PromptList
           onEditPrompt={handleEditPrompt}
           onDeletePrompt={handleDeletePrompt}
+          onAddPrompt={handleAddPrompt}
         />
-      </div>
-      {/* CTA Section */}
-      <div className="flex flex-col justify-center px-5 pt-4 pb-5 border-t border-[#E5E5E5] bg-white">
-        <button
-          onClick={handleAddPrompt}
-          className="flex items-center justify-center gap-2 h-[44px] w-full bg-[#171717] hover:bg-[#171717]/90 transition-colors"
-        >
-          <Plus className="w-4 h-4 text-white" strokeWidth={2} />
-          <span
-            className="text-[12px] font-medium tracking-[0.5px] text-white"
-            style={{ fontFamily: 'Inter, sans-serif' }}
-          >
-            Add Prompt
-          </span>
-        </button>
       </div>
 
       {/* Dialogs */}
@@ -217,7 +180,7 @@ function App() {
         onClose={handleDeleteDialogClose}
         onConfirm={confirmDelete}
         itemName={promptToDelete?.name || categoryToDelete?.name || ''}
-        description={categoryToDelete ? '提示词将移至默认分类。' : undefined}
+        description={categoryToDelete ? '该分类下的所有提示词将被删除。' : undefined}
       />
 
       {/* Toast notifications */}
