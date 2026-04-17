@@ -8,6 +8,7 @@ import { useRef, useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { MessageType } from '../../shared/messages'
 import type { Prompt, Category } from '../../shared/types'
+import { truncateText, sortCategoriesByOrder, FALLBACK_CATEGORY_ORDER } from '../../shared/utils'
 import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush } from 'lucide-react'
 
 interface DropdownContainerProps {
@@ -267,6 +268,15 @@ function getDropdownStyles(): string {
       color: #64748B;
     }
 
+    #${PORTAL_ID} .sidebar-footer {
+      padding: 12px;
+      border-top: 1px solid #E5E5E5;
+      font-size: 10px;
+      color: #64748B;
+      text-align: center;
+      margin-top: auto;
+    }
+
     #${PORTAL_ID} .dropdown-content::-webkit-scrollbar,
     #${PORTAL_ID} .sidebar-categories::-webkit-scrollbar {
       width: 6px;
@@ -360,14 +370,13 @@ export function DropdownContainer({
   const categories = useMemo(() => {
     const allCategory: Category = { id: 'all', name: '全部分类', order: 0 }
     if (propCategories.length > 0) {
-      return [allCategory, ...propCategories.sort((a, b) => a.order - b.order)]
+      return [allCategory, ...sortCategoriesByOrder(propCategories)]
     }
-    // Fallback: infer from prompts if no categories passed
     const uniqueCategoryIds = [...new Set(prompts.map((p) => p.categoryId))]
     const cats: Category[] = [allCategory]
     uniqueCategoryIds.forEach((catId) => {
       const existing = DEFAULT_CATEGORIES.find((c) => c.id === catId)
-      cats.push(existing || { id: catId, name: catId, order: 99 })
+      cats.push(existing || { id: catId, name: catId, order: FALLBACK_CATEGORY_ORDER })
     })
     return cats
   }, [propCategories, prompts])
@@ -396,11 +405,6 @@ export function DropdownContainer({
 
   if (!isOpen) return null
 
-  const truncatePreview = (content: string): string => {
-    if (content.length <= 40) return content
-    return content.substring(0, 40) + '...'
-  }
-
   const dropdownStyle: React.CSSProperties = {
     top: position.top,
     right: position.right,
@@ -425,7 +429,6 @@ export function DropdownContainer({
       className="dropdown-container"
       style={dropdownStyle}
     >
-      {/* Left Sidebar - Categories */}
       <div className="dropdown-sidebar">
         <div className="sidebar-categories">
           {categories.map((category) => {
@@ -443,11 +446,10 @@ export function DropdownContainer({
             )
           })}
         </div>
+        <div className="sidebar-footer">power by neo</div>
       </div>
 
-      {/* Main Content Area */}
       <div className="dropdown-main">
-        {/* Header */}
         <div className="dropdown-header">
           <span className="dropdown-header-title">PROMPTS</span>
           <div className="dropdown-header-actions">
@@ -468,7 +470,6 @@ export function DropdownContainer({
           </div>
         </div>
 
-        {/* Content */}
         <div className="dropdown-content">
           {isLoading ? (
             <div className="empty-state">
@@ -503,7 +504,7 @@ export function DropdownContainer({
                     <IconComponent className="dropdown-item-icon" />
                     <div className="dropdown-item-text">
                       <span className="dropdown-item-name">{prompt.name}</span>
-                      <span className="dropdown-item-preview">{truncatePreview(prompt.content)}</span>
+                      <span className="dropdown-item-preview">{truncateText(prompt.content, 40)}</span>
                     </div>
                     <ArrowUpRight className="dropdown-item-arrow" />
                   </div>

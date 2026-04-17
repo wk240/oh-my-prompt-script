@@ -1,6 +1,7 @@
 import { Sparkles, Palette, Shapes, MoreVertical } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 import { Button } from './ui/button'
+import { stopPropagationHandler } from '../../shared/utils'
 import type { Prompt } from '../../shared/types'
 
 interface PromptCardProps {
@@ -10,7 +11,6 @@ interface PromptCardProps {
   onDelete: (id: string) => void
 }
 
-// Icon mapping for prompt categories/types
 const ICON_MAP = {
   design: Sparkles,
   style: Palette,
@@ -18,7 +18,6 @@ const ICON_MAP = {
 }
 
 function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardProps) {
-  // Determine icon based on category
   const IconComponent = ICON_MAP[prompt.categoryId === 'design' ? 'design' : prompt.categoryId === 'style' ? 'style' : 'default']
 
   const iconColor = isActive ? '#A16207' : '#171717'
@@ -29,7 +28,6 @@ function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardPr
       className="group relative flex flex-col items-center justify-center p-3 bg-white border border-[#E5E5E5] rounded-sm hover:bg-gray-50 transition-colors cursor-pointer min-h-[80px]"
       onClick={() => onEdit(prompt)}
     >
-      {/* Icon */}
       <div
         className="w-[32px] h-[32px] flex items-center justify-center border shrink-0 mb-2"
         style={{ borderColor }}
@@ -40,7 +38,6 @@ function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardPr
         />
       </div>
 
-      {/* Name */}
       <span
         className="text-[13px] font-medium text-[#171717] text-center truncate w-full min-w-0 px-1"
         style={{ fontFamily: 'Inter, sans-serif' }}
@@ -49,7 +46,6 @@ function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardPr
         {prompt.name}
       </span>
 
-      {/* Description */}
       {prompt.description && (
         <span
           className="text-[11px] text-[#64748B] text-center truncate w-full min-w-0 px-1 mt-0.5"
@@ -60,7 +56,6 @@ function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardPr
         </span>
       )}
 
-      {/* Action Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-gray-100 absolute top-1 right-1 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -68,11 +63,11 @@ function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardPr
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(prompt); }} className="text-[13px] py-2">
+          <DropdownMenuItem onClick={stopPropagationHandler(() => onEdit(prompt))} className="text-[13px] py-2">
             编辑
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={(e) => { e.stopPropagation(); onDelete(prompt.id); }}
+            onClick={stopPropagationHandler(() => onDelete(prompt.id))}
             className="text-[13px] text-red-500 focus:text-red-500 py-2"
           >
             删除

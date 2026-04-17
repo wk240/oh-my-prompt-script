@@ -4,19 +4,12 @@
  */
 
 import type { Prompt } from '../../shared/types'
+import { truncateText } from '../../shared/utils'
 
 interface PromptItemProps {
   prompt: Prompt
   isSelected: boolean
   onClick: () => void
-}
-
-/**
- * Truncate description text to ~50 chars (D-06)
- */
-function truncateDescription(text: string): string {
-  if (text.length <= 50) return text
-  return text.substring(0, 50) + '...'
 }
 
 export function PromptItem({ prompt, isSelected, onClick }: PromptItemProps) {
@@ -33,10 +26,9 @@ export function PromptItem({ prompt, isSelected, onClick }: PromptItemProps) {
     }
   }
 
-  // Show description if available, otherwise show truncated content
   const displayText = prompt.description
-    ? truncateDescription(prompt.description)
-    : truncateDescription(prompt.content)
+    ? truncateText(prompt.description, 50)
+    : truncateText(prompt.content, 50)
 
   return (
     <div

@@ -31,8 +31,8 @@ export class StorageManager {
   getDefaultData(): StorageSchema {
     return {
       version: '1.0.0',
-      categories: BUILT_IN_CATEGORIES,
-      prompts: BUILT_IN_PROMPTS,
+      categories: [...BUILT_IN_CATEGORIES],
+      prompts: [...BUILT_IN_PROMPTS],
     }
   }
 
