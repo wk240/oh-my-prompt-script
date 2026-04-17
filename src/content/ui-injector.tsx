@@ -295,7 +295,7 @@ export class UIInjector {
         align-items: center;
         justify-content: center;
         background: #ffffff;
-        border: 1px solid #171717;
+        border: none;
         border-radius: 4px;
         cursor: pointer;
         transition: background 0.15s ease;
@@ -324,15 +324,14 @@ export class UIInjector {
         align-items: center;
         justify-content: center;
         background: #ffffff;
-        border: 1px solid #E5E5E5;
+        border: none;
         border-radius: 4px;
         cursor: pointer;
-        transition: background 0.15s ease, border-color 0.15s ease;
+        transition: background 0.15s ease;
       }
 
       .dropdown-settings:hover {
         background: #f8f8f8;
-        border-color: #171717;
       }
 
       .dropdown-settings svg {

@@ -64,6 +64,23 @@ export class InsertHandler {
    * Uses execCommand for Lexical/React compatibility
    */
   private insertIntoRichText(element: HTMLElement, text: string): void {
+    // Ensure element is focused before execCommand
+    // Portal dropdown clicks may disrupt focus even with preventDefault
+    if (document.activeElement !== element) {
+      element.focus()
+    }
+
+    // Ensure there's a valid selection in this element
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0 || !element.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+      // Create selection at end of element
+      const range = document.createRange()
+      range.selectNodeContents(element)
+      range.collapse(false) // Collapse to end
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+
     // Try execCommand first - most reliable for React editors
     // execCommand triggers beforeinput/input events properly
     const success = document.execCommand('insertText', false, text)
