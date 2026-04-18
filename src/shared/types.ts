@@ -21,3 +21,19 @@ export interface StorageSchema {
   categories: Category[]
   version: string
 }
+
+// Phase 5: Network prompt types (D-08, D-09)
+export interface NetworkPrompt extends Prompt {
+  sourceProvider?: string // e.g., 'nano-banana'
+  sourceCategory?: string // Original category from source
+  previewImage?: string // Preview image URL (D-10: display logic deferred to Phase 7)
+  sourceUrl?: string // Source attribution link
+}
+
+// Phase 5: Provider category metadata
+export interface ProviderCategory {
+  id: string // e.g., '3d-miniatures'
+  name: string // e.g., '3D Miniatures & Dioramas'
+  order: number // Display order (1-17)
+  count: number // Number of prompts in category
+}
