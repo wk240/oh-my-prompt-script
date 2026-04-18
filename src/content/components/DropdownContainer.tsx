@@ -411,9 +411,15 @@ export function DropdownContainer({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0, isStickyTop: false })
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
+  const [localPrompts, setLocalPrompts] = useState<Prompt[]>([])
 
   const dropdownGap = 8
   const dropdownMaxHeight = 600
+
+  // Sync local prompts with props
+  useEffect(() => {
+    setLocalPrompts(prompts)
+  }, [prompts])
 
   // Calculate position relative to trigger button with viewport boundary check
   useEffect(() => {
@@ -476,12 +482,12 @@ export function DropdownContainer({
   const filteredPrompts = useMemo(() => {
     let result: Prompt[]
     if (selectedCategoryId === 'all') {
-      result = prompts
+      result = localPrompts
     } else {
-      result = prompts.filter((p) => p.categoryId === selectedCategoryId)
+      result = localPrompts.filter((p) => p.categoryId === selectedCategoryId)
     }
     return sortPromptsByOrder(result)
-  }, [prompts, selectedCategoryId])
+  }, [localPrompts, selectedCategoryId])
 
   const showDragHandles = filteredPrompts.length >= 2 && selectedCategoryId !== 'all'
 
@@ -495,18 +501,20 @@ export function DropdownContainer({
       newOrder.splice(oldIndex, 1)
       newOrder.splice(newIndex, 0, filteredPrompts[oldIndex])
 
+      // Update local state immediately for visual feedback
+      const updatedPrompts = localPrompts.map((prompt) => {
+        if (prompt.categoryId === selectedCategoryId) {
+          return {
+            ...prompt,
+            order: newOrder.map(p => p.id).indexOf(prompt.id)
+          }
+        }
+        return prompt
+      })
+      setLocalPrompts(updatedPrompts)
+
       // Update storage via service worker
       try {
-        const updatedPrompts = prompts.map((prompt) => {
-          if (prompt.categoryId === selectedCategoryId) {
-            return {
-              ...prompt,
-              order: newOrder.map(p => p.id).indexOf(prompt.id)
-            }
-          }
-          return prompt
-        })
-
         await chrome.runtime.sendMessage({
           type: MessageType.SET_STORAGE,
           payload: {
