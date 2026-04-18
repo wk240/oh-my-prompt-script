@@ -65,7 +65,7 @@
 | NET-02 | Phase 7 | — | Pending |
 | NET-03 | Phase 8 | — | Pending |
 | NET-04 | Phase 6 | — | Pending |
-| NET-05 | Phase 5 | — | Pending |
+| NET-05 | Phase 5 | 05-01 | In Progress (interface defined) |
 | NET-06 | Phase 5 | — | Pending |
 
 ---
