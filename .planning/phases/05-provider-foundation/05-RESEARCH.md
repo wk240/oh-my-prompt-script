@@ -476,17 +476,17 @@ export interface NetworkDataResponse {
 
 **Note:** All critical decisions (D-01 through D-10) are locked by user — no user confirmation needed for these. Only assumptions A1-A3 require validation during implementation.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **JSON code block handling in prompts**
    - What we know: Some prompts use JSON format inside code blocks (see 1.3, 1.5 examples)
    - What's unclear: Should JSON be extracted as-is or flattened to plain text content
-   - Recommendation: Store raw content as-is, JSON parsing is UI concern (Phase 7)
+   - RESOLVED: Store raw content as-is in `content` field. JSON parsing is a UI concern deferred to Phase 7. Parser preserves code block content verbatim.
 
 2. **ProviderCategory count field**
    - What we know: README shows "(19 prompts)" next to each category
    - What's unclear: Should count be static or computed from parsed data
-   - Recommendation: Compute from parsed data for accuracy (categoryCounts map)
+   - RESOLVED: Return static counts in `getCategories()` per D-03. Parser implementation notes that actual parsed count may differ, verification happens in Plan 05-04 end-to-end test.
 
 ## Environment Availability
 
