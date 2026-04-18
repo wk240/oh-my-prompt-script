@@ -1,14 +1,17 @@
-import { Sparkles, Palette, Shapes, MoreVertical } from 'lucide-react'
+import { Sparkles, Palette, Shapes, MoreVertical, GripVertical } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 import { Button } from './ui/button'
 import { stopPropagationHandler } from '../../shared/utils'
 import type { Prompt } from '../../shared/types'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface PromptCardProps {
   prompt: Prompt
   isActive?: boolean
   onEdit: (prompt: Prompt) => void
   onDelete: (id: string) => void
+  showDragHandle?: boolean
 }
 
 const ICON_MAP = {
@@ -17,17 +20,46 @@ const ICON_MAP = {
   default: Shapes,
 }
 
-function PromptCard({ prompt, isActive = false, onEdit, onDelete }: PromptCardProps) {
+function PromptCard({ prompt, isActive = false, onEdit, onDelete, showDragHandle = false }: PromptCardProps) {
   const IconComponent = ICON_MAP[prompt.categoryId === 'design' ? 'design' : prompt.categoryId === 'style' ? 'style' : 'default']
 
   const iconColor = isActive ? '#A16207' : '#171717'
   const borderColor = isActive ? '#A16207' : '#171717'
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: prompt.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 100 : 'auto',
+  }
+
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className="group relative flex flex-col items-center justify-center p-3 bg-white border border-[#E5E5E5] rounded-sm hover:bg-gray-50 transition-colors cursor-pointer min-h-[80px]"
       onClick={() => onEdit(prompt)}
     >
+      {/* Drag Handle */}
+      {showDragHandle && (
+        <div
+          className="absolute top-1 left-1 cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded transition-opacity opacity-0 group-hover:opacity-100"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="w-3 h-3 text-[#64748B]" />
+        </div>
+      )}
+
       <div
         className="w-[32px] h-[32px] flex items-center justify-center border shrink-0 mb-2"
         style={{ borderColor }}
