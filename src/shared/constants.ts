@@ -10,3 +10,6 @@ export const STORAGE_KEY = 'prompt_script_data'
 
 // Default category (Phase 3)
 export const DEFAULT_CATEGORY_NAME = '默认分类'
+
+// Phase 5: Network request timeout (D-06)
+export const NETWORK_TIMEOUT = 10000 // 10 seconds
