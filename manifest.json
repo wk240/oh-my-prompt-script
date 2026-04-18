@@ -31,5 +31,11 @@
     "48": "assets/icon-48.png",
     "128": "assets/icon-128.png"
   },
-  "permissions": ["activeTab", "downloads", "storage", "tabs"]
+  "permissions": ["activeTab", "downloads", "storage", "tabs"],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/icon-16.png", "assets/icon-48.png", "assets/icon-128.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

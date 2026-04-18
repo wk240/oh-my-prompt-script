@@ -163,10 +163,17 @@ function getDropdownStyles(): string {
     }
 
     #${PORTAL_ID} .dropdown-header-title {
-      font-size: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
       font-weight: 600;
-      color: #64748B;
-      letter-spacing: 1px;
+      color: #171717;
+    }
+
+    #${PORTAL_ID} .dropdown-header-logo {
+      width: 16px;
+      height: 16px;
     }
 
     #${PORTAL_ID} .dropdown-header-actions {
@@ -309,12 +316,16 @@ function getDropdownStyles(): string {
       justify-content: center;
       cursor: grab;
       color: #64748B;
-      opacity: 0;
+      opacity: 0.6;
       transition: opacity 0.15s ease;
       margin-right: -8px;
     }
 
     #${PORTAL_ID} .dropdown-item:hover .dropdown-item-drag-handle {
+      opacity: 1;
+    }
+
+    #${PORTAL_ID} .dropdown-item-drag-handle:hover {
       opacity: 1;
     }
 
@@ -326,6 +337,27 @@ function getDropdownStyles(): string {
       opacity: 0.5;
       background: #f8f8f8;
     }
+
+    #${PORTAL_ID} .sidebar-category-drag-handle {
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      color: #64748B;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    #${PORTAL_ID} .sidebar-category-item:hover .sidebar-category-drag-handle {
+      opacity: 1;
+    }
+
+    #${PORTAL_ID} .sidebar-category-drag-handle:active {
+      cursor: grabbing;
+    }
   `
 }
 
@@ -335,6 +367,61 @@ const CATEGORY_ICON_MAP: Record<string, React.ComponentType<{ className?: string
   design: Sparkle,
   style: Brush,
   other: Layers,
+}
+
+// Sortable category item component
+function SortableCategoryItem({
+  category,
+  isSelected,
+  onSelect,
+  showDragHandle,
+  IconComponent,
+}: {
+  category: Category
+  isSelected: boolean
+  onSelect: (categoryId: string) => void
+  showDragHandle: boolean
+  IconComponent: React.ComponentType<{ className?: string }>
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`sidebar-category-item ${isSelected ? 'selected' : ''}`}
+      onClick={() => onSelect(category.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect(category.id)
+        }
+      }}
+    >
+      {showDragHandle && (
+        <div className="sidebar-category-drag-handle" {...attributes} {...listeners}>
+          <GripVertical style={{ width: 10, height: 10 }} />
+        </div>
+      )}
+      <IconComponent className="sidebar-category-icon" />
+      <span>{category.name}</span>
+    </div>
+  )
 }
 
 // Sortable dropdown item component
@@ -412,6 +499,7 @@ export function DropdownContainer({
   const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0, isStickyTop: false })
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
   const [localPrompts, setLocalPrompts] = useState<Prompt[]>([])
+  const [localCategories, setLocalCategories] = useState<Category[]>([])
 
   const dropdownGap = 8
   const dropdownMaxHeight = 600
@@ -420,6 +508,11 @@ export function DropdownContainer({
   useEffect(() => {
     setLocalPrompts(prompts)
   }, [prompts])
+
+  // Sync local categories with props
+  useEffect(() => {
+    setLocalCategories(propCategories)
+  }, [propCategories])
 
   // Calculate position relative to trigger button with viewport boundary check
   useEffect(() => {
@@ -463,11 +556,11 @@ export function DropdownContainer({
     }
   }, [isOpen, dropdownGap, dropdownMaxHeight])
 
-  // Use passed categories or fallback to default logic
+  // Use passed categories or fallback to default logic (using localCategories for drag updates)
   const categories = useMemo(() => {
     const allCategory: Category = { id: 'all', name: '全部分类', order: 0 }
-    if (propCategories.length > 0) {
-      return [allCategory, ...sortCategoriesByOrder(propCategories)]
+    if (localCategories.length > 0) {
+      return [allCategory, ...sortCategoriesByOrder(localCategories)]
     }
     const uniqueCategoryIds = [...new Set(prompts.map((p) => p.categoryId))]
     const cats: Category[] = [allCategory]
@@ -476,7 +569,14 @@ export function DropdownContainer({
       cats.push(existing || { id: catId, name: catId, order: FALLBACK_CATEGORY_ORDER })
     })
     return cats
-  }, [propCategories, prompts])
+  }, [localCategories, prompts])
+
+  // Sortable categories (excluding 'all' which is virtual)
+  const sortableCategories = useMemo(() => {
+    return categories.filter(c => c.id !== 'all')
+  }, [categories])
+
+  const showCategoryDragHandles = sortableCategories.length >= 2
 
   // Filter prompts by selected category and sort by order
   const filteredPrompts = useMemo(() => {
@@ -519,12 +619,48 @@ export function DropdownContainer({
           type: MessageType.SET_STORAGE,
           payload: {
             prompts: updatedPrompts,
-            categories: propCategories,
+            categories: localCategories,
             version: '1.0.0'
           }
         })
       } catch (error) {
         console.error('[Prompt-Script] Failed to reorder prompts:', error)
+      }
+    }
+  }
+
+  // Handle drag end for category reorder
+  const handleCategoryDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const sortedCategories = sortCategoriesByOrder(localCategories)
+      const oldIndex = sortedCategories.findIndex(c => c.id === active.id)
+      const newIndex = sortedCategories.findIndex(c => c.id === over.id)
+      const newOrder = [...sortedCategories]
+      newOrder.splice(oldIndex, 1)
+      newOrder.splice(newIndex, 0, sortedCategories[oldIndex])
+
+      // Update local state immediately for visual feedback
+      const updatedCategories = localCategories.map((category) => {
+        return {
+          ...category,
+          order: newOrder.map(c => c.id).indexOf(category.id)
+        }
+      })
+      setLocalCategories(updatedCategories)
+
+      // Update storage via service worker
+      try {
+        await chrome.runtime.sendMessage({
+          type: MessageType.SET_STORAGE,
+          payload: {
+            prompts: localPrompts,
+            categories: updatedCategories,
+            version: '1.0.0'
+          }
+        })
+      } catch (error) {
+        console.error('[Prompt-Script] Failed to reorder categories:', error)
       }
     }
   }
@@ -573,27 +709,47 @@ export function DropdownContainer({
     >
       <div className="dropdown-sidebar">
         <div className="sidebar-categories">
-          {categories.map((category) => {
-            const IconComponent = getCategoryIcon(category.id)
-            return (
-              <button
-                key={category.id}
-                className={`sidebar-category-item ${selectedCategoryId === category.id ? 'selected' : ''}`}
-                onClick={() => setSelectedCategoryId(category.id)}
-                aria-label={category.name}
-              >
-                <IconComponent className="sidebar-category-icon" />
-                <span>{category.name}</span>
-              </button>
-            )
-          })}
+          {/* "全部" category - virtual, not sortable */}
+          <button
+            className={`sidebar-category-item ${selectedCategoryId === 'all' ? 'selected' : ''}`}
+            onClick={() => setSelectedCategoryId('all')}
+            aria-label="全部分类"
+          >
+            <FolderOpen className="sidebar-category-icon" />
+            <span>全部分类</span>
+          </button>
+
+          {/* Sortable categories */}
+          <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+            <SortableContext
+              items={sortableCategories.map(c => c.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {sortableCategories.map((category) => {
+                const IconComponent = getCategoryIcon(category.id)
+                return (
+                  <SortableCategoryItem
+                    key={category.id}
+                    category={category}
+                    isSelected={selectedCategoryId === category.id}
+                    onSelect={setSelectedCategoryId}
+                    showDragHandle={showCategoryDragHandles}
+                    IconComponent={IconComponent}
+                  />
+                )
+              })}
+            </SortableContext>
+          </DndContext>
         </div>
         <div className="sidebar-footer">power by neo</div>
       </div>
 
       <div className="dropdown-main">
         <div className="dropdown-header">
-          <span className="dropdown-header-title">PROMPTS</span>
+          <span className="dropdown-header-title">
+            <img className="dropdown-header-logo" src={chrome.runtime.getURL('assets/icon-128.png')} alt="Prompt Script" />
+            Prompt Script
+          </span>
           <div className="dropdown-header-actions">
             <button
               className="dropdown-settings"
