@@ -1,5 +1,4 @@
-<img src="assets/icon-128.png" alt="Prompt-Script Logo" width="128" height="128">
-
+![LOGO](assets/icon-128.png)
 # Prompt-Script
 
 > 一键插入预设提示词，让 Lovart AI 创作更高效
@@ -39,7 +38,7 @@ git clone https://github.com/wk240/prompt-script.git
 
 ## 怎么用？
 
-### 页面上一键插入
+### 1、页面上一键插入
 
 在 Lovart 的输入框旁，你会看到一个闪电图标按钮：
 
@@ -49,7 +48,7 @@ git clone https://github.com/wk240/prompt-script.git
 
 ![示例：下拉菜单插入提示词](assets/eg1.png)
 
-### 管理你的提示词
+### 2、管理你的提示词
 
 点击浏览器工具栏的扩展图标，打开管理界面：
 
