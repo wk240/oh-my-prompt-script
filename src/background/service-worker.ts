@@ -1,10 +1,13 @@
-import { MessageType, MessageResponse } from '../shared/messages'
-import type { StorageSchema } from '../shared/types'
+import { MessageType, MessageResponse, NetworkDataResponse } from '../shared/messages'
+import type { StorageSchema, NetworkPrompt, ProviderCategory } from '../shared/types'
 import { StorageManager } from '../lib/storage'
+import { NanoBananaProvider } from '../lib/providers/nano-banana'
+import { NETWORK_TIMEOUT } from '../shared/constants'
 
 console.log('[Prompt-Script] Service Worker started')
 
 const storageManager = StorageManager.getInstance()
+const nanoBananaProvider = new NanoBananaProvider()
 
 chrome.runtime.onMessage.addListener(
   (message, _sender, sendResponse) => {
