@@ -5,7 +5,7 @@
 
 import { createPortal } from 'react-dom'
 import { useState, useEffect, useCallback } from 'react'
-import { Check, Plus, X } from 'lucide-react'
+import { Check, Plus } from 'lucide-react'
 import type { Category } from '../../shared/types'
 
 const PORTAL_ID = 'prompt-script-dropdown-portal'

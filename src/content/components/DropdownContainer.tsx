@@ -19,6 +19,8 @@ import { CacheStatusHeader } from './CacheStatusHeader'
 import { LoadMoreButton } from './LoadMoreButton'
 import { PromptPreviewModal } from './PromptPreviewModal'
 import { CategorySelectDialog } from './CategorySelectDialog'
+import { ToastNotification } from './ToastNotification'
+import { usePromptStore } from '../../lib/store'
 
 interface DropdownContainerProps {
   prompts: Prompt[]
@@ -656,10 +658,56 @@ export function DropdownContainer({
   // Phase 8: Category select dialog state (D-09)
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
 
+  // Phase 8: Toast state (D-16)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
   // Phase 8: Open category dialog from Modal (D-09)
   const handleOpenCategoryDialog = useCallback(() => {
     setIsCategoryDialogOpen(true)
   }, [])
+
+  // Phase 8: Handle collect confirmation (D-16, D-17, D-19)
+  const handleConfirmCollect = useCallback((categoryId: string, newCategoryName?: string) => {
+    if (!selectedNetworkPrompt) return
+
+    let targetCategoryId = categoryId
+
+    // D-14: Create new category if provided
+    if (newCategoryName && newCategoryName.trim()) {
+      usePromptStore.getState().addCategory(newCategoryName.trim())
+      // Get the newly created category (last in list)
+      const storeCategories = usePromptStore.getState().categories
+      const newCategory = storeCategories.find(c => c.name === newCategoryName.trim())
+      if (newCategory) {
+        targetCategoryId = newCategory.id
+      }
+    }
+
+    if (!targetCategoryId) {
+      console.error('[Prompt-Script] No target category for collect')
+      return
+    }
+
+    // Convert NetworkPrompt to Prompt format for local storage
+    // Note: order is calculated by store.addPrompt, but type requires it
+    const localPrompt: Omit<Prompt, 'id'> = {
+      name: selectedNetworkPrompt.name,
+      content: selectedNetworkPrompt.content,
+      categoryId: targetCategoryId,
+      description: selectedNetworkPrompt.description,
+      order: 0, // Will be overwritten by store.addPrompt
+    }
+
+    // D-03: Add to local store
+    usePromptStore.getState().addPrompt(localPrompt)
+
+    // D-16: Show toast with category name
+    const categoryName = usePromptStore.getState().categories.find(c => c.id === targetCategoryId)?.name || '未知分类'
+    setToastMessage(`已收藏到 ${categoryName}`)
+
+    // D-19: Close dialog but keep Modal open
+    setIsCategoryDialogOpen(false)
+  }, [selectedNetworkPrompt])
 
   const dropdownGap = 8
   const dropdownMaxHeight = 600
@@ -1144,12 +1192,15 @@ export function DropdownContainer({
       categories={sortableCategories} // Exclude 'all' virtual category
       isOpen={isCategoryDialogOpen}
       onClose={() => setIsCategoryDialogOpen(false)}
-      onConfirm={(categoryId, newCategoryName) => {
-        // Placeholder for Plan 05 integration
-        console.log('[Prompt-Script] Collect confirmed:', { categoryId, newCategoryName })
-        setIsCategoryDialogOpen(false)
-      }}
+      onConfirm={handleConfirmCollect} // Phase 8: D-16, D-17
     />
+    {/* Phase 8: Toast notification (D-16) */}
+    {toastMessage && (
+      <ToastNotification
+        message={toastMessage}
+        onClose={() => setToastMessage(null)}
+      />
+    )}
   </>,
     getPortalContainer()
   )
