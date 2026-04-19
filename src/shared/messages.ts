@@ -7,7 +7,9 @@ export enum MessageType {
   INSERT_PROMPT = 'INSERT_PROMPT',
   OPEN_SETTINGS = 'OPEN_SETTINGS',
   // Phase 5: Network prompts
-  FETCH_NETWORK_PROMPTS = 'FETCH_NETWORK_PROMPTS'
+  FETCH_NETWORK_PROMPTS = 'FETCH_NETWORK_PROMPTS',
+  // Phase 6: Network cache
+  GET_NETWORK_CACHE = 'GET_NETWORK_CACHE'
 }
 
 export interface Message<T = unknown> {
@@ -30,4 +32,13 @@ export interface FetchNetworkPromptsPayload {
 export interface NetworkDataResponse {
   prompts: NetworkPrompt[]
   categories: ProviderCategory[]
+}
+
+// Phase 6: Cache data response with metadata flags
+export interface CacheDataResponse {
+  prompts: NetworkPrompt[]
+  categories: ProviderCategory[]
+  isFromCache: boolean // Always true for GET_NETWORK_CACHE
+  isExpired?: boolean   // True if cache TTL exceeded
+  fetchTimestamp?: string // ISO timestamp for UI display (Phase 7)
 }

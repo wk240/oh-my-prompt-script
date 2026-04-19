@@ -1,13 +1,15 @@
-import { MessageType, MessageResponse, NetworkDataResponse } from '../shared/messages'
+import { MessageType, MessageResponse, NetworkDataResponse, CacheDataResponse } from '../shared/messages'
 import type { StorageSchema } from '../shared/types'
 import { StorageManager } from '../lib/storage'
 import { NanoBananaProvider } from '../lib/providers/nano-banana'
+import { NetworkCacheManager } from '../lib/cache/network-cache'
 import { NETWORK_TIMEOUT } from '../shared/constants'
 
 console.log('[Prompt-Script] Service Worker started')
 
 const storageManager = StorageManager.getInstance()
 const nanoBananaProvider = new NanoBananaProvider()
+const networkCacheManager = NetworkCacheManager.getInstance()
 
 chrome.runtime.onMessage.addListener(
   (message, _sender, sendResponse) => {
@@ -86,6 +88,35 @@ chrome.runtime.onMessage.addListener(
               : 'Network fetch failed'
             console.error('[Prompt-Script] FETCH_NETWORK_PROMPTS error:', errorMsg)
             sendResponse({ success: false, error: errorMsg })
+          })
+        return true // Required for async response
+
+      case MessageType.GET_NETWORK_CACHE:
+        networkCacheManager.getCache()
+          .then(cacheResult => {
+            if (cacheResult.data) {
+              // Cache exists (may be expired or valid)
+              console.log('[Prompt-Script] GET_NETWORK_CACHE: returning', cacheResult.data.prompts.length, 'prompts',
+                cacheResult.isExpired ? '(expired)' : '(valid)')
+              sendResponse({
+                success: true,
+                data: {
+                  prompts: cacheResult.data.prompts,
+                  categories: cacheResult.data.categories,
+                  isFromCache: true,
+                  isExpired: cacheResult.isExpired || false,
+                  fetchTimestamp: cacheResult.data.fetchTimestamp
+                }
+              } as MessageResponse<CacheDataResponse>)
+            } else {
+              // No cache available
+              console.log('[Prompt-Script] GET_NETWORK_CACHE: no cached data')
+              sendResponse({ success: false, error: 'No cached data available' })
+            }
+          })
+          .catch(error => {
+            console.error('[Prompt-Script] GET_NETWORK_CACHE error:', error)
+            sendResponse({ success: false, error: 'Cache retrieval failed' })
           })
         return true // Required for async response
 
