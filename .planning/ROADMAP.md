@@ -45,7 +45,7 @@ Plans:
 - [x] 05-01-PLAN.md — Define DataSourceProvider interface, NetworkPrompt/ProviderCategory types (completed 2026-04-19)
 - [x] 05-02-PLAN.md — Implement NanoBananaProvider with Markdown parser (~900 prompts) (completed 2026-04-19)
 - [x] 05-03-PLAN.md — Add network fetch handlers to service worker + manifest host_permissions (completed 2026-04-19)
-- [ ] 05-04-PLAN.md — Test end-to-end data flow (manual verification checkpoint)
+- [x] 05-04-PLAN.md — Test end-to-end data flow (completed 2026-04-19)
 
 #### Phase 6: Network Cache Layer
 **Goal**: 网络提示词自动缓存，离线可用
@@ -114,11 +114,11 @@ Plans:
 | 2. Lovart Integration & Content Script | v1.0 | 4/4 | Complete | 2026-04-16 |
 | 3. Data Management & Popup UI | v1.0 | 9/9 | Complete | 2026-04-16 |
 | 4. Polish & End-to-End Testing | v1.0 | 6/6 | Complete | 2026-04-16 |
-| 5. Provider Foundation | v1.1.0 | 3/4 | In progress | 2026-04-19 |
+| 5. Provider Foundation | v1.1.0 | 4/4 | Complete | 2026-04-19 |
 | 6. Network Cache Layer | v1.1.0 | 0/4 | Not started | - |
 | 7. Dropdown Online Library UI | v1.1.0 | 0/5 | Not started | - |
 | 8. Search & Collect Features | v1.1.0 | 0/5 | Not started | - |
 
 ---
 
-*Roadmap updated: 2026-04-19 — Phase 5 plan 05-03 complete*
+*Roadmap updated: 2026-04-19 — Phase 5 complete*
