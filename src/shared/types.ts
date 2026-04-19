@@ -37,3 +37,17 @@ export interface ProviderCategory {
   order: number // Display order (1-17)
   count: number // Number of prompts in category
 }
+
+// Phase 6: Network cache data structure (D-02, D-03)
+export interface NetworkCacheData {
+  prompts: NetworkPrompt[]
+  categories: ProviderCategory[]
+  fetchTimestamp: string // D-03: ISO 8601 format (e.g., '2026-04-19T12:00:00Z')
+}
+
+// Phase 6: Cache result with validity flag for TTL check
+export interface CacheResult {
+  valid: boolean
+  data?: NetworkCacheData
+  isExpired?: boolean // For UI indication and fallback scenarios
+}

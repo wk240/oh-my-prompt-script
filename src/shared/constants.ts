@@ -13,3 +13,7 @@ export const DEFAULT_CATEGORY_NAME = '默认分类'
 
 // Phase 5: Network request timeout (D-06)
 export const NETWORK_TIMEOUT = 10000 // 10 seconds
+
+// Phase 6: Network cache constants (D-01, D-04)
+export const NETWORK_CACHE_KEY = 'network_cache_data'
+export const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 86,400,000 ms = 24 hours
