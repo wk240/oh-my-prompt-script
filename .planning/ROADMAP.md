@@ -59,10 +59,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Implement NetworkCacheManager singleton with TTL support (Wave 1)
-- [ ] 06-02-PLAN.md — Add GET_NETWORK_CACHE message type and handler (Wave 2)
-- [ ] 06-03-PLAN.md — Extend NetworkDataResponse with cache metadata flags (Wave 2)
-- [ ] 06-04-PLAN.md — Implement network-first with cache fallback strategy (Wave 3)
+- [x] 06-01-PLAN.md — Implement NetworkCacheManager singleton with TTL support (completed 2026-04-19)
+- [x] 06-02-PLAN.md — Add GET_NETWORK_CACHE message type and handler (completed 2026-04-19)
+- [x] 06-03-PLAN.md — Extend NetworkDataResponse with cache metadata flags (completed 2026-04-19)
+- [x] 06-04-PLAN.md — Implement network-first with cache fallback strategy (completed 2026-04-19)
 
 #### Phase 7: Dropdown Online Library UI
 **Goal**: 用户可浏览和预览网络提示词
@@ -115,10 +115,10 @@ Plans:
 | 3. Data Management & Popup UI | v1.0 | 9/9 | Complete | 2026-04-16 |
 | 4. Polish & End-to-End Testing | v1.0 | 6/6 | Complete | 2026-04-16 |
 | 5. Provider Foundation | v1.1.0 | 4/4 | Complete | 2026-04-19 |
-| 6. Network Cache Layer | v1.1.0 | 0/4 | Not started | - |
+| 6. Network Cache Layer | v1.1.0 | 4/4 | Complete | 2026-04-19 |
 | 7. Dropdown Online Library UI | v1.1.0 | 0/5 | Not started | - |
 | 8. Search & Collect Features | v1.1.0 | 0/5 | Not started | - |
 
 ---
 
-*Roadmap updated: 2026-04-19 — Phase 6 plans created*
+*Roadmap updated: 2026-04-19 — Phase 6 complete*
