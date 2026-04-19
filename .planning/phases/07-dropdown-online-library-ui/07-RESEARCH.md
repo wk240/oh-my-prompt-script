@@ -875,17 +875,17 @@ function formatCacheTimestamp(isoString: string | undefined): string {
 
 **Note:** All critical decisions (D-01 through D-18) are locked by user — no user confirmation needed. Assumptions A1-A4 should be validated during implementation testing.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Focus trap implementation for Modal**
+1. **Focus trap implementation for Modal** — [RESOLVED: Manual focus trap]
    - What we know: Modal needs focus trap for accessibility (WCAG AA)
-   - What's unclear: Should we use Radix UI Dialog (already installed) or implement manual focus trap?
-   - Recommendation: Radix UI Dialog provides focus trap, escape key handling, and overlay click dismiss. Consider wrapping Modal with Radix Dialog for accessibility compliance. However, Radix styles may conflict with inline CSS pattern — verify compatibility.
+   - What was unclear: Radix UI Dialog vs manual focus trap?
+   - **Resolution:** Use manual focus trap. Radix UI Dialog may conflict with inline CSS pattern in Portal context. Manual implementation: querySelector for focusable elements in Modal, loop focus on Tab/Shift+Tab at boundaries. Simple to implement, maintains CSS consistency.
 
-2. **Image thumbnail lazy loading**
+2. **Image thumbnail lazy loading** — [RESOLVED: Defer to Phase 7+]
    - What we know: 50 cards per page, each may have thumbnail URL
-   - What's unclear: Should images load lazily (IntersectionObserver) or all on render?
-   - Recommendation: Lazy loading improves performance but adds complexity. Phase 7 scope says "图片预览详细实现延后" — defer lazy loading to Phase 7+ enhancement. All images load on page render for simplicity.
+   - What was unclear: IntersectionObserver lazy loading vs all on render?
+   - **Resolution:** Defer lazy loading to Phase 7+ enhancement. Phase 7 scope explicitly defers "图片预览详细实现". All images load on page render for simplicity. Performance acceptable for 50 cards with cached thumbnails.
 
 ## Environment Availability
 
