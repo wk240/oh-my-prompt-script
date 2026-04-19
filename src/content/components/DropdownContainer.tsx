@@ -17,6 +17,7 @@ import { NetworkPromptCard } from './NetworkPromptCard'
 import { ProviderCategoryItem } from './ProviderCategoryItem'
 import { CacheStatusHeader } from './CacheStatusHeader'
 import { LoadMoreButton } from './LoadMoreButton'
+import { PromptPreviewModal } from './PromptPreviewModal'
 
 interface DropdownContainerProps {
   prompts: Prompt[]
@@ -599,6 +600,10 @@ export function DropdownContainer({
   // loadedCount setter used in LoadMoreButton (07-04) and pagination reset useEffect
   const [loadedCount, setLoadedCount] = useState(50) // D-11: 50 prompts per page
 
+  // Phase 7: Modal state for prompt preview (D-07)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedNetworkPrompt, setSelectedNetworkPrompt] = useState<NetworkPrompt | null>(null)
+
   const dropdownGap = 8
   const dropdownMaxHeight = 600
 
@@ -847,11 +852,12 @@ export function DropdownContainer({
   }
 
   return createPortal(
-    <div
-      ref={dropdownRef}
-      className="dropdown-container"
-      style={dropdownStyle}
-    >
+    <>
+      <div
+        ref={dropdownRef}
+        className="dropdown-container"
+        style={dropdownStyle}
+      >
       <div className="dropdown-sidebar">
         <div className="sidebar-categories">
           {/* Phase 7: ProviderCategory sidebar when in online mode (D-13) */}
@@ -995,8 +1001,9 @@ export function DropdownContainer({
                       key={prompt.id}
                       prompt={prompt}
                       onClick={() => {
-                        // D-07: Placeholder for Modal trigger (Phase 7-05)
-                        console.log('[Prompt-Script] Card clicked:', prompt.name)
+                        // D-07: Open modal for full prompt preview
+                        setSelectedNetworkPrompt(prompt)
+                        setIsModalOpen(true)
                       }}
                     />
                   ))}
@@ -1041,7 +1048,19 @@ export function DropdownContainer({
           )}
         </div>
       </div>
-    </div>,
+    </div>
+    {/* Phase 7: Prompt preview modal (D-07) */}
+    {selectedNetworkPrompt && (
+      <PromptPreviewModal
+        prompt={selectedNetworkPrompt}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedNetworkPrompt(null)
+        }}
+      />
+    )}
+  </>,
     getPortalContainer()
   )
 }
