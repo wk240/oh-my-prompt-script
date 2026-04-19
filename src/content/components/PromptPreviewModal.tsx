@@ -12,6 +12,8 @@ interface PromptPreviewModalProps {
   prompt: NetworkPrompt
   isOpen: boolean
   onClose: () => void
+  // Phase 8: Collect callback (D-09)
+  onCollect?: (prompt: NetworkPrompt) => void
 }
 
 const PORTAL_ID = 'prompt-script-dropdown-portal'
@@ -26,7 +28,7 @@ function getPortalContainer(): HTMLElement {
   return container
 }
 
-export function PromptPreviewModal({ prompt, isOpen, onClose }: PromptPreviewModalProps) {
+export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: PromptPreviewModalProps) {
   // D-08: Escape key closes modal
   useEffect(() => {
     if (!isOpen) return
@@ -128,23 +130,23 @@ export function PromptPreviewModal({ prompt, isOpen, onClose }: PromptPreviewMod
           <div style={{ fontSize: '10px', color: '#64748B' }}>
             来源: {prompt.sourceProvider || 'Unknown'} / {prompt.sourceCategory || 'Unknown'}
           </div>
-          {/* D-09: Placeholder "收藏" button for Phase 8 */}
+          {/* Phase 8: Active "收藏" button (D-09) */}
           <button
-            disabled
+            onClick={() => onCollect?.(prompt)}
+            aria-label="收藏提示词"
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '4px',
               padding: '8px 16px',
-              background: '#f8f8f8',
-              border: '1px solid #E5E5E5',
+              background: '#1890ff', // D-09: Accent color (UI-SPEC)
+              border: 'none',
               borderRadius: '6px',
               fontSize: '12px',
               fontWeight: 500,
-              color: '#171717',
-              opacity: 0.5,
-              cursor: 'not-allowed',
+              color: '#fff',
+              cursor: 'pointer',
             }}
           >
             <Bookmark style={{ width: 14, height: 14 }} />
