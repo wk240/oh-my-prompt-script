@@ -28,10 +28,13 @@ export interface FetchNetworkPromptsPayload {
   providerId?: string // Optional: defaults to 'nano-banana'
 }
 
-// Phase 5: Network prompt response payload
+// Phase 5: Network prompt response payload (extended for Phase 6)
 export interface NetworkDataResponse {
   prompts: NetworkPrompt[]
   categories: ProviderCategory[]
+  // Phase 6: Cache metadata flags
+  isFromCache?: boolean // true when data comes from cache (D-07 fallback)
+  isExpired?: boolean    // true when cache TTL exceeded
 }
 
 // Phase 6: Cache data response with metadata flags
