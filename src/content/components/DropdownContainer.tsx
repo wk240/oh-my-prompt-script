@@ -18,6 +18,7 @@ import { ProviderCategoryItem } from './ProviderCategoryItem'
 import { CacheStatusHeader } from './CacheStatusHeader'
 import { LoadMoreButton } from './LoadMoreButton'
 import { PromptPreviewModal } from './PromptPreviewModal'
+import { CategorySelectDialog } from './CategorySelectDialog'
 
 interface DropdownContainerProps {
   prompts: Prompt[]
@@ -652,6 +653,14 @@ export function DropdownContainer({
     }
   }, [])
 
+  // Phase 8: Category select dialog state (D-09)
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
+
+  // Phase 8: Open category dialog from Modal (D-09)
+  const handleOpenCategoryDialog = useCallback(() => {
+    setIsCategoryDialogOpen(true)
+  }, [])
+
   const dropdownGap = 8
   const dropdownMaxHeight = 600
 
@@ -1118,7 +1127,7 @@ export function DropdownContainer({
         </div>
       </div>
     </div>
-    {/* Phase 7: Prompt preview modal (D-07) */}
+    {/* Phase 7+8: Prompt preview modal with collect (D-07, D-09) */}
     {selectedNetworkPrompt && (
       <PromptPreviewModal
         prompt={selectedNetworkPrompt}
@@ -1127,8 +1136,20 @@ export function DropdownContainer({
           setIsModalOpen(false)
           setSelectedNetworkPrompt(null)
         }}
+        onCollect={handleOpenCategoryDialog} // Phase 8: D-09
       />
     )}
+    {/* Phase 8: Category select dialog (D-11) */}
+    <CategorySelectDialog
+      categories={sortableCategories} // Exclude 'all' virtual category
+      isOpen={isCategoryDialogOpen}
+      onClose={() => setIsCategoryDialogOpen(false)}
+      onConfirm={(categoryId, newCategoryName) => {
+        // Placeholder for Plan 05 integration
+        console.log('[Prompt-Script] Collect confirmed:', { categoryId, newCategoryName })
+        setIsCategoryDialogOpen(false)
+      }}
+    />
   </>,
     getPortalContainer()
   )
