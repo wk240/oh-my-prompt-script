@@ -16,6 +16,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { NetworkPromptCard } from './NetworkPromptCard'
 import { ProviderCategoryItem } from './ProviderCategoryItem'
 import { CacheStatusHeader } from './CacheStatusHeader'
+import { LoadMoreButton } from './LoadMoreButton'
 
 interface DropdownContainerProps {
   prompts: Prompt[]
@@ -987,18 +988,29 @@ export function DropdownContainer({
                 </div>
               </div>
             ) : (
-              <div className="network-prompt-cards-grid">
-                {paginatedNetworkPrompts.map((prompt) => (
-                  <NetworkPromptCard
-                    key={prompt.id}
-                    prompt={prompt}
-                    onClick={() => {
-                      // D-07: Placeholder for Modal trigger (Phase 7-05)
-                      console.log('[Prompt-Script] Card clicked:', prompt.name)
-                    }}
+              <>
+                <div className="network-prompt-cards-grid">
+                  {paginatedNetworkPrompts.map((prompt) => (
+                    <NetworkPromptCard
+                      key={prompt.id}
+                      prompt={prompt}
+                      onClick={() => {
+                        // D-07: Placeholder for Modal trigger (Phase 7-05)
+                        console.log('[Prompt-Script] Card clicked:', prompt.name)
+                      }}
+                    />
+                  ))}
+                </div>
+                {/* D-10: Load more button */}
+                {filteredNetworkPrompts.length > 50 && (
+                  <LoadMoreButton
+                    loadedCount={loadedCount}
+                    totalCount={filteredNetworkPrompts.length}
+                    onLoadMore={() => setLoadedCount(prev => prev + 50)}
+                    isLoading={false}
                   />
-                ))}
-              </div>
+                )}
+              </>
             )
           ) : filteredPrompts.length === 0 ? (
             <div className="empty-state">
