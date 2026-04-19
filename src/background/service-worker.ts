@@ -74,20 +74,51 @@ chrome.runtime.onMessage.addListener(
             const prompts = nanoBananaProvider.parse(rawData)
             const categories = nanoBananaProvider.getCategories()
 
+            // D-07: Save to cache on network success
+            networkCacheManager.saveCache(prompts, categories)
+              .catch(err => console.error('[Prompt-Script] Cache save error:', err))
+
             console.log('[Prompt-Script] FETCH_NETWORK_PROMPTS: parsed', prompts.length, 'prompts')
 
             sendResponse({
               success: true,
-              data: { prompts, categories }
+              data: { prompts, categories, isFromCache: false }
             } as MessageResponse<NetworkDataResponse>)
           })
-          .catch(error => {
+          .catch(async (error) => {
             clearTimeout(timeoutId)
             const errorMsg = error instanceof Error
               ? (error.name === 'AbortError' ? 'Request timeout' : error.message)
               : 'Network fetch failed'
-            console.error('[Prompt-Script] FETCH_NETWORK_PROMPTS error:', errorMsg)
-            sendResponse({ success: false, error: errorMsg })
+
+            console.warn('[Prompt-Script] Network fetch failed:', errorMsg, '- checking cache')
+
+            // D-08: Don't use navigator.onLine, rely on fetch failure
+            // D-07: Fallback to cache
+            const cacheResult = await networkCacheManager.getCache()
+
+            if (cacheResult.data) {
+              // Cache available (may be expired or valid)
+              console.log('[Prompt-Script] Using cached data:', cacheResult.data.prompts.length, 'prompts',
+                cacheResult.isExpired ? '(expired)' : '(valid)')
+
+              sendResponse({
+                success: true,
+                data: {
+                  prompts: cacheResult.data.prompts,
+                  categories: cacheResult.data.categories,
+                  isFromCache: true,
+                  isExpired: cacheResult.isExpired || false
+                }
+              } as MessageResponse<NetworkDataResponse>)
+            } else {
+              // D-09: Cache empty and network failed - return error
+              console.error('[Prompt-Script] No cache available, offline mode')
+              sendResponse({
+                success: false,
+                error: 'Network unavailable and no cached data. Please try again when online.'
+              })
+            }
           })
         return true // Required for async response
 
