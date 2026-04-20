@@ -9,6 +9,7 @@ import PromptList from './components/PromptList'
 import PromptEditDialog from './components/PromptEditDialog'
 import AddCategoryDialog from './components/AddCategoryDialog'
 import DeleteConfirmDialog from './components/DeleteConfirmDialog'
+import SyncSettingsPanel from './components/SyncSettingsPanel'
 import { Toaster } from './components/ui/toaster'
 
 const ALL_CATEGORY_ID = 'all'
@@ -159,6 +160,7 @@ function App() {
   return (
     <div className="w-full h-full flex flex-col bg-white overflow-hidden">
       <Header onImport={handleImport} onExport={handleExport} onRefresh={handleRefresh} />
+      <SyncSettingsPanel />
       <div className="flex flex-1 overflow-hidden min-h-0">
         <CategorySidebar
           onDeleteCategory={handleDeleteCategory}
