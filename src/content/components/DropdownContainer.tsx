@@ -1053,28 +1053,34 @@ export function DropdownContainer({
             Oh My Prompt Script
           </span>
           <div className="dropdown-header-actions">
-            <button
-              className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
-              onClick={handleRefreshClick}
-              aria-label="刷新数据"
-              disabled={isRefreshing}
-            >
-              <RefreshCw style={{ width: 14, height: 14 }} />
-            </button>
-            <button
-              className="dropdown-action-btn"
-              onClick={handleOpenSettings}
-              aria-label="设置"
-            >
-              <Settings style={{ width: 14, height: 14 }} />
-            </button>
-            <button
-              className="dropdown-action-btn"
-              onClick={onClose}
-              aria-label="关闭"
-            >
-              <X style={{ width: 14, height: 14 }} />
-            </button>
+            <Tooltip content="刷新数据" placement="bottom">
+              <button
+                className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
+                onClick={handleRefreshClick}
+                aria-label="刷新数据"
+                disabled={isRefreshing}
+              >
+                <RefreshCw style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+            <Tooltip content="打开设置" placement="bottom">
+              <button
+                className="dropdown-action-btn"
+                onClick={handleOpenSettings}
+                aria-label="设置"
+              >
+                <Settings style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+            <Tooltip content="关闭" placement="bottom">
+              <button
+                className="dropdown-action-btn"
+                onClick={onClose}
+                aria-label="关闭"
+              >
+                <X style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
           </div>
         </div>
 
