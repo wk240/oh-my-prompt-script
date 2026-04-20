@@ -3,9 +3,6 @@ import { usePromptStore } from '../lib/store'
 import { exportData, readImportFile } from '../lib/import-export'
 import type { Prompt, StorageSchema } from '../shared/types'
 import { useToast } from '../hooks/use-toast'
-import { backupToFolder } from '../lib/sync/file-sync'
-import { getFolderHandle } from '../lib/sync/indexeddb'
-import { StorageManager } from '../lib/storage'
 import { MessageType } from '../shared/messages'
 import Header from './components/Header'
 import CategorySidebar from './components/CategorySidebar'
@@ -38,24 +35,8 @@ function App() {
   }, [loadFromStorage])
 
   const handleRefresh = async () => {
-    const handle = await getFolderHandle()
-
-    if (handle) {
-      try {
-        const storageManager = StorageManager.getInstance()
-        const data = await storageManager.getData()
-        await backupToFolder(data.userData, handle)
-        await storageManager.updateSettings({ lastSyncTime: Date.now() })
-        await loadFromStorage()
-        toast({ title: '刷新成功', description: '数据已备份并重新加载' })
-      } catch (error) {
-        await loadFromStorage()
-        toast({ title: '刷新成功', description: '数据已重新加载（备份失败，请检查文件夹权限）', variant: 'destructive' })
-      }
-    } else {
-      // No folder - open backup page in new tab
-      chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
-    }
+    // Always open backup page for user to choose action
+    chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
   }
 
   const handleImport = async () => {
