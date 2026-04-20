@@ -569,7 +569,7 @@ function SortableDropdownItem({
           <span className="dropdown-item-name">{prompt.name}</span>
         </Tooltip>
         <Tooltip content={prompt.description || prompt.content}>
-          <span className="dropdown-item-preview">{truncateText(prompt.content, 40)}</span>
+          <span className="dropdown-item-preview">{truncateText(prompt.description || prompt.content, 40)}</span>
         </Tooltip>
       </div>
       <ArrowUpRight className="dropdown-item-arrow" />

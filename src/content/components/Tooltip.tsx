@@ -32,7 +32,7 @@ export function Tooltip({
   children,
   placement = 'top',
   delay = 300,
-  maxWidth = 200,
+  maxWidth = 480,
 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
@@ -98,7 +98,7 @@ export function Tooltip({
             top: placement === 'top' ? position.top : position.top,
             left: position.left,
             transform: placement === 'top' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
-            padding: '6px 10px',
+            padding: '8px 12px',
             background: '#171717',
             color: '#ffffff',
             fontSize: '11px',
@@ -106,9 +106,8 @@ export function Tooltip({
             borderRadius: '6px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             maxWidth: `${maxWidth}px`,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            wordWrap: 'break-word',
+            lineHeight: '1.5',
             zIndex: 2147483647,
             pointerEvents: 'none',
           }}
