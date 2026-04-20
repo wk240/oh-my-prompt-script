@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-import { SYNC_DB_NAME, SYNC_STORE_NAME, SYNC_HANDLE_KEY, BACKUP_FILE_NAME } from '@/shared/constants'
+import { SYNC_DB_NAME, SYNC_STORE_NAME, SYNC_HANDLE_KEY } from '@/shared/constants'
 
 /**
  * Open IndexedDB for storing FileSystemDirectoryHandle
@@ -77,33 +77,16 @@ export async function getFolderHandle(): Promise<FileSystemDirectoryHandle | nul
       const permission = await handle.queryPermission({ mode: 'readwrite' })
 
       if (permission === 'granted') {
-        // Verify handle is still valid by attempting a lightweight operation
-        try {
-          // Try to get a file handle - this will throw if folder is invalid
-          await handle.getFileHandle(BACKUP_FILE_NAME, { create: false })
-          resolve(handle)
-          return
-        } catch (validationError) {
-          // Handle is invalid - try to re-request permission
-          console.warn('[Oh My Prompt Script] Handle validation failed, re-requesting permission:', validationError)
-        }
+        resolve(handle)
+        return
       }
 
-      // Permission not granted or handle invalid - request new permission
+      // Permission not granted - request new permission
       try {
         const requested = await handle.requestPermission({ mode: 'readwrite' })
         if (requested === 'granted') {
-          // Verify again after permission request
-          try {
-            await handle.getFileHandle(BACKUP_FILE_NAME, { create: false })
-            resolve(handle)
-            return
-          } catch {
-            // Handle still invalid after permission grant - remove it
-            await removeFolderHandle()
-            resolve(null)
-            return
-          }
+          resolve(handle)
+          return
         }
       } catch {
         // Permission request failed - remove invalid handle
