@@ -6,21 +6,21 @@
 
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { MessageType, CacheDataResponse } from '../../shared/messages'
-import type { Prompt, Category, NetworkPrompt, ProviderCategory } from '../../shared/types'
-import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, FALLBACK_CATEGORY_ORDER } from '../../shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical, Globe } from 'lucide-react'
+import type { Prompt, Category } from '../../shared/types'
+import type { ResourcePrompt, ResourceCategory } from '../../shared/types'
+import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder } from '../../shared/utils'
+import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { NetworkPromptCard } from './NetworkPromptCard'
 import { ProviderCategoryItem } from './ProviderCategoryItem'
-import { CacheStatusHeader } from './CacheStatusHeader'
 import { LoadMoreButton } from './LoadMoreButton'
 import { PromptPreviewModal } from './PromptPreviewModal'
 import { CategorySelectDialog } from './CategorySelectDialog'
 import { ToastNotification } from './ToastNotification'
 import { usePromptStore } from '../../lib/store'
+import { getResourcePrompts, getResourceCategories } from '../../lib/resource-library'
 
 interface DropdownContainerProps {
   prompts: Prompt[]
@@ -195,7 +195,7 @@ function getDropdownStyles(): string {
       height: 24px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify: center;
       background: #ffffff;
       border: none;
       border-radius: 4px;
@@ -316,7 +316,7 @@ function getDropdownStyles(): string {
       height: 16px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify: center;
       cursor: grab;
       color: #64748B;
       opacity: 0;
@@ -350,7 +350,7 @@ function getDropdownStyles(): string {
       height: 16px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify: center;
       flex-shrink: 0;
     }
 
@@ -374,7 +374,7 @@ function getDropdownStyles(): string {
       height: 14px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify: center;
       cursor: grab;
       color: #64748B;
       opacity: 0;
@@ -402,7 +402,7 @@ function getDropdownStyles(): string {
       height: 14px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify: center;
       flex-shrink: 0;
     }
 
@@ -421,7 +421,7 @@ function getDropdownStyles(): string {
       opacity: 0;
     }
 
-    /* Phase 7: Network Library styles */
+    /* Resource library styles */
 
     #${PORTAL_ID} .network-prompt-cards-grid {
       display: flex;
@@ -585,97 +585,31 @@ export function DropdownContainer({
   const [localPrompts, setLocalPrompts] = useState<Prompt[]>([])
   const [localCategories, setLocalCategories] = useState<Category[]>([])
 
-  // Phase 7: Online library state (D-01, D-02)
-  const [isOnlineLibrary, setIsOnlineLibrary] = useState(false)
-  const [networkPrompts, setNetworkPrompts] = useState<NetworkPrompt[]>([])
-  // providerCategories used in ProviderCategorySidebar (D-13)
-  const [providerCategories, setProviderCategories] = useState<ProviderCategory[]>([])
-  // cacheMetadata read in CacheStatusHeader (D-16)
-  const [cacheMetadata, setCacheMetadata] = useState<{
-    isFromCache?: boolean
-    isExpired?: boolean
-    fetchTimestamp?: string
-  }>({})
-  const [isNetworkLoading, setIsNetworkLoading] = useState(false)
+  // Resource library state (loaded from local JSON)
+  const [isResourceLibrary, setIsResourceLibrary] = useState(false)
+  const [resourcePrompts] = useState<ResourcePrompt[]>(getResourcePrompts())
+  const [resourceCategories] = useState<ResourceCategory[]>(getResourceCategories())
+  const [selectedResourceCategoryId, setSelectedResourceCategoryId] = useState<string>('all')
+  const [loadedCount, setLoadedCount] = useState(50)
 
-  // Phase 7: Provider category selection and pagination (D-15, D-11)
-  const [selectedProviderCategoryId, setSelectedProviderCategoryId] = useState<string>('all')
-  // loadedCount setter used in LoadMoreButton (07-04) and pagination reset useEffect
-  const [loadedCount, setLoadedCount] = useState(50) // D-11: 50 prompts per page
-
-  // Phase 7: Modal state for prompt preview (D-07)
+  // Modal state for prompt preview
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [selectedNetworkPrompt, setSelectedNetworkPrompt] = useState<NetworkPrompt | null>(null)
+  const [selectedResourcePrompt, setSelectedResourcePrompt] = useState<ResourcePrompt | null>(null)
 
-  // Phase 8: Search state (D-01, D-05)
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Phase 8: Search input handler with debounce (D-05: 300ms)
-  const handleSearchChange = useCallback((query: string) => {
-    setSearchQuery(query) // Immediate UI update
-
-    // Clear previous timer
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current)
-    }
-
-    // Set new timer (D-05: 300ms delay)
-    searchDebounceRef.current = setTimeout(() => {
-      setDebouncedQuery(query.toLowerCase()) // D-06: lowercase for comparison
-      searchDebounceRef.current = null
-    }, 300)
-  }, [])
-
-  // Phase 8: Expand search input (D-01)
-  const handleSearchExpand = useCallback(() => {
-    setIsSearchExpanded(true)
-  }, [])
-
-  // Phase 8: Collapse search input and reset (D-04)
-  const handleSearchClose = useCallback(() => {
-    setIsSearchExpanded(false)
-    setSearchQuery('')
-    setDebouncedQuery('')
-    // Clear pending debounce timer
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current)
-      searchDebounceRef.current = null
-    }
-  }, [])
-
-  // Phase 8: Cleanup debounce timer on unmount
-  useEffect(() => {
-    return () => {
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current)
-      }
-    }
-  }, [])
-
-  // Phase 8: Category select dialog state (D-09)
+  // Category select dialog state
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
 
-  // Phase 8: Toast state (D-16)
+  // Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // Phase 8: Open category dialog from Modal (D-09)
-  const handleOpenCategoryDialog = useCallback(() => {
-    setIsCategoryDialogOpen(true)
-  }, [])
-
-  // Phase 8: Handle collect confirmation (D-16, D-17, D-19)
+  // Handle collect confirmation
   const handleConfirmCollect = useCallback((categoryId: string, newCategoryName?: string) => {
-    if (!selectedNetworkPrompt) return
+    if (!selectedResourcePrompt) return
 
     let targetCategoryId = categoryId
 
-    // D-14: Create new category if provided
     if (newCategoryName && newCategoryName.trim()) {
       usePromptStore.getState().addCategory(newCategoryName.trim())
-      // Get the newly created category (last in list)
       const storeCategories = usePromptStore.getState().categories
       const newCategory = storeCategories.find(c => c.name === newCategoryName.trim())
       if (newCategory) {
@@ -688,26 +622,20 @@ export function DropdownContainer({
       return
     }
 
-    // Convert NetworkPrompt to Prompt format for local storage
-    // Note: order is calculated by store.addPrompt, but type requires it
     const localPrompt: Omit<Prompt, 'id'> = {
-      name: selectedNetworkPrompt.name,
-      content: selectedNetworkPrompt.content,
+      name: selectedResourcePrompt.name,
+      content: selectedResourcePrompt.content,
       categoryId: targetCategoryId,
-      description: selectedNetworkPrompt.description,
-      order: 0, // Will be overwritten by store.addPrompt
+      description: selectedResourcePrompt.description,
+      order: 0,
     }
 
-    // D-03: Add to local store
     usePromptStore.getState().addPrompt(localPrompt)
 
-    // D-16: Show toast with category name
     const categoryName = usePromptStore.getState().categories.find(c => c.id === targetCategoryId)?.name || '未知分类'
     setToastMessage(`已收藏到 ${categoryName}`)
-
-    // D-19: Close dialog but keep Modal open
     setIsCategoryDialogOpen(false)
-  }, [selectedNetworkPrompt])
+  }, [selectedResourcePrompt])
 
   const dropdownGap = 8
   const dropdownMaxHeight = 600
@@ -722,35 +650,7 @@ export function DropdownContainer({
     setLocalCategories(propCategories)
   }, [propCategories])
 
-  // Phase 7: Fetch network data on first online library toggle (D-02)
-  useEffect(() => {
-    if (isOnlineLibrary && networkPrompts.length === 0 && !isNetworkLoading) {
-      setIsNetworkLoading(true)
-      chrome.runtime.sendMessage(
-        { type: MessageType.GET_NETWORK_CACHE },
-        (response) => {
-          if (chrome.runtime?.lastError) {
-            console.log('[Prompt-Script] Network fetch error:', chrome.runtime.lastError.message)
-            setIsNetworkLoading(false)
-            return
-          }
-          if (response?.success && response.data) {
-            const data = response.data as CacheDataResponse
-            setNetworkPrompts(data.prompts)
-            setProviderCategories(data.categories)
-            setCacheMetadata({
-              isFromCache: data.isFromCache,
-              isExpired: data.isExpired,
-              fetchTimestamp: data.fetchTimestamp,
-            })
-          }
-          setIsNetworkLoading(false)
-        }
-      )
-    }
-  }, [isOnlineLibrary, networkPrompts.length, isNetworkLoading])
-
-  // Calculate position relative to trigger button with viewport boundary check
+  // Calculate position relative to trigger button
   useEffect(() => {
     if (!isOpen) return
 
@@ -761,16 +661,12 @@ export function DropdownContainer({
       const rect = hostElement.getBoundingClientRect()
       const viewportWidth = window.innerWidth
 
-      // Position dropdown above the button, right edge aligned to button's left edge
       const rightPos = viewportWidth - rect.left
       const preferredTopPos = rect.top - dropdownGap
 
-      // Check if dropdown would exceed viewport top when positioned above button
-      // Dropdown height is max 600px, translateY(-100%) means bottom of dropdown at preferredTopPos
       const dropdownBottom = preferredTopPos
       const dropdownTop = dropdownBottom - dropdownMaxHeight
 
-      // If dropdown top would be above viewport top, use sticky top positioning
       const isStickyTop = dropdownTop < 0
 
       setPosition({
@@ -792,7 +688,7 @@ export function DropdownContainer({
     }
   }, [isOpen, dropdownGap, dropdownMaxHeight])
 
-  // Use passed categories or fallback to default logic (using localCategories for drag updates)
+  // Use passed categories or fallback to default logic
   const categories = useMemo(() => {
     const allCategory: Category = { id: 'all', name: '全部分类', order: 0 }
     if (localCategories.length > 0) {
@@ -802,19 +698,19 @@ export function DropdownContainer({
     const cats: Category[] = [allCategory]
     uniqueCategoryIds.forEach((catId) => {
       const existing = DEFAULT_CATEGORIES.find((c) => c.id === catId)
-      cats.push(existing || { id: catId, name: catId, order: FALLBACK_CATEGORY_ORDER })
+      cats.push(existing || { id: catId, name: catId, order: 999 })
     })
     return cats
   }, [localCategories, prompts])
 
-  // Sortable categories (excluding 'all' which is virtual)
+  // Sortable categories (excluding 'all')
   const sortableCategories = useMemo(() => {
     return categories.filter(c => c.id !== 'all')
   }, [categories])
 
   const showCategoryDragHandles = sortableCategories.length >= 2
 
-  // Filter prompts by selected category and sort by order
+  // Filter prompts by selected category
   const filteredPrompts = useMemo(() => {
     let result: Prompt[]
     if (selectedCategoryId === 'all') {
@@ -827,35 +723,23 @@ export function DropdownContainer({
 
   const showDragHandles = filteredPrompts.length >= 2 && selectedCategoryId !== 'all'
 
-  // Phase 7+8: Filter network prompts by category AND search (D-06, D-07, D-08)
-  const filteredNetworkPrompts = useMemo(() => {
-    // Start with provider category filter
-    let result = selectedProviderCategoryId === 'all'
-      ? networkPrompts
-      : networkPrompts.filter(p => p.categoryId === selectedProviderCategoryId || p.sourceCategory === selectedProviderCategoryId)
+  // Filter resource prompts by category
+  const filteredResourcePrompts = useMemo(() => {
+    return selectedResourceCategoryId === 'all'
+      ? resourcePrompts
+      : resourcePrompts.filter(p => p.categoryId === selectedResourceCategoryId || p.sourceCategory === selectedResourceCategoryId)
+  }, [resourcePrompts, selectedResourceCategoryId])
 
-    // Apply search filter (D-06: name + content match)
-    if (debouncedQuery) {
-      result = result.filter(p =>
-        p.name.toLowerCase().includes(debouncedQuery) ||
-        p.content.toLowerCase().includes(debouncedQuery)
-      )
-    }
+  const paginatedResourcePrompts = useMemo(() => {
+    return filteredResourcePrompts.slice(0, loadedCount)
+  }, [filteredResourcePrompts, loadedCount])
 
-    // D-07: empty debouncedQuery shows all (result unchanged)
-    return result
-  }, [networkPrompts, selectedProviderCategoryId, debouncedQuery])
-
-  const paginatedNetworkPrompts = useMemo(() => {
-    return filteredNetworkPrompts.slice(0, loadedCount)
-  }, [filteredNetworkPrompts, loadedCount])
-
-  // Phase 7: Reset pagination on ProviderCategory change (D-11)
+  // Reset pagination on resource category change
   useEffect(() => {
-    if (isOnlineLibrary) {
-      setLoadedCount(50) // Reset to default page size
+    if (isResourceLibrary) {
+      setLoadedCount(50)
     }
-  }, [selectedProviderCategoryId, isOnlineLibrary])
+  }, [selectedResourceCategoryId, isResourceLibrary])
 
   // Handle drag end for prompt reorder
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -867,7 +751,6 @@ export function DropdownContainer({
       newOrder.splice(oldIndex, 1)
       newOrder.splice(newIndex, 0, filteredPrompts[oldIndex])
 
-      // Update local state immediately for visual feedback
       const updatedPrompts = localPrompts.map((prompt) => {
         if (prompt.categoryId === selectedCategoryId) {
           return {
@@ -879,10 +762,9 @@ export function DropdownContainer({
       })
       setLocalPrompts(updatedPrompts)
 
-      // Update storage via service worker
       try {
         await chrome.runtime.sendMessage({
-          type: MessageType.SET_STORAGE,
+          type: 'SET_STORAGE',
           payload: {
             prompts: updatedPrompts,
             categories: localCategories,
@@ -906,7 +788,6 @@ export function DropdownContainer({
       newOrder.splice(oldIndex, 1)
       newOrder.splice(newIndex, 0, sortedCategories[oldIndex])
 
-      // Update local state immediately for visual feedback
       const updatedCategories = localCategories.map((category) => {
         return {
           ...category,
@@ -915,10 +796,9 @@ export function DropdownContainer({
       })
       setLocalCategories(updatedCategories)
 
-      // Update storage via service worker
       try {
         await chrome.runtime.sendMessage({
-          type: MessageType.SET_STORAGE,
+          type: 'SET_STORAGE',
           payload: {
             prompts: localPrompts,
             categories: updatedCategories,
@@ -952,13 +832,12 @@ export function DropdownContainer({
   const dropdownStyle: React.CSSProperties = {
     top: position.top,
     right: position.right,
-    // Only translateY(-100%) when not sticky at top (normal positioning above button)
     transform: position.isStickyTop ? 'none' : 'translateY(-100%)',
   }
 
-  // Open settings page via background worker (bypasses ad blockers)
+  // Open settings page via background worker
   const handleOpenSettings = () => {
-    chrome.runtime.sendMessage({ type: MessageType.OPEN_SETTINGS })
+    chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' })
     onClose?.()
   }
 
@@ -976,30 +855,29 @@ export function DropdownContainer({
       >
       <div className="dropdown-sidebar">
         <div className="sidebar-categories">
-          {/* Phase 7: ProviderCategory sidebar when in online mode (D-13) */}
-          {isOnlineLibrary ? (
+          {isResourceLibrary ? (
             <>
-              {/* "全部" ProviderCategory entry */}
+              {/* "全部" ResourceCategory entry */}
               <button
-                className={`sidebar-category-item ${selectedProviderCategoryId === 'all' ? 'selected' : ''}`}
-                onClick={() => setSelectedProviderCategoryId('all')}
-                aria-label="全部网络提示词"
+                className={`sidebar-category-item ${selectedResourceCategoryId === 'all' ? 'selected' : ''}`}
+                onClick={() => setSelectedResourceCategoryId('all')}
+                aria-label="全部资源提示词"
               >
                 <div className="sidebar-category-icon-wrapper">
-                  <Globe className="sidebar-category-icon" />
+                  <Database className="sidebar-category-icon" />
                 </div>
                 <span>全部</span>
                 <span style={{ fontSize: '12px', fontWeight: 400, color: '#64748B' }}>
-                  · {networkPrompts.length}条
+                  · {resourcePrompts.length}条
                 </span>
               </button>
-              {/* D-13: ProviderCategory list (17 categories) */}
-              {sortProviderCategoriesByOrder(providerCategories).map((category) => (
+              {/* ResourceCategory list */}
+              {sortProviderCategoriesByOrder(resourceCategories).map((category) => (
                 <ProviderCategoryItem
                   key={category.id}
                   category={category}
-                  isSelected={selectedProviderCategoryId === category.id}
-                  onSelect={setSelectedProviderCategoryId}
+                  isSelected={selectedResourceCategoryId === category.id}
+                  onSelect={setSelectedResourceCategoryId}
                 />
               ))}
             </>
@@ -1019,16 +897,16 @@ export function DropdownContainer({
                 <span>全部分类</span>
               </button>
 
-              {/* "在线库" entry (D-01) */}
+              {/* "资源库" entry */}
               <button
-                className={`sidebar-category-item ${isOnlineLibrary ? 'selected' : ''}`}
-                onClick={() => setIsOnlineLibrary(true)}
-                aria-label="在线库"
+                className={`sidebar-category-item ${isResourceLibrary ? 'selected' : ''}`}
+                onClick={() => setIsResourceLibrary(true)}
+                aria-label="资源库"
               >
                 <div className="sidebar-category-icon-wrapper">
-                  <Globe className="sidebar-category-icon" />
+                  <Database className="sidebar-category-icon" />
                 </div>
-                <span>在线库</span>
+                <span>资源库</span>
               </button>
 
               {/* Sortable local categories */}
@@ -1060,21 +938,6 @@ export function DropdownContainer({
       </div>
 
       <div className="dropdown-main">
-        {/* Phase 7+8: Cache status header with search (D-16, D-01) */}
-        {isOnlineLibrary && !isNetworkLoading && (
-          <CacheStatusHeader
-            fetchTimestamp={cacheMetadata.fetchTimestamp}
-            isExpired={cacheMetadata.isExpired}
-            isFromCache={cacheMetadata.isFromCache}
-            // Phase 8: Search props (D-01)
-            isSearchExpanded={isSearchExpanded}
-            searchQuery={searchQuery}
-            onSearchExpand={handleSearchExpand}
-            onSearchChange={handleSearchChange}
-            onSearchClose={handleSearchClose}
-          />
-        )}
-
         <div className="dropdown-header">
           <span className="dropdown-header-title">
             <img className="dropdown-header-logo" src={chrome.runtime.getURL('assets/icon-128.png')} alt="Prompt Script" />
@@ -1103,42 +966,33 @@ export function DropdownContainer({
             <div className="empty-state">
               <div className="empty-message">加载中...</div>
             </div>
-          ) : isOnlineLibrary ? (
-            // Phase 7: Network prompt cards grid (D-04)
-            isNetworkLoading ? (
-              <div className="empty-state">
-                <div className="empty-message">加载网络数据...</div>
-              </div>
-            ) : paginatedNetworkPrompts.length === 0 ? (
+          ) : isResourceLibrary ? (
+            paginatedResourcePrompts.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-message">
-                  {networkPrompts.length === 0
-                    ? '无法加载网络数据，请检查网络连接'
-                    : debouncedQuery && filteredNetworkPrompts.length === 0
-                      ? '未找到匹配的提示词' // Phase 8: Search empty state (Claude's Discretion)
-                      : '该分类暂无提示词'}
+                  {resourcePrompts.length === 0
+                    ? '资源库数据加载失败'
+                    : '该分类暂无提示词'}
                 </div>
               </div>
             ) : (
               <>
                 <div className="network-prompt-cards-grid">
-                  {paginatedNetworkPrompts.map((prompt) => (
+                  {paginatedResourcePrompts.map((prompt) => (
                     <NetworkPromptCard
                       key={prompt.id}
                       prompt={prompt}
                       onClick={() => {
-                        // D-07: Open modal for full prompt preview
-                        setSelectedNetworkPrompt(prompt)
+                        setSelectedResourcePrompt(prompt)
                         setIsModalOpen(true)
                       }}
                     />
                   ))}
                 </div>
-                {/* D-10: Load more button */}
-                {filteredNetworkPrompts.length > 50 && (
+                {filteredResourcePrompts.length > 50 && (
                   <LoadMoreButton
                     loadedCount={loadedCount}
-                    totalCount={filteredNetworkPrompts.length}
+                    totalCount={filteredResourcePrompts.length}
                     onLoadMore={() => setLoadedCount(prev => prev + 50)}
                     isLoading={false}
                   />
@@ -1175,26 +1029,26 @@ export function DropdownContainer({
         </div>
       </div>
     </div>
-    {/* Phase 7+8: Prompt preview modal with collect (D-07, D-09) */}
-    {selectedNetworkPrompt && (
+    {/* Prompt preview modal with collect */}
+    {selectedResourcePrompt && (
       <PromptPreviewModal
-        prompt={selectedNetworkPrompt}
+        prompt={selectedResourcePrompt}
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false)
-          setSelectedNetworkPrompt(null)
+          setSelectedResourcePrompt(null)
         }}
-        onCollect={handleOpenCategoryDialog} // Phase 8: D-09
+        onCollect={() => setIsCategoryDialogOpen(true)}
       />
     )}
-    {/* Phase 8: Category select dialog (D-11) */}
+    {/* Category select dialog */}
     <CategorySelectDialog
-      categories={sortableCategories} // Exclude 'all' virtual category
+      categories={sortableCategories}
       isOpen={isCategoryDialogOpen}
       onClose={() => setIsCategoryDialogOpen(false)}
-      onConfirm={handleConfirmCollect} // Phase 8: D-16, D-17
+      onConfirm={handleConfirmCollect}
     />
-    {/* Phase 8: Toast notification (D-16) */}
+    {/* Toast notification */}
     {toastMessage && (
       <ToastNotification
         message={toastMessage}

@@ -1,13 +1,13 @@
 /**
- * ProviderCategoryItem - Sidebar item for ProviderCategory navigation
- * Phase 7: Displays category name + count (D-13, D-14, D-15)
+ * ProviderCategoryItem - Sidebar item for ResourceCategory navigation
+ * Displays category name + count
  */
 
-import type { ProviderCategory } from '../../shared/types'
-import { Globe } from 'lucide-react'
+import type { ResourceCategory } from '../../shared/types'
+import { Database } from 'lucide-react'
 
 interface ProviderCategoryItemProps {
-  category: ProviderCategory
+  category: ResourceCategory
   isSelected: boolean
   onSelect: (categoryId: string) => void
 }
@@ -36,9 +36,9 @@ export function ProviderCategoryItem({ category, isSelected, onSelect }: Provide
         transition: 'background 0.15s ease',
       }}
     >
-      {/* Globe icon for online categories */}
-      <Globe style={{ width: 14, height: 14, color: isSelected ? '#A16207' : '#64748B' }} />
-      {/* D-14: Name + count */}
+      {/* Database icon for resource categories */}
+      <Database style={{ width: 14, height: 14, color: isSelected ? '#A16207' : '#64748B' }} />
+      {/* Name + count */}
       <span style={{ fontSize: '12px', fontWeight: 500, color: '#171717', flex: 1 }}>
         {category.name}
       </span>

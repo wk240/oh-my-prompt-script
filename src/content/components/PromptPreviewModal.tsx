@@ -1,19 +1,18 @@
 /**
  * PromptPreviewModal - Modal overlay for full prompt content display
- * Phase 7: Portal-rendered modal with escape/overlay close (D-07, D-08, D-09)
+ * Portal-rendered modal with escape/overlay close
  */
 
 import { createPortal } from 'react-dom'
 import { useEffect, useCallback } from 'react'
 import { X, Bookmark } from 'lucide-react'
-import type { NetworkPrompt } from '../../shared/types'
+import type { ResourcePrompt } from '../../shared/types'
 
 interface PromptPreviewModalProps {
-  prompt: NetworkPrompt
+  prompt: ResourcePrompt
   isOpen: boolean
   onClose: () => void
-  // Phase 8: Collect callback (D-09)
-  onCollect?: (prompt: NetworkPrompt) => void
+  onCollect?: () => void
 }
 
 const PORTAL_ID = 'prompt-script-dropdown-portal'
@@ -29,7 +28,7 @@ function getPortalContainer(): HTMLElement {
 }
 
 export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: PromptPreviewModalProps) {
-  // D-08: Escape key closes modal
+  // Escape key closes modal
   useEffect(() => {
     if (!isOpen) return
     const handleEscape = (e: KeyboardEvent) => {
@@ -39,7 +38,7 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
-  // D-08: Click overlay closes modal
+  // Click overlay closes modal
   const handleOverlayClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose()
   }, [onClose])
@@ -128,11 +127,11 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
         }}>
           {/* Source info */}
           <div style={{ fontSize: '10px', color: '#64748B' }}>
-            来源: {prompt.sourceProvider || 'Unknown'} / {prompt.sourceCategory || 'Unknown'}
+            来源: {prompt.sourceCategory || 'Unknown'}
           </div>
-          {/* Phase 8: Active "收藏" button (D-09) */}
+          {/* Active "收藏" button */}
           <button
-            onClick={() => onCollect?.(prompt)}
+            onClick={() => onCollect?.()}
             aria-label="收藏提示词"
             style={{
               display: 'flex',
@@ -140,7 +139,7 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
               justifyContent: 'center',
               gap: '4px',
               padding: '8px 16px',
-              background: '#1890ff', // D-09: Accent color (UI-SPEC)
+              background: '#1890ff',
               border: 'none',
               borderRadius: '6px',
               fontSize: '12px',

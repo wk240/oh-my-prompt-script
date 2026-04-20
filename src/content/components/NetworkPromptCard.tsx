@@ -1,13 +1,13 @@
 /**
- * NetworkPromptCard - Card component for displaying network prompts
- * Phase 7: 2-column grid layout with previewImage thumbnail (D-04, D-05, D-06)
+ * NetworkPromptCard - Card component for displaying resource library prompts
+ * 2-column grid layout with previewImage thumbnail
  */
 
-import type { NetworkPrompt } from '../../shared/types'
+import type { ResourcePrompt } from '../../shared/types'
 import { truncateText } from '../../shared/utils'
 
 interface NetworkPromptCardProps {
-  prompt: NetworkPrompt
+  prompt: ResourcePrompt
   onClick: () => void
 }
 
