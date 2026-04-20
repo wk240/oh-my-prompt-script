@@ -27,6 +27,7 @@ interface DropdownContainerProps {
   prompts: Prompt[]
   categories: Category[]
   onSelect: (prompt: Prompt) => void
+  onInjectResource?: (prompt: ResourcePrompt) => void  // Inject resource prompt directly
   isOpen: boolean
   selectedPromptId: string | null
   onClose?: () => void
@@ -590,6 +591,7 @@ export function DropdownContainer({
   prompts,
   categories: propCategories,
   onSelect,
+  onInjectResource,
   isOpen,
   selectedPromptId,
   onClose,
@@ -617,6 +619,26 @@ export function DropdownContainer({
 
   // Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  // Check if a resource prompt is already collected
+  const isPromptCollected = useCallback((resourcePrompt: ResourcePrompt): boolean => {
+    return localPrompts.some(p => p.content === resourcePrompt.content)
+  }, [localPrompts])
+
+  // Handle quick collect from card (skip modal)
+  const handleQuickCollect = useCallback((resourcePrompt: ResourcePrompt) => {
+    setSelectedResourcePrompt(resourcePrompt)
+    setIsCategoryDialogOpen(true)
+  }, [])
+
+  // Handle inject from card (direct injection)
+  const handleInjectFromCard = useCallback((resourcePrompt: ResourcePrompt) => {
+    if (onInjectResource) {
+      onInjectResource(resourcePrompt)
+      setToastMessage('已注入提示词')
+      setTimeout(() => setToastMessage(null), 2000)
+    }
+  }, [onInjectResource])
 
   // Handle collect confirmation
   const handleConfirmCollect = useCallback((categoryId: string, newCategoryName?: string) => {
@@ -1021,6 +1043,9 @@ export function DropdownContainer({
                         setSelectedResourcePrompt(prompt)
                         setIsModalOpen(true)
                       }}
+                      onInject={() => handleInjectFromCard(prompt)}
+                      onCollect={() => handleQuickCollect(prompt)}
+                      isCollected={isPromptCollected(prompt)}
                     />
                   ))}
                 </div>

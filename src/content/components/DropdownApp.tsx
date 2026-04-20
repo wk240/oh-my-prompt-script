@@ -7,6 +7,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { TriggerButton } from './TriggerButton'
 import { DropdownContainer } from './DropdownContainer'
 import type { Prompt } from '../../shared/types'
+import type { ResourcePrompt } from '../../shared/types'
 import { InsertHandler } from '../insert-handler'
 import { usePromptStore } from '../../lib/store'
 
@@ -45,6 +46,12 @@ export function DropdownApp({ inputElement }: DropdownAppProps) {
     }, 2000)
   }, [inputElement])
 
+  // Handle direct injection of resource prompt
+  const handleInjectResource = useCallback((resourcePrompt: ResourcePrompt) => {
+    insertHandlerRef.current.insertPrompt(inputElement, resourcePrompt.content)
+    setIsOpen(false)
+  }, [inputElement])
+
   // Always use DropdownContainer (Portal) to escape overflow clipping
   return (
     <div className="dropdown-app">
@@ -57,6 +64,7 @@ export function DropdownApp({ inputElement }: DropdownAppProps) {
         prompts={prompts}
         categories={categories}
         onSelect={handleSelect}
+        onInjectResource={handleInjectResource}
         isOpen={isOpen}
         selectedPromptId={selectedPromptId}
         onClose={handleClose}
