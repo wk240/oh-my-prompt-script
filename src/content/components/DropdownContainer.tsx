@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { Prompt, Category } from '../../shared/types'
 import type { ResourcePrompt, ResourceCategory } from '../../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder } from '../../shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft } from 'lucide-react'
+import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -444,6 +444,15 @@ function getDropdownStyles(): string {
 
 // Category icon mapping for sidebar
 const CATEGORY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  // Built-in categories
+  'cat-quality': Sparkles,     // 质量与细节
+  'cat-style': Palette,        // 艺术风格
+  'cat-lighting': Sun,         // 光影效果
+  'cat-composition': Frame,    // 构图视角
+  'cat-color': Paintbrush,     // 色彩配色
+  'cat-theme': Image,          // 主题场景
+  'cat-medium': Layers,        // 媒介材质
+  // Resource library and special categories
   all: FolderOpen,
   design: Sparkle,
   style: Brush,
@@ -730,7 +739,7 @@ export function DropdownContainer({
     return sortPromptsByOrder(result)
   }, [localPrompts, selectedCategoryId])
 
-  const showDragHandles = filteredPrompts.length >= 2 && selectedCategoryId !== 'all'
+  const showDragHandles = filteredPrompts.length >= 2
 
   // Filter resource prompts by category
   const filteredResourcePrompts = useMemo(() => {
@@ -750,21 +759,23 @@ export function DropdownContainer({
     }
   }, [selectedResourceCategoryId, isResourceLibrary])
 
-  // Handle drag end for prompt reorder
+  // Handle drag end for prompt reorder (supports global sorting in 'all' category)
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
-    if (over && active.id !== over.id && selectedCategoryId !== 'all') {
+    if (over && active.id !== over.id) {
       const oldIndex = filteredPrompts.findIndex(p => p.id === active.id)
       const newIndex = filteredPrompts.findIndex(p => p.id === over.id)
       const newOrder = [...filteredPrompts]
       newOrder.splice(oldIndex, 1)
       newOrder.splice(newIndex, 0, filteredPrompts[oldIndex])
 
+      // Global sorting: update order for all prompts based on new position
       const updatedPrompts = localPrompts.map((prompt) => {
-        if (prompt.categoryId === selectedCategoryId) {
+        const newIndexInOrder = newOrder.map(p => p.id).indexOf(prompt.id)
+        if (newIndexInOrder !== -1) {
           return {
             ...prompt,
-            order: newOrder.map(p => p.id).indexOf(prompt.id)
+            order: newIndexInOrder
           }
         }
         return prompt
