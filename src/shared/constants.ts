@@ -16,3 +16,6 @@ export const DEFAULT_CATEGORY_NAME = '默认分类'
 export const SYNC_DB_NAME = 'oh-my-prompt-script-sync'
 export const SYNC_STORE_NAME = 'handles'
 export const SYNC_HANDLE_KEY = 'syncFolderHandle'
+
+// Backup file name for local folder sync
+export const BACKUP_FILE_NAME = 'oh-my-prompt-script-backup.json'

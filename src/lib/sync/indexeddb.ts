@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-import { SYNC_DB_NAME, SYNC_STORE_NAME, SYNC_HANDLE_KEY } from '@/shared/constants'
+import { SYNC_DB_NAME, SYNC_STORE_NAME, SYNC_HANDLE_KEY, BACKUP_FILE_NAME } from '@/shared/constants'
 
 /**
  * Open IndexedDB for storing FileSystemDirectoryHandle
@@ -52,6 +52,10 @@ export async function saveFolderHandle(handle: FileSystemDirectoryHandle): Promi
 /**
  * Get folder handle from IndexedDB
  * Returns null if not found or permission not granted
+ *
+ * Chrome's File System Access API caches permission states, so a handle
+ * can have 'granted' permission even when the underlying folder is invalid.
+ * We verify handle validity by attempting a lightweight directory operation.
  */
 export async function getFolderHandle(): Promise<FileSystemDirectoryHandle | null> {
   const db = await openSyncDB()
@@ -69,23 +73,41 @@ export async function getFolderHandle(): Promise<FileSystemDirectoryHandle | nul
         return
       }
 
-      // Check permission
+      // Check permission status
       const permission = await handle.queryPermission({ mode: 'readwrite' })
 
       if (permission === 'granted') {
-        resolve(handle)
-        return
+        // Verify handle is still valid by attempting a lightweight operation
+        try {
+          // Try to get a file handle - this will throw if folder is invalid
+          await handle.getFileHandle(BACKUP_FILE_NAME, { create: false })
+          resolve(handle)
+          return
+        } catch (validationError) {
+          // Handle is invalid - try to re-request permission
+          console.warn('[Oh My Prompt Script] Handle validation failed, re-requesting permission:', validationError)
+        }
       }
 
-      // Try to request permission
+      // Permission not granted or handle invalid - request new permission
       try {
         const requested = await handle.requestPermission({ mode: 'readwrite' })
         if (requested === 'granted') {
-          resolve(handle)
-          return
+          // Verify again after permission request
+          try {
+            await handle.getFileHandle(BACKUP_FILE_NAME, { create: false })
+            resolve(handle)
+            return
+          } catch {
+            // Handle still invalid after permission grant - remove it
+            await removeFolderHandle()
+            resolve(null)
+            return
+          }
         }
       } catch {
-        // Permission request failed (user denied or handle revoked)
+        // Permission request failed - remove invalid handle
+        await removeFolderHandle()
       }
 
       resolve(null)

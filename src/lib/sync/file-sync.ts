@@ -1,6 +1,5 @@
 import type { Prompt, Category, UserData } from '../../shared/types'
-
-const BACKUP_FILE_NAME = 'oh-my-prompt-script-backup.json'
+import { BACKUP_FILE_NAME } from '../../shared/constants'
 
 /**
  * Backup user data to local folder with fixed filename
