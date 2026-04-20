@@ -34,16 +34,7 @@ function CategorySidebar({ onDeleteCategory, onAddCategory }: CategorySidebarPro
 
   return (
     <div className="w-[160px] h-full flex flex-col bg-white border-r border-[#E5E5E5]">
-      {/* Category Header */}
-      <div className="pt-4 pb-3 text-center">
-        <span
-          className="text-[12px] font-medium text-[#64748B] tracking-[1px]"
-          style={{ fontFamily: 'Inter, sans-serif' }}
-        >
-          CAT
-        </span>
-      </div>
-
+      
       {/* Category Items */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-[14px] scrollbar-thin">
         {/* All Category - Virtual */}
