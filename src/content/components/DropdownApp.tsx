@@ -49,18 +49,30 @@ export function DropdownApp({ inputElement }: DropdownAppProps) {
   const handleRefresh = useCallback(async () => {
     // Backup via service worker (has access to IndexedDB in extension context)
     console.log('[Oh My Prompt Script] Refresh clicked, requesting backup via service worker...')
+    let backupSuccess = false
+    let error: string | undefined
+
     try {
       const response = await chrome.runtime.sendMessage({ type: 'BACKUP_TO_FOLDER' })
       if (response?.success) {
+        backupSuccess = true
         console.log('[Oh My Prompt Script] Backup completed')
       } else {
+        error = response?.error
         console.warn('[Oh My Prompt Script] Backup failed:', response?.error)
       }
-    } catch (error) {
-      console.warn('[Oh My Prompt Script] Backup request failed:', error)
+    } catch (err) {
+      error = String(err)
+      console.warn('[Oh My Prompt Script] Backup request failed:', err)
     }
 
     await loadFromStorage()
+
+    return {
+      success: true,
+      backupSuccess,
+      error: error === 'No folder handle configured' ? 'NO_FOLDER_HANDLE' : error
+    }
   }, [loadFromStorage])
 
   // Handle direct injection of resource prompt

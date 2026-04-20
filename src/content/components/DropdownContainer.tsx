@@ -28,7 +28,7 @@ interface DropdownContainerProps {
   categories: Category[]
   onSelect: (prompt: Prompt) => void
   onInjectResource?: (prompt: ResourcePrompt) => void  // Inject resource prompt directly
-  onRefresh?: () => void  // Refresh data from storage
+  onRefresh?: () => Promise<{ success: boolean; backupSuccess: boolean; error?: string }>  // Refresh data from storage
   isOpen: boolean
   selectedPromptId: string | null
   onClose?: () => void
@@ -641,12 +641,25 @@ export function DropdownContainer({
   // Refresh state
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Handle refresh with loading state
+  // Handle refresh with loading state and toast feedback
   const handleRefreshClick = useCallback(async () => {
     if (isRefreshing || !onRefresh) return
     setIsRefreshing(true)
     try {
-      await onRefresh()
+      const result = await onRefresh()
+      if (result.success) {
+        if (result.backupSuccess) {
+          setToastMessage('刷新成功，数据已备份')
+        } else {
+          setToastMessage('刷新成功，备份失败请检查权限')
+        }
+      } else if (result.error === 'NO_FOLDER_HANDLE') {
+        // No folder configured - open settings to select folder
+        chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' })
+      } else {
+        setToastMessage('刷新失败')
+      }
+      setTimeout(() => setToastMessage(null), 3000)
     } finally {
       setIsRefreshing(false)
     }

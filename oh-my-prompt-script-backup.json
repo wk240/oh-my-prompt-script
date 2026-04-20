@@ -8,7 +8,7 @@
         "description": "提升整体画质和分辨率",
         "id": "q1",
         "name": "通用高质量",
-        "order": 0
+        "order": 2
       },
       {
         "categoryId": "cat-quality",
@@ -40,7 +40,7 @@
         "description": "未来科幻霓虹美学",
         "id": "s1",
         "name": "赛博朋克",
-        "order": 2
+        "order": 0
       },
       {
         "categoryId": "cat-style",
@@ -430,5 +430,5 @@
       }
     ]
   },
-  "backupTime": "2026-04-20T14:25:19.267Z"
+  "backupTime": "2026-04-20T14:32:11.004Z"
 }
