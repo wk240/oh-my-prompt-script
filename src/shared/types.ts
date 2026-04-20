@@ -15,11 +15,40 @@ export interface Category {
   order: number
 }
 
-// Phase 3: Storage schema
+// User data container - all prompts and categories owned by user
+export interface UserData {
+  prompts: Prompt[]
+  categories: Category[]
+}
+
+// Sync settings for local folder backup
+export interface SyncSettings {
+  showBuiltin: boolean // Show resource library reference in UI
+  syncEnabled: boolean // Auto-sync to local folder enabled
+  lastSyncTime?: number // Timestamp of last successful sync
+}
+
+// New storage schema with nested structure
 export interface StorageSchema {
+  version: string // From manifest, dynamic read
+  userData: UserData // User's prompts and categories
+  settings: SyncSettings // Sync and display settings
+  _migrationComplete?: boolean // Prevents re-migration
+}
+
+// Legacy schema for migration detection
+export interface LegacyStorageSchema {
   prompts: Prompt[]
   categories: Category[]
   version: string
+}
+
+// Local sync file format
+export interface LocalSyncFile {
+  version: 1 // File format version (not extension version)
+  prompts: Prompt[]
+  categories: Category[]
+  exportedAt: number // Timestamp
 }
 
 // Resource library prompt types (from local JSON data)
