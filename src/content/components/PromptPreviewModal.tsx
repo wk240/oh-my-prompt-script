@@ -141,7 +141,7 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
               justifyContent: 'center',
               gap: '4px',
               padding: '8px 16px',
-              background: '#1890ff',
+              background: '#171717',
               border: 'none',
               borderRadius: '6px',
               fontSize: '12px',

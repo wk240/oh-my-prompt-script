@@ -240,7 +240,7 @@ export function CategorySelectDialog({
             style={{
               flex: 1, // UI-SPEC
               padding: '10px',
-              background: '#1890ff', // UI-SPEC accent
+              background: '#171717', // UI-SPEC primary
               border: 'none',
               borderRadius: '6px', // UI-SPEC
               fontSize: '12px',
