@@ -97,7 +97,7 @@ export function NetworkPromptCard({ prompt, onClick, onInject, onCollect, isColl
             alignItems: 'center',
             justifyContent: 'center',
             background: isCollected ? '#171717' : '#ffffff',
-            border: '1px solid #E5E5E5',
+            border: 'none',
             borderRadius: '4px',
             cursor: 'pointer',
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)',

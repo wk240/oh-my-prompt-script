@@ -1109,6 +1109,13 @@ export function DropdownContainer({
           setSelectedResourcePrompt(null)
         }}
         onCollect={() => setIsCategoryDialogOpen(true)}
+        onInject={() => {
+          if (onInjectResource) {
+            onInjectResource(selectedResourcePrompt)
+            setToastMessage('已注入提示词')
+            setTimeout(() => setToastMessage(null), 2000)
+          }
+        }}
       />
     )}
     {/* Category select dialog */}

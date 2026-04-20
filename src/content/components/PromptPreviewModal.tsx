@@ -1,11 +1,12 @@
 /**
  * PromptPreviewModal - Modal overlay for full prompt content display
  * Portal-rendered modal with escape/overlay close
+ * Footer: left 1/3 collect button, right 2/3 inject button
  */
 
 import { createPortal } from 'react-dom'
 import { useEffect, useCallback } from 'react'
-import { X, Bookmark } from 'lucide-react'
+import { X, Bookmark, ArrowUpRight } from 'lucide-react'
 import type { ResourcePrompt } from '../../shared/types'
 
 interface PromptPreviewModalProps {
@@ -13,6 +14,7 @@ interface PromptPreviewModalProps {
   isOpen: boolean
   onClose: () => void
   onCollect?: () => void
+  onInject?: () => void // Inject callback
 }
 
 const PORTAL_ID = 'oh-my-prompt-script-dropdown-portal'
@@ -27,7 +29,7 @@ function getPortalContainer(): HTMLElement {
   return container
 }
 
-export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: PromptPreviewModalProps) {
+export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect, onInject }: PromptPreviewModalProps) {
   // Escape key closes modal
   useEffect(() => {
     if (!isOpen) return
@@ -43,6 +45,12 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
     e.stopPropagation()
     if (e.target === e.currentTarget) onClose()
   }, [onClose])
+
+  // Handle inject click - close modal and call inject callback
+  const handleInject = useCallback(() => {
+    onInject?.()
+    onClose()
+  }, [onInject, onClose])
 
   if (!isOpen) return null
 
@@ -124,14 +132,9 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
           padding: '12px 16px',
           borderTop: '1px solid #E5E5E5',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
+          gap: '12px',
         }}>
-          {/* Source info */}
-          <div style={{ fontSize: '10px', color: '#64748B' }}>
-            来源: {prompt.sourceCategory || 'Unknown'}
-          </div>
-          {/* Active "收藏" button */}
+          {/* Left 1/3: 收藏 button */}
           <button
             onClick={() => onCollect?.()}
             aria-label="收藏提示词"
@@ -140,7 +143,31 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
               alignItems: 'center',
               justifyContent: 'center',
               gap: '4px',
-              padding: '8px 16px',
+              padding: '8px 12px',
+              background: '#ffffff',
+              border: '1px solid #E5E5E5',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              color: '#171717',
+              cursor: 'pointer',
+              flex: '1',
+              minWidth: '0',
+            }}
+          >
+            <Bookmark style={{ width: 14, height: 14 }} />
+            收藏
+          </button>
+          {/* Right 2/3: 插入 button */}
+          <button
+            onClick={handleInject}
+            aria-label="插入提示词"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: '8px 12px',
               background: '#171717',
               border: 'none',
               borderRadius: '6px',
@@ -148,10 +175,12 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
               fontWeight: 500,
               color: '#fff',
               cursor: 'pointer',
+              flex: '2',
+              minWidth: '0',
             }}
           >
-            <Bookmark style={{ width: 14, height: 14 }} />
-            收藏
+            <ArrowUpRight style={{ width: 14, height: 14 }} />
+            插入
           </button>
         </div>
       </div>
