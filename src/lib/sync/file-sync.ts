@@ -1,6 +1,38 @@
 import type { Prompt, Category, LocalSyncFile, UserData } from '../../shared/types'
 
 const SYNC_FILE_NAME = 'user-prompts.json'
+const BACKUP_FILE_NAME = 'oh-my-prompt-script-backup.json'
+
+/**
+ * Backup user data to local folder with fixed filename
+ * Used by refresh button for quick backup before reload
+ */
+export async function backupToFolder(
+  userData: UserData,
+  handle: FileSystemDirectoryHandle
+): Promise<void> {
+  try {
+    const fileHandle = await handle.getFileHandle(BACKUP_FILE_NAME, { create: true })
+    const writable = await fileHandle.createWritable()
+
+    const backupFile = {
+      version: chrome.runtime.getManifest().version,
+      userData: {
+        prompts: userData.prompts,
+        categories: userData.categories
+      },
+      backupTime: new Date().toISOString()
+    }
+
+    await writable.write(JSON.stringify(backupFile, null, 2))
+    await writable.close()
+
+    console.log('[Oh My Prompt Script] Backup saved:', BACKUP_FILE_NAME)
+  } catch (error) {
+    console.error('[Oh My Prompt Script] Failed to backup:', error)
+    throw error
+  }
+}
 
 /**
  * Sync user data to local folder
