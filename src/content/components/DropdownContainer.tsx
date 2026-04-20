@@ -887,9 +887,6 @@ export function DropdownContainer({
                   <Database className="sidebar-category-icon" />
                 </div>
                 <span>全部</span>
-                <span style={{ fontSize: '12px', fontWeight: 400, color: '#64748B' }}>
-                  · {resourcePrompts.length}条
-                </span>
               </button>
               {/* ResourceCategory list */}
               {sortProviderCategoriesByOrder(resourceCategories).map((category) => (

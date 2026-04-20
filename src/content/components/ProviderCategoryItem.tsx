@@ -38,12 +38,9 @@ export function ProviderCategoryItem({ category, isSelected, onSelect }: Provide
     >
       {/* Database icon for resource categories */}
       <Database style={{ width: 14, height: 14, color: isSelected ? '#A16207' : '#64748B' }} />
-      {/* Name + count */}
+      {/* Name only */}
       <span style={{ fontSize: '12px', fontWeight: 500, color: '#171717', flex: 1 }}>
         {category.name}
-      </span>
-      <span style={{ fontSize: '12px', fontWeight: 400, color: '#64748B' }}>
-        · {category.count}条
       </span>
     </div>
   )
