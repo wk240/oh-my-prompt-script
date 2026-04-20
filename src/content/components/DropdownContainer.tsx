@@ -212,6 +212,19 @@ function getDropdownStyles(): string {
       background: #f8f8f8;
     }
 
+    #${PORTAL_ID} .dropdown-settings.refreshing {
+      cursor: wait;
+    }
+
+    #${PORTAL_ID} .dropdown-settings.refreshing svg {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     #${PORTAL_ID} .dropdown-content {
       flex: 1;
       overflow-y: auto;
@@ -625,6 +638,20 @@ export function DropdownContainer({
   // Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
+  // Refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Handle refresh with loading state
+  const handleRefreshClick = useCallback(async () => {
+    if (isRefreshing || !onRefresh) return
+    setIsRefreshing(true)
+    try {
+      await onRefresh()
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [isRefreshing, onRefresh])
+
   // Check if a resource prompt is already collected
   const isPromptCollected = useCallback((resourcePrompt: ResourcePrompt): boolean => {
     return localPrompts.some(p => p.content === resourcePrompt.content)
@@ -1007,10 +1034,10 @@ export function DropdownContainer({
           </span>
           <div className="dropdown-header-actions">
             <button
-              className="dropdown-settings"
-              onClick={onRefresh}
+              className={`dropdown-settings ${isRefreshing ? 'refreshing' : ''}`}
+              onClick={handleRefreshClick}
               aria-label="刷新数据"
-              disabled={!onRefresh}
+              disabled={isRefreshing}
             >
               <RefreshCw style={{ width: 14, height: 14 }} />
             </button>
