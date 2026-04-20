@@ -38,8 +38,9 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
-  // Click overlay closes modal
+  // Click overlay closes modal - stop propagation to prevent dropdown close
   const handleOverlayClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
     if (e.target === e.currentTarget) onClose()
   }, [onClose])
 
@@ -62,6 +63,7 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect }: Promp
       {/* Modal */}
       <div
         className="modal-content"
+        onClick={(e) => e.stopPropagation()}
         style={{
           position: 'fixed',
           top: '50%',

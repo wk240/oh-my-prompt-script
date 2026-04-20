@@ -812,10 +812,17 @@ export function DropdownContainer({
   }
 
   // Close dropdown when clicking outside
+  // IMPORTANT: Portal container contains dropdown + modals/dialogs - all should skip detection
   useEffect(() => {
     if (!isOpen) return
 
     const handleClickOutside = (e: MouseEvent) => {
+      // Skip if click is inside portal container (dropdown + modals/dialogs all render there)
+      const portalContainer = document.getElementById(PORTAL_ID)
+      if (portalContainer && portalContainer.contains(e.target as Node)) {
+        return
+      }
+
       const hostElement = document.querySelector('[data-testid="prompt-script-trigger"]')
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
           hostElement && !hostElement.contains(e.target as Node)) {

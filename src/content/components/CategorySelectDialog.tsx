@@ -56,8 +56,9 @@ export function CategorySelectDialog({
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
-  // Overlay click handler
+  // Overlay click handler - stop propagation to prevent dropdown close
   const handleOverlayClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
     if (e.target === e.currentTarget) onClose()
   }, [onClose])
 
@@ -105,6 +106,7 @@ export function CategorySelectDialog({
       />
       {/* Dialog container (D-11: Portal, D-12: Category list + new category) */}
       <div
+        onClick={(e) => e.stopPropagation()}
         style={{
           position: 'fixed',
           top: '50%',
