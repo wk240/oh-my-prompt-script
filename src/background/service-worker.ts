@@ -1,6 +1,8 @@
 import { MessageType, MessageResponse } from '../shared/messages'
 import type { StorageSchema, SyncSettings } from '../shared/types'
 import { StorageManager } from '../lib/storage'
+import { getFolderHandle } from '../lib/sync/indexeddb'
+import { backupToFolder } from '../lib/sync/file-sync'
 import '../lib/migrations/v1.0' // Register migrations
 
 console.log('[Oh My Prompt Script] Service Worker started')
@@ -75,6 +77,27 @@ chrome.runtime.onMessage.addListener(
           .catch(error => {
             console.error('[Oh My Prompt Script] OPEN_SETTINGS error:', error)
             sendResponse({ success: false, error: 'Failed to open settings' })
+          })
+        return true // Required for async response
+
+      case MessageType.BACKUP_TO_FOLDER:
+        // Backup to local folder - needs to run in extension context for IndexedDB access
+        getFolderHandle()
+          .then(handle => {
+            if (!handle) {
+              sendResponse({ success: false, error: 'No folder handle configured' })
+              return null
+            }
+            return storageManager.getData().then(data => {
+              console.log('[Oh My Prompt Script] Backing up', data.userData.prompts.length, 'prompts')
+              return backupToFolder(data.userData, handle)
+            })
+          })
+          .then(() => storageManager.updateSettings({ lastSyncTime: Date.now() }))
+          .then(() => sendResponse({ success: true } as MessageResponse))
+          .catch(error => {
+            console.error('[Oh My Prompt Script] BACKUP_TO_FOLDER error:', error)
+            sendResponse({ success: false, error: String(error) })
           })
         return true // Required for async response
 

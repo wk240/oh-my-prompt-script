@@ -3,7 +3,8 @@ export enum MessageType {
   GET_STORAGE = 'GET_STORAGE',
   SET_STORAGE = 'SET_STORAGE',
   INSERT_PROMPT = 'INSERT_PROMPT',
-  OPEN_SETTINGS = 'OPEN_SETTINGS'
+  OPEN_SETTINGS = 'OPEN_SETTINGS',
+  BACKUP_TO_FOLDER = 'BACKUP_TO_FOLDER'
 }
 
 export interface Message<T = unknown> {

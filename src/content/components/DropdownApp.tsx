@@ -10,9 +10,6 @@ import type { Prompt } from '../../shared/types'
 import type { ResourcePrompt } from '../../shared/types'
 import { InsertHandler } from '../insert-handler'
 import { usePromptStore } from '../../lib/store'
-import { getFolderHandle } from '../../lib/sync/indexeddb'
-import { backupToFolder } from '../../lib/sync/file-sync'
-import { StorageManager } from '../../lib/storage'
 
 interface DropdownAppProps {
   inputElement: HTMLElement
@@ -50,19 +47,17 @@ export function DropdownApp({ inputElement }: DropdownAppProps) {
   }, [inputElement])
 
   const handleRefresh = useCallback(async () => {
-    // Check if folder handle exists for backup
-    const handle = await getFolderHandle()
-
-    if (handle) {
-      try {
-        const storageManager = StorageManager.getInstance()
-        const data = await storageManager.getData()
-        await backupToFolder(data.userData, handle)
-        await storageManager.updateSettings({ lastSyncTime: Date.now() })
-        console.log('[Oh My Prompt Script] Backup completed before refresh')
-      } catch (error) {
-        console.warn('[Oh My Prompt Script] Backup failed before refresh:', error)
+    // Backup via service worker (has access to IndexedDB in extension context)
+    console.log('[Oh My Prompt Script] Refresh clicked, requesting backup via service worker...')
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'BACKUP_TO_FOLDER' })
+      if (response?.success) {
+        console.log('[Oh My Prompt Script] Backup completed')
+      } else {
+        console.warn('[Oh My Prompt Script] Backup failed:', response?.error)
       }
+    } catch (error) {
+      console.warn('[Oh My Prompt Script] Backup request failed:', error)
     }
 
     await loadFromStorage()

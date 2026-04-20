@@ -68,6 +68,8 @@ export async function getFolderHandle(): Promise<FileSystemDirectoryHandle | nul
     request.onsuccess = async () => {
       const handle = request.result as FileSystemDirectoryHandle | undefined
 
+      console.log('[Oh My Prompt Script] IndexedDB handle result:', handle ? 'found' : 'not found')
+
       if (!handle) {
         resolve(null)
         return
@@ -75,6 +77,7 @@ export async function getFolderHandle(): Promise<FileSystemDirectoryHandle | nul
 
       // Check permission status
       const permission = await handle.queryPermission({ mode: 'readwrite' })
+      console.log('[Oh My Prompt Script] Permission status:', permission)
 
       if (permission === 'granted') {
         resolve(handle)
@@ -82,14 +85,17 @@ export async function getFolderHandle(): Promise<FileSystemDirectoryHandle | nul
       }
 
       // Permission not granted - request new permission
+      console.log('[Oh My Prompt Script] Requesting permission...')
       try {
         const requested = await handle.requestPermission({ mode: 'readwrite' })
+        console.log('[Oh My Prompt Script] Permission request result:', requested)
         if (requested === 'granted') {
           resolve(handle)
           return
         }
-      } catch {
+      } catch (error) {
         // Permission request failed - remove invalid handle
+        console.warn('[Oh My Prompt Script] Permission request failed:', error)
         await removeFolderHandle()
       }
 
