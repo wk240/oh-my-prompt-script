@@ -1,11 +1,12 @@
-import { Download, Upload } from 'lucide-react'
+import { Download, RefreshCw, Upload } from 'lucide-react'
 
 interface HeaderProps {
   onImport: () => void
   onExport: () => void
+  onRefresh: () => void
 }
 
-function Header({ onImport, onExport }: HeaderProps) {
+function Header({ onImport, onExport, onRefresh }: HeaderProps) {
   return (
     <header className="h-[68px] px-6 flex items-center justify-between border-b border-[#E5E5E5] bg-white">
       {/* Brand Section */}
@@ -34,6 +35,13 @@ function Header({ onImport, onExport }: HeaderProps) {
 
       {/* Actions Section */}
       <div className="flex items-center gap-5">
+        <button
+          onClick={onRefresh}
+          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          title="刷新数据"
+        >
+          <RefreshCw className="w-[20px] h-[20px] text-[#171717]" />
+        </button>
         <button
           onClick={onImport}
           className="p-2 hover:bg-gray-100 rounded transition-colors"

@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { Prompt, Category } from '../../shared/types'
 import type { ResourcePrompt, ResourceCategory } from '../../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder } from '../../shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image } from 'lucide-react'
+import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -28,6 +28,7 @@ interface DropdownContainerProps {
   categories: Category[]
   onSelect: (prompt: Prompt) => void
   onInjectResource?: (prompt: ResourcePrompt) => void  // Inject resource prompt directly
+  onRefresh?: () => void  // Refresh data from storage
   isOpen: boolean
   selectedPromptId: string | null
   onClose?: () => void
@@ -592,6 +593,7 @@ export function DropdownContainer({
   categories: propCategories,
   onSelect,
   onInjectResource,
+  onRefresh,
   isOpen,
   selectedPromptId,
   onClose,
@@ -1001,6 +1003,14 @@ export function DropdownContainer({
             Oh My Prompt Script
           </span>
           <div className="dropdown-header-actions">
+            <button
+              className="dropdown-settings"
+              onClick={onRefresh}
+              aria-label="刷新数据"
+              disabled={!onRefresh}
+            >
+              <RefreshCw style={{ width: 14, height: 14 }} />
+            </button>
             <button
               className="dropdown-settings"
               onClick={handleOpenSettings}

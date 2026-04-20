@@ -46,6 +46,10 @@ export function DropdownApp({ inputElement }: DropdownAppProps) {
     }, 2000)
   }, [inputElement])
 
+  const handleRefresh = useCallback(async () => {
+    await loadFromStorage()
+  }, [loadFromStorage])
+
   // Handle direct injection of resource prompt
   const handleInjectResource = useCallback((resourcePrompt: ResourcePrompt) => {
     insertHandlerRef.current.insertPrompt(inputElement, resourcePrompt.content)
@@ -65,6 +69,7 @@ export function DropdownApp({ inputElement }: DropdownAppProps) {
         categories={categories}
         onSelect={handleSelect}
         onInjectResource={handleInjectResource}
+        onRefresh={handleRefresh}
         isOpen={isOpen}
         selectedPromptId={selectedPromptId}
         onClose={handleClose}

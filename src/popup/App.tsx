@@ -33,6 +33,11 @@ function App() {
     loadFromStorage()
   }, [loadFromStorage])
 
+  const handleRefresh = async () => {
+    await loadFromStorage()
+    toast({ title: '刷新成功', description: '数据已从存储重新加载' })
+  }
+
   const handleImport = async () => {
     // Create file input
     const input = document.createElement('input')
@@ -152,7 +157,7 @@ function App() {
 
   return (
     <div className="w-full h-full flex flex-col bg-white overflow-hidden">
-      <Header onImport={handleImport} onExport={handleExport} />
+      <Header onImport={handleImport} onExport={handleExport} onRefresh={handleRefresh} />
       <div className="flex flex-1 overflow-hidden min-h-0">
         <CategorySidebar
           onDeleteCategory={handleDeleteCategory}
