@@ -1053,11 +1053,11 @@ export function DropdownContainer({
             Oh My Prompt Script
           </span>
           <div className="dropdown-header-actions">
-            <Tooltip content="刷新数据" placement="bottom">
+            <Tooltip content="备份数据" placement="bottom">
               <button
                 className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
                 onClick={handleRefreshClick}
-                aria-label="刷新数据"
+                aria-label="备份数据"
                 disabled={isRefreshing}
               >
                 <RefreshCw style={{ width: 14, height: 14 }} />
