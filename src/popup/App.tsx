@@ -6,13 +6,13 @@ import { useToast } from '../hooks/use-toast'
 import { backupToFolder } from '../lib/sync/file-sync'
 import { getFolderHandle } from '../lib/sync/indexeddb'
 import { StorageManager } from '../lib/storage'
+import { MessageType } from '../shared/messages'
 import Header from './components/Header'
 import CategorySidebar from './components/CategorySidebar'
 import PromptList from './components/PromptList'
 import PromptEditDialog from './components/PromptEditDialog'
 import AddCategoryDialog from './components/AddCategoryDialog'
 import DeleteConfirmDialog from './components/DeleteConfirmDialog'
-import BackupSettingsDialog from './components/BackupSettingsDialog'
 import { Toaster } from './components/ui/toaster'
 
 const ALL_CATEGORY_ID = 'all'
@@ -23,7 +23,6 @@ function App() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false)
-  const [backupDialogOpen, setBackupDialogOpen] = useState(false)
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null)
   const [promptToDelete, setPromptToDelete] = useState<{
     id: string
@@ -39,28 +38,23 @@ function App() {
   }, [loadFromStorage])
 
   const handleRefresh = async () => {
-    // Check if folder handle exists
     const handle = await getFolderHandle()
 
     if (handle) {
-      // Backup then refresh
       try {
         const storageManager = StorageManager.getInstance()
         const data = await storageManager.getData()
         await backupToFolder(data.userData, handle)
         await storageManager.updateSettings({ lastSyncTime: Date.now() })
-
-        // Now refresh from storage
         await loadFromStorage()
         toast({ title: '刷新成功', description: '数据已备份并重新加载' })
       } catch (error) {
-        // Backup failed, but still refresh
         await loadFromStorage()
         toast({ title: '刷新成功', description: '数据已重新加载（备份失败，请检查文件夹权限）', variant: 'destructive' })
       }
     } else {
-      // No folder handle - open backup settings dialog
-      setBackupDialogOpen(true)
+      // No folder - open backup page in new tab
+      chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
     }
   }
 
@@ -213,10 +207,6 @@ function App() {
         onConfirm={confirmDelete}
         itemName={promptToDelete?.name || categoryToDelete?.name || ''}
         description={categoryToDelete ? '该分类下的所有提示词将被删除。' : undefined}
-      />
-      <BackupSettingsDialog
-        open={backupDialogOpen}
-        onClose={() => setBackupDialogOpen(false)}
       />
 
       {/* Toast notifications */}

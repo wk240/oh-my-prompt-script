@@ -1,14 +1,3 @@
-/**
- * Type augmentation for File System Access API
- * TypeScript DOM lib doesn't include queryPermission/requestPermission
- */
-declare global {
-  interface FileSystemHandle {
-    queryPermission(options?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>
-    requestPermission(options?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>
-  }
-}
-
 import { SYNC_DB_NAME, SYNC_STORE_NAME, SYNC_HANDLE_KEY } from '@/shared/constants'
 
 /**
@@ -51,11 +40,11 @@ export async function saveFolderHandle(handle: FileSystemDirectoryHandle): Promi
 
 /**
  * Get folder handle from IndexedDB
- * Returns null if not found or permission not granted
+ * Returns null if not found
  *
- * Chrome's File System Access API caches permission states, so a handle
- * can have 'granted' permission even when the underlying folder is invalid.
- * We verify handle validity by attempting a lightweight directory operation.
+ * Note: Handles restored from IndexedDB may have limited API availability.
+ * Validation is deferred to actual file operations - if handle is invalid,
+ * backupToFolder will throw and caller can handle the error.
  */
 export async function getFolderHandle(): Promise<FileSystemDirectoryHandle | null> {
   const db = await openSyncDB()
@@ -65,41 +54,10 @@ export async function getFolderHandle(): Promise<FileSystemDirectoryHandle | nul
     const store = transaction.objectStore(SYNC_STORE_NAME)
     const request = store.get(SYNC_HANDLE_KEY)
 
-    request.onsuccess = async () => {
+    request.onsuccess = () => {
       const handle = request.result as FileSystemDirectoryHandle | undefined
-
       console.log('[Oh My Prompt Script] IndexedDB handle result:', handle ? 'found' : 'not found')
-
-      if (!handle) {
-        resolve(null)
-        return
-      }
-
-      // Check permission status
-      const permission = await handle.queryPermission({ mode: 'readwrite' })
-      console.log('[Oh My Prompt Script] Permission status:', permission)
-
-      if (permission === 'granted') {
-        resolve(handle)
-        return
-      }
-
-      // Permission not granted - request new permission
-      console.log('[Oh My Prompt Script] Requesting permission...')
-      try {
-        const requested = await handle.requestPermission({ mode: 'readwrite' })
-        console.log('[Oh My Prompt Script] Permission request result:', requested)
-        if (requested === 'granted') {
-          resolve(handle)
-          return
-        }
-      } catch (error) {
-        // Permission request failed - remove invalid handle
-        console.warn('[Oh My Prompt Script] Permission request failed:', error)
-        await removeFolderHandle()
-      }
-
-      resolve(null)
+      resolve(handle || null)
     }
 
     request.onerror = () => reject(request.error)

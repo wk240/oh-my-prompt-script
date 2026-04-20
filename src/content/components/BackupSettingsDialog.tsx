@@ -6,6 +6,7 @@
 import { createPortal } from 'react-dom'
 import { useState, useEffect, useCallback } from 'react'
 import { X, FolderOpen, Check } from 'lucide-react'
+import { backupToFolder } from '@/lib/sync/file-sync'
 
 const PORTAL_ID = 'oh-my-prompt-script-dropdown-portal'
 
@@ -92,20 +93,52 @@ export function BackupSettingsDialog({
     if (e.target === e.currentTarget) onClose()
   }, [onClose])
 
-  // Handle folder selection
+  // Handle folder selection - perform all file operations in content script (has DOM access)
   const handleSelectFolder = async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'SELECT_AND_SAVE_FOLDER' })
+      // Call showDirectoryPicker directly - only works in content script context
+      const handle = await window.showDirectoryPicker({
+        mode: 'readwrite',
+        startIn: 'documents'
+      })
+
+      // Verify permission
+      const permission = await handle.requestPermission({ mode: 'readwrite' })
+      if (permission !== 'granted') {
+        setError('文件夹权限被拒绝')
+        setLoading(false)
+        return
+      }
+
+      // Get user data for backup
+      const dataResponse = await chrome.runtime.sendMessage({ type: 'GET_STORAGE' })
+      if (!dataResponse?.success || !dataResponse?.data) {
+        setError('获取数据失败')
+        setLoading(false)
+        return
+      }
+
+      // Perform backup in content script (file operations need DOM context)
+      await backupToFolder(dataResponse.data.userData, handle)
+
+      // Save handle to IndexedDB and update status in service worker
+      const response = await chrome.runtime.sendMessage({
+        type: 'SAVE_FOLDER_HANDLE',
+        payload: { handle, folderName: handle.name, lastSyncTime: Date.now() }
+      })
+
       if (response?.success) {
         setStatus(response.data)
         onBackupSuccess?.()
       } else {
-        setError(response?.error || '选择文件夹失败')
+        setError(response?.error || '保存文件夹失败')
       }
     } catch (err) {
-      setError('选择文件夹失败')
+      // User cancelled or picker failed
+      console.log('[Oh My Prompt Script] Folder picker cancelled or failed:', err)
+      setError('选择文件夹失败或已取消')
     } finally {
       setLoading(false)
     }

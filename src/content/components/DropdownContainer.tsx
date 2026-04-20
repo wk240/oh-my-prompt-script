@@ -654,19 +654,19 @@ export function DropdownContainer({
     setIsRefreshing(true)
     try {
       const result = await onRefresh()
-      if (result.success) {
-        if (result.backupSuccess) {
-          setToastMessage('刷新成功，数据已备份')
-        } else {
-          setToastMessage('刷新成功，备份失败请检查权限')
-        }
-      } else if (result.error === 'NO_FOLDER_HANDLE') {
-        // No folder configured - open backup settings dialog
+      // Check for NO_FOLDER_HANDLE first - open backup dialog
+      if (result.error === 'NO_FOLDER_HANDLE') {
         setIsBackupDialogOpen(true)
+      } else if (result.backupSuccess) {
+        setToastMessage('刷新成功，数据已备份')
+      } else if (result.success) {
+        setToastMessage('刷新成功')
       } else {
         setToastMessage('刷新失败')
       }
-      setTimeout(() => setToastMessage(null), 3000)
+      if (result.error !== 'NO_FOLDER_HANDLE') {
+        setTimeout(() => setToastMessage(null), 3000)
+      }
     } finally {
       setIsRefreshing(false)
     }
