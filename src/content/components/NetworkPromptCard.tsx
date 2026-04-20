@@ -152,6 +152,28 @@ export function NetworkPromptCard({ prompt, onClick, onInject, onCollect, isColl
           {prompt.sourceCategory || 'Unknown'}
         </div>
       </Tooltip>
+      {/* Author attribution */}
+      {prompt.author && (
+        <a
+          href={prompt.authorUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            fontSize: '10px',
+            fontWeight: 400,
+            color: '#737373',
+            marginTop: '4px',
+            display: 'block',
+            textDecoration: 'none',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          by {prompt.author}
+        </a>
+      )}
     </div>
   )
 }

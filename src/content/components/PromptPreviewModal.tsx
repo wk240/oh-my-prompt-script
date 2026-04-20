@@ -92,39 +92,61 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect, onInjec
           padding: '16px',
           borderBottom: '1px solid #E5E5E5',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '8px',
+          flexDirection: 'column',
+          gap: '4px',
         }}>
-          <span style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            color: '#171717',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            flex: '1',
-            minWidth: '0',
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '8px',
           }}>
-            {prompt.name}
-          </span>
-          <button
-            onClick={onClose}
-            aria-label="关闭"
-            style={{
-              width: '24px',
-              height: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
+            <span style={{
+              fontSize: '14px',
+              fontWeight: 600,
               color: '#171717',
-            }}
-          >
-            <X style={{ width: 16, height: 16 }} />
-          </button>
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: '1',
+              minWidth: '0',
+            }}>
+              {prompt.name}
+            </span>
+            <button
+              onClick={onClose}
+              aria-label="关闭"
+              style={{
+                width: '24px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#171717',
+              }}
+            >
+              <X style={{ width: 16, height: 16 }} />
+            </button>
+          </div>
+          {/* Author attribution */}
+          {prompt.author && (
+            <a
+              href={prompt.authorUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: '11px',
+                fontWeight: 400,
+                color: '#737373',
+                textDecoration: 'none',
+              }}
+            >
+              来源: {prompt.author}
+            </a>
+          )}
         </div>
         {/* Content */}
         <div style={{
