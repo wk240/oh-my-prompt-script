@@ -78,6 +78,11 @@ export class StorageManager {
   /**
    * Retrieves full storage data with migration handling
    * Handles: empty storage, legacy format, version mismatches
+   *
+   * Three mutually exclusive cases:
+   * 1. No data → initialize (first install)
+   * 2. Legacy format → migrate
+   * 3. New format → validate and update version if needed
    */
   async getData(): Promise<StorageSchema> {
     try {
@@ -97,35 +102,31 @@ export class StorageManager {
         return migrated
       }
 
-      // Case 3: Already new format but wrong version
-      const currentVersion = this.getCurrentVersion()
+      // Case 3: New format - validate and handle version
       const schema = data as StorageSchema
+      const currentVersion = this.getCurrentVersion()
 
-      if (schema.version !== currentVersion && !schema._migrationComplete) {
-        console.log('[Oh My Prompt Script] Version mismatch, running migration...')
-        const migrated = await migrate(schema, currentVersion)
-        await this.saveData(migrated)
-        return migrated
+      // Validate that schema has required fields
+      if (!schema.userData || !schema.settings) {
+        console.warn('[Oh My Prompt Script] Malformed storage data (missing fields), reinitializing...')
+        return await this.initializeStorage()
       }
 
-      // Case 4: Already migrated and up-to-date
-      if (schema._migrationComplete && schema.version === currentVersion) {
-        return schema
-      }
-
-      // Case 5: Has userData but version needs update
-      if (schema.userData && schema.version !== currentVersion) {
+      // Update version if mismatch (no full migration needed for new format)
+      if (schema.version !== currentVersion) {
+        console.log('[Oh My Prompt Script] Version mismatch, updating version...')
         schema.version = currentVersion
         schema._migrationComplete = true
         await this.saveData(schema)
-        return schema
       }
 
-      // Fallback: malformed data, reinitialize
-      console.warn('[Oh My Prompt Script] Malformed storage data, reinitializing...')
-      return await this.initializeStorage()
+      return schema
     } catch (error: unknown) {
       console.error('[Oh My Prompt Script] Failed to get storage data:', error)
+      // CRITICAL: Return defaults WITHOUT persisting - data loss risk on transient error
+      // This fallback ensures UI can render, but user's data may be lost
+      // If error persists, user should check storage or reinstall extension
+      console.warn('[Oh My Prompt Script] Returning default data without persisting - potential data loss')
       return this.getDefaultData()
     }
   }
