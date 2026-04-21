@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { usePromptStore } from '../lib/store'
 import { exportData, readImportFile } from '../lib/import-export'
 import type { Prompt, StorageSchema } from '../shared/types'
+import type { UpdateStatus } from '../lib/version-checker'
 import { useToast } from '../hooks/use-toast'
 import { MessageType } from '../shared/messages'
 import Header from './components/Header'
@@ -29,10 +30,23 @@ function App() {
     id: string
     name: string
   } | null>(null)
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
 
   useEffect(() => {
     loadFromStorage()
+    // Fetch update status on popup open
+    chrome.runtime.sendMessage({ type: MessageType.GET_UPDATE_STATUS }, (response) => {
+      if (response?.success && response.data) {
+        setUpdateStatus(response.data)
+      }
+    })
   }, [loadFromStorage])
+
+  const dismissUpdate = () => {
+    chrome.runtime.sendMessage({ type: MessageType.CLEAR_UPDATE_STATUS }, () => {
+      setUpdateStatus(null)
+    })
+  }
 
   const handleRefresh = async () => {
     // Always open backup page for user to choose action
@@ -159,7 +173,28 @@ function App() {
 
   return (
     <div className="w-full h-full flex flex-col bg-white overflow-hidden">
-      <Header onImport={handleImport} onExport={handleExport} onRefresh={handleRefresh} />
+      {/* Update notification banner */}
+      {updateStatus?.hasUpdate && (
+        <div className="bg-orange-50 border-b border-orange-200 px-3 py-2 flex items-center gap-2 text-sm">
+          <span className="text-orange-700 font-medium">新版本 {updateStatus.latestVersion} 可用</span>
+          <a
+            href={updateStatus.downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-orange-600 hover:text-orange-800 underline font-medium"
+          >
+            立即下载
+          </a>
+          <button
+            onClick={dismissUpdate}
+            className="text-gray-400 hover:text-gray-600 ml-auto text-lg leading-none"
+            aria-label="关闭提示"
+          >
+            ×
+          </button>
+        </div>
+      )}
+      <Header onImport={handleImport} onExport={handleExport} onRefresh={handleRefresh} onUpdateAvailable={setUpdateStatus} />
       <div className="flex flex-1 overflow-hidden min-h-0">
         <CategorySidebar
           onDeleteCategory={handleDeleteCategory}

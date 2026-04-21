@@ -3,11 +3,43 @@ import type { StorageSchema, SyncSettings } from '../shared/types'
 import { StorageManager } from '../lib/storage'
 import { saveFolderHandle } from '../lib/sync/indexeddb'
 import { getSyncStatus } from '../lib/sync/sync-manager'
+import { checkForUpdate, getUpdateStatus, clearUpdateStatus, type UpdateStatus } from '../lib/version-checker'
 import '../lib/migrations/v1.0' // Register migrations
 
 console.log('[Oh My Prompt Script] Service Worker started')
 
 const storageManager = StorageManager.getInstance()
+
+// Create alarm for periodic update checks
+const UPDATE_ALARM_NAME = 'check-update'
+const UPDATE_INTERVAL_MINUTES = 60
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create(UPDATE_ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL_MINUTES })
+  console.log('[Oh My Prompt Script] Update alarm created (onInstalled)')
+})
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.create(UPDATE_ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL_MINUTES })
+  console.log('[Oh My Prompt Script] Update alarm created (onStartup)')
+})
+
+// Handle alarm for update check
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === UPDATE_ALARM_NAME) {
+    console.log('[Oh My Prompt Script] Checking for updates...')
+    const status = await checkForUpdate()
+    if (status.hasUpdate) {
+      // Show badge to indicate new version
+      await chrome.action.setBadgeText({ text: '↑' })
+      await chrome.action.setBadgeBackgroundColor({ color: '#FF5722' })
+      console.log('[Oh My Prompt Script] New version available:', status.latestVersion)
+    } else {
+      // Clear badge if no update
+      await chrome.action.setBadgeText({ text: '' })
+    }
+  }
+})
 
 chrome.runtime.onMessage.addListener(
   (message, _sender, sendResponse) => {
@@ -136,6 +168,44 @@ chrome.runtime.onMessage.addListener(
         // This is just a confirmation from backup page
         sendResponse({ success: true } as MessageResponse)
         break
+
+      case MessageType.CHECK_UPDATE:
+        // Manual update check triggered from popup
+        checkForUpdate()
+          .then(status => {
+            if (status.hasUpdate) {
+              chrome.action.setBadgeText({ text: '↑' })
+              chrome.action.setBadgeBackgroundColor({ color: '#FF5722' })
+            } else {
+              chrome.action.setBadgeText({ text: '' })
+            }
+            sendResponse({ success: true, data: status } as MessageResponse<UpdateStatus>)
+          })
+          .catch(error => {
+            console.error('[Oh My Prompt Script] CHECK_UPDATE error:', error)
+            sendResponse({ success: false, error: 'Failed to check for updates' })
+          })
+        return true // Required for async response
+
+      case MessageType.GET_UPDATE_STATUS:
+        // Get stored update status for popup display
+        getUpdateStatus()
+          .then(status => sendResponse({ success: true, data: status } as MessageResponse<UpdateStatus | null>))
+          .catch(error => {
+            console.error('[Oh My Prompt Script] GET_UPDATE_STATUS error:', error)
+            sendResponse({ success: false, error: 'Failed to get update status' })
+          })
+        return true // Required for async response
+
+      case MessageType.CLEAR_UPDATE_STATUS:
+        // Clear update notification (user dismissed)
+        clearUpdateStatus()
+          .then(() => sendResponse({ success: true } as MessageResponse))
+          .catch(error => {
+            console.error('[Oh My Prompt Script] CLEAR_UPDATE_STATUS error:', error)
+            sendResponse({ success: false, error: 'Failed to clear update status' })
+          })
+        return true // Required for async response
 
       default:
         sendResponse({ success: false, error: `Unknown message type: ${message.type}` })

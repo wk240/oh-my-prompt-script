@@ -7,9 +7,9 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { Prompt, Category } from '../../shared/types'
-import type { ResourcePrompt, ResourceCategory } from '../../shared/types'
+import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '../../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder } from '../../shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw } from 'lucide-react'
+import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -22,6 +22,7 @@ import { ToastNotification } from './ToastNotification'
 import { Tooltip } from './Tooltip'
 import { usePromptStore } from '../../lib/store'
 import { getResourcePrompts, getResourceCategories } from '../../lib/resource-library'
+import { MessageType } from '../../shared/messages'
 
 interface DropdownContainerProps {
   prompts: Prompt[]
@@ -460,6 +461,57 @@ function getDropdownStyles(): string {
       outline: 2px solid #A16207;
       outline-offset: 2px;
     }
+
+    /* Update notification banner styles */
+    #${PORTAL_ID} .update-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #fff3cd;
+      border-bottom: 1px solid #ffc107;
+    }
+
+    #${PORTAL_ID} .update-banner-text {
+      font-size: 11px;
+      color: #856404;
+      flex: 1;
+    }
+
+    #${PORTAL_ID} .update-banner-link {
+      font-size: 11px;
+      color: #d97706;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    #${PORTAL_ID} .update-banner-link:hover {
+      color: #b45309;
+    }
+
+    #${PORTAL_ID} .update-banner-close {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #856404;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    #${PORTAL_ID} .update-banner-close:hover {
+      color: #533b04;
+    }
+
+    #${PORTAL_ID} .version-badge {
+      font-size: 10px;
+      color: #64748B;
+      font-weight: 400;
+      margin-left: 4px;
+    }
   `
 }
 
@@ -643,6 +695,26 @@ export function DropdownContainer({
 
   // Refresh state
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Update notification state
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
+
+  // Fetch update status when dropdown opens
+  useEffect(() => {
+    if (!isOpen) return
+    chrome.runtime.sendMessage({ type: MessageType.GET_UPDATE_STATUS }, (response) => {
+      if (response?.success && response.data) {
+        setUpdateStatus(response.data)
+      }
+    })
+  }, [isOpen])
+
+  // Clear update notification
+  const handleDismissUpdate = useCallback(() => {
+    chrome.runtime.sendMessage({ type: MessageType.CLEAR_UPDATE_STATUS }, () => {
+      setUpdateStatus(null)
+    })
+  }, [])
 
   // Handle refresh with loading state
   const handleRefreshClick = useCallback(async () => {
@@ -1034,8 +1106,21 @@ export function DropdownContainer({
           <span className="dropdown-header-title">
             <img className="dropdown-header-logo" src={chrome.runtime.getURL('assets/icon-128.png')} alt="Oh My Prompt Script" />
             Oh My Prompt Script
+            <span className="version-badge">v{chrome.runtime.getManifest().version}</span>
           </span>
           <div className="dropdown-header-actions">
+            {updateStatus?.hasUpdate && (
+              <Tooltip content={`新版本 ${updateStatus.latestVersion} 可用`} placement="bottom">
+                <button
+                  className="dropdown-action-btn"
+                  style={{ color: '#FF5722' }}
+                  onClick={() => window.open(updateStatus.downloadUrl, '_blank')}
+                  aria-label="下载新版本"
+                >
+                  <ArrowUpCircle style={{ width: 14, height: 14 }} />
+                </button>
+              </Tooltip>
+            )}
             <Tooltip content="备份数据" placement="bottom">
               <button
                 className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
@@ -1066,6 +1151,21 @@ export function DropdownContainer({
             </Tooltip>
           </div>
         </div>
+
+        {/* Update notification banner */}
+        {updateStatus?.hasUpdate && (
+          <div className="update-banner">
+            <ArrowUpCircle style={{ width: 14, height: 14, color: '#856404' }} />
+            <span className="update-banner-text">新版本 {updateStatus.latestVersion} 可用</span>
+            <span
+              className="update-banner-link"
+              onClick={() => window.open(updateStatus.downloadUrl, '_blank')}
+            >
+              立即下载
+            </span>
+            <span className="update-banner-close" onClick={handleDismissUpdate}>×</span>
+          </div>
+        )}
 
         <div className="dropdown-content">
           {isLoading ? (

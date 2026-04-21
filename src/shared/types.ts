@@ -58,3 +58,13 @@ export interface ResourceCategory {
   order: number
   count: number // Number of prompts in category
 }
+
+// Update notification status
+export interface UpdateStatus {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string
+  downloadUrl: string
+  releaseNotes?: string
+  checkedAt: number
+}
