@@ -1278,6 +1278,47 @@ export function DropdownContainer({
     }
   }, [localPrompts, localCategories])
 
+  // Import handler
+  const handleImport = useCallback(() => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+
+      const result = await readImportFile(file)
+
+      if (result.valid && result.data) {
+        const merged = mergeImportData(
+          { prompts: localPrompts, categories: localCategories },
+          result.data.userData
+        )
+
+        // Update local state
+        setLocalPrompts(merged.prompts)
+        setLocalCategories(merged.categories)
+
+        // Update store and save to storage
+        usePromptStore.setState({
+          prompts: merged.prompts,
+          categories: merged.categories,
+          selectedCategoryId: 'all'
+        })
+        await usePromptStore.getState().saveToStorage()
+
+        setToastMessage(`导入成功：新增 ${merged.addedCount} 条，跳过 ${merged.skippedCount} 条重复`)
+        setTimeout(() => setToastMessage(null), 2000)
+      } else {
+        setToastMessage(result.error || '导入失败')
+        setTimeout(() => setToastMessage(null), 2000)
+      }
+    }
+
+    input.click()
+  }, [localPrompts, localCategories])
+
   // Close dropdown when clicking outside
   // IMPORTANT: Portal container contains dropdown + modals/dialogs - all should skip detection
   useEffect(() => {
