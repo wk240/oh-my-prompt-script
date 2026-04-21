@@ -171,23 +171,20 @@ chrome.runtime.onMessage.addListener(
         return true // Required for async response
 
       case MessageType.EXPORT_DATA:
-        // Export data as JSON file download (chrome.downloads only works in background)
+        // Export data as JSON file download using data URL (service worker doesn't support blob URLs)
         const exportPayload = message.payload as { version: string; userData: { prompts: unknown[]; categories: unknown[] }; settings: unknown }
         const exportFilename = `lovart-prompts-${new Date().toISOString().slice(0, 10)}.json`
         const exportJson = JSON.stringify(exportPayload, null, 2)
-        const exportBlob = new Blob([exportJson], { type: 'application/json' })
-        const exportUrl = URL.createObjectURL(exportBlob)
+        const exportDataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(exportJson)}`
         chrome.downloads.download({
-          url: exportUrl,
+          url: exportDataUrl,
           filename: exportFilename,
           saveAs: true
         })
           .then(() => {
-            URL.revokeObjectURL(exportUrl)
             sendResponse({ success: true } as MessageResponse)
           })
           .catch(error => {
-            URL.revokeObjectURL(exportUrl)
             console.error('[Oh My Prompt Script] EXPORT_DATA error:', error)
             sendResponse({ success: false, error: 'Failed to download file' })
           })
