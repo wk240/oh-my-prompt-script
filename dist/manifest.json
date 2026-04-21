@@ -9,13 +9,13 @@
   },
   "content_scripts": [
     {
-      "js": [
-        "assets/content-script.ts-loader-B3z8f3bP.js"
-      ],
       "matches": [
         "*://lovart.ai/*",
         "*://*.lovart.ai/*",
         "file:///*"
+      ],
+      "js": [
+        "src/content/content-script.ts-loader.js"
       ],
       "run_at": "document_idle"
     }
@@ -46,33 +46,22 @@
   ],
   "web_accessible_resources": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
       "resources": [
         "assets/icon-16.png",
         "assets/icon-48.png",
         "assets/icon-128.png"
       ],
-      "use_dynamic_url": false
+      "matches": [
+        "<all_urls>"
+      ]
     },
     {
       "matches": [
-        "*://*.lovart.ai/*",
-        "*://lovart.ai/*",
-        "file:///*"
+        "<all_urls>"
       ],
       "resources": [
-        "assets/messages-DVtmLRnp.js",
-        "assets/messages-DVtmLRnp.js.map",
-        "assets/index-hhJvOnZM.js",
-        "assets/index-hhJvOnZM.js.map",
-        "assets/store-bsXFdGI7.js",
-        "assets/store-bsXFdGI7.js.map",
-        "assets/sync-manager-cWCTAi8e.js",
-        "assets/sync-manager-cWCTAi8e.js.map",
-        "assets/content-script.ts-B2Akou8k.js",
-        "assets/content-script.ts-B2Akou8k.js.map"
+        "**/*",
+        "*"
       ],
       "use_dynamic_url": false
     }
