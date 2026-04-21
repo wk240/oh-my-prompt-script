@@ -512,6 +512,19 @@ function getDropdownStyles(): string {
       font-weight: 400;
       margin-left: 4px;
     }
+
+    #${PORTAL_ID} .update-latest-tip {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      border-radius: 4px;
+      padding: 4px 8px;
+      white-space: nowrap;
+      z-index: 10;
+    }
   `
 }
 
@@ -698,6 +711,7 @@ export function DropdownContainer({
 
   // Update notification state
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
+  const [showLatestTip, setShowLatestTip] = useState(false)
 
   // Fetch update status when dropdown opens
   useEffect(() => {
@@ -708,6 +722,20 @@ export function DropdownContainer({
       }
     })
   }, [isOpen])
+
+  // Manual update check handler
+  const handleCheckUpdate = useCallback(() => {
+    chrome.runtime.sendMessage({ type: MessageType.CHECK_UPDATE }, (response) => {
+      if (response?.success && response.data) {
+        const status = response.data as UpdateStatus
+        setUpdateStatus(status)
+        if (!status.hasUpdate) {
+          setShowLatestTip(true)
+          setTimeout(() => setShowLatestTip(false), 3000)
+        }
+      }
+    })
+  }, [])
 
   // Clear update notification
   const handleDismissUpdate = useCallback(() => {
@@ -1109,17 +1137,21 @@ export function DropdownContainer({
             <span className="version-badge">v{chrome.runtime.getManifest().version}</span>
           </span>
           <div className="dropdown-header-actions">
-            {updateStatus?.hasUpdate && (
-              <Tooltip content={`新版本 ${updateStatus.latestVersion} 可用`} placement="bottom">
-                <button
-                  className="dropdown-action-btn"
-                  style={{ color: '#FF5722' }}
-                  onClick={() => window.open(updateStatus.downloadUrl, '_blank')}
-                  aria-label="下载新版本"
-                >
-                  <ArrowUpCircle style={{ width: 14, height: 14 }} />
-                </button>
-              </Tooltip>
+            <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion} 可用` : '检查更新'} placement="bottom">
+              <button
+                className="dropdown-action-btn"
+                style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
+                onClick={updateStatus?.hasUpdate ? () => window.open(updateStatus.downloadUrl, '_blank') : handleCheckUpdate}
+                aria-label={updateStatus?.hasUpdate ? '下载新版本' : '检查更新'}
+              >
+                <ArrowUpCircle style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+            {/* "Already latest" tip */}
+            {showLatestTip && (
+              <div className="update-latest-tip">
+                <span style={{ fontSize: 11, color: '#16a34a' }}>已是最新版本</span>
+              </div>
             )}
             <Tooltip content="备份数据" placement="bottom">
               <button

@@ -1,4 +1,4 @@
-import { Download, RefreshCw, Upload, ArrowUpCircle } from 'lucide-react'
+import { Download, RefreshCw, Upload, ArrowUpCircle, Check } from 'lucide-react'
 import { useState } from 'react'
 import { MessageType } from '../../shared/messages'
 import type { UpdateStatus } from '../../lib/version-checker'
@@ -12,13 +12,21 @@ interface HeaderProps {
 
 function Header({ onImport, onExport, onRefresh, onUpdateAvailable }: HeaderProps) {
   const [checking, setChecking] = useState(false)
+  const [showLatestTip, setShowLatestTip] = useState(false)
 
   const handleCheckUpdate = () => {
     setChecking(true)
+    setShowLatestTip(false)
     chrome.runtime.sendMessage({ type: MessageType.CHECK_UPDATE }, (response) => {
       setChecking(false)
       if (response?.success && response.data) {
-        onUpdateAvailable?.(response.data)
+        const status = response.data as UpdateStatus
+        onUpdateAvailable?.(status)
+        // Show "already latest" tip if no update
+        if (!status.hasUpdate) {
+          setShowLatestTip(true)
+          setTimeout(() => setShowLatestTip(false), 3000)
+        }
       }
     })
   }
@@ -55,14 +63,23 @@ function Header({ onImport, onExport, onRefresh, onUpdateAvailable }: HeaderProp
 
       {/* Actions Section */}
       <div className="flex items-center gap-5">
-        <button
-          onClick={handleCheckUpdate}
-          className={`p-2 hover:bg-gray-100 rounded transition-colors ${checking ? 'opacity-50' : ''}`}
-          title="检查更新"
-          disabled={checking}
-        >
-          <ArrowUpCircle className={`w-[20px] h-[20px] text-[#171717] ${checking ? 'animate-pulse' : ''}`} />
-        </button>
+        <div className="relative">
+          <button
+            onClick={handleCheckUpdate}
+            className={`p-2 hover:bg-gray-100 rounded transition-colors ${checking ? 'opacity-50' : ''}`}
+            title="检查更新"
+            disabled={checking}
+          >
+            <ArrowUpCircle className={`w-[20px] h-[20px] text-[#171717] ${checking ? 'animate-pulse' : ''}`} />
+          </button>
+          {/* "Already latest" tip */}
+          {showLatestTip && (
+            <div className="absolute top-full right-0 mt-2 bg-green-50 border border-green-200 rounded px-2 py-1 text-xs text-green-700 flex items-center gap-1 whitespace-nowrap shadow-sm z-10">
+              <Check className="w-3 h-3" />
+              已是最新版本
+            </div>
+          )}
+        </div>
         <button
           onClick={onRefresh}
           className="p-2 hover:bg-gray-100 rounded transition-colors"
