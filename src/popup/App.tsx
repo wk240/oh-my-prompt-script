@@ -11,6 +11,7 @@ import PromptList from './components/PromptList'
 import PromptEditDialog from './components/PromptEditDialog'
 import AddCategoryDialog from './components/AddCategoryDialog'
 import DeleteConfirmDialog from './components/DeleteConfirmDialog'
+import UpdateGuideDialog from './components/UpdateGuideDialog'
 import { Toaster } from './components/ui/toaster'
 
 const ALL_CATEGORY_ID = 'all'
@@ -31,6 +32,7 @@ function App() {
     name: string
   } | null>(null)
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
+  const [updateGuideOpen, setUpdateGuideOpen] = useState(false)
 
   useEffect(() => {
     loadFromStorage()
@@ -45,7 +47,12 @@ function App() {
   const dismissUpdate = () => {
     chrome.runtime.sendMessage({ type: MessageType.CLEAR_UPDATE_STATUS }, () => {
       setUpdateStatus(null)
+      setUpdateGuideOpen(false)
     })
+  }
+
+  const openUpdateGuide = () => {
+    setUpdateGuideOpen(true)
   }
 
   const handleRefresh = async () => {
@@ -186,14 +193,12 @@ function App() {
       {updateStatus?.hasUpdate && (
         <div className="bg-orange-50 border-b border-orange-200 px-3 py-2 flex items-center gap-2 text-sm">
           <span className="text-orange-700 font-medium">新版本 {updateStatus.latestVersion} 可用</span>
-          <a
-            href={updateStatus.downloadUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-orange-600 hover:text-orange-800 underline font-medium"
+          <button
+            onClick={openUpdateGuide}
+            className="text-orange-600 hover:text-orange-800 underline font-medium cursor-pointer"
           >
-            立即下载
-          </a>
+            查看更新引导
+          </button>
           <button
             onClick={dismissUpdate}
             className="text-gray-400 hover:text-gray-600 ml-auto text-lg leading-none"
@@ -232,6 +237,11 @@ function App() {
         onConfirm={confirmDelete}
         itemName={promptToDelete?.name || categoryToDelete?.name || ''}
         description={categoryToDelete ? '该分类下的所有提示词将被删除。' : undefined}
+      />
+      <UpdateGuideDialog
+        status={updateStatus}
+        open={updateGuideOpen}
+        onClose={() => setUpdateGuideOpen(false)}
       />
 
       {/* Toast notifications */}
