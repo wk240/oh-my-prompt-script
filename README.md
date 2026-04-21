@@ -3,6 +3,8 @@
 
 > 一键插入预设提示词，让 Lovart AI 创作更高效
 
+🌐 **官方网站**: [https://wk240.github.io/oh-my-prompt-script](https://wk240.github.io/oh-my-prompt-script)
+
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Manifest%20V3-green.svg)]()
 
