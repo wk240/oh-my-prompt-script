@@ -125,7 +125,9 @@ A: 更新步骤如下：
 
 ## 作者
 
-wk240 - Lovart AI 用户，为提升创作效率而开发。[GitHub](https://github.com/wk240)
+**Neo**（取自《黑客帝国》主角）—— Lovart AI 用户，为提升创作效率而开发。
+
+社交媒体「Neo与AI」：公众号、小红书、抖音 | [GitHub](https://github.com/wk240)
 
 ## 许可证
 
