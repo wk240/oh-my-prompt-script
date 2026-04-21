@@ -1505,13 +1505,22 @@ export function DropdownContainer({
                 <RefreshCw style={{ width: 14, height: 14 }} />
               </button>
             </Tooltip>
-            <Tooltip content="打开设置" placement="bottom">
+            <Tooltip content="导入" placement="bottom">
               <button
                 className="dropdown-action-btn"
-                onClick={handleOpenSettings}
-                aria-label="设置"
+                onClick={handleImport}
+                aria-label="导入"
               >
-                <Settings style={{ width: 14, height: 14 }} />
+                <Upload style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+            <Tooltip content="导出" placement="bottom">
+              <button
+                className="dropdown-action-btn"
+                onClick={handleExport}
+                aria-label="导出"
+              >
+                <Download style={{ width: 14, height: 14 }} />
               </button>
             </Tooltip>
             <Tooltip content="关闭" placement="bottom">
