@@ -116,10 +116,9 @@ export async function getUpdateStatus(): Promise<UpdateStatus | null> {
 }
 
 /**
- * Clear update status and badge
+ * Clear update status
  */
 export async function clearUpdateStatus(): Promise<void> {
   await chrome.storage.local.remove(UPDATE_STATUS_KEY)
-  await chrome.action.setBadgeText({ text: '' })
   console.log('[Oh My Prompt Script] Update status cleared')
 }

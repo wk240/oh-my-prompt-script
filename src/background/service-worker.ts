@@ -10,37 +10,6 @@ console.log('[Oh My Prompt Script] Service Worker started')
 
 const storageManager = StorageManager.getInstance()
 
-// Create alarm for periodic update checks
-const UPDATE_ALARM_NAME = 'check-update'
-const UPDATE_INTERVAL_MINUTES = 60
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create(UPDATE_ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL_MINUTES })
-  console.log('[Oh My Prompt Script] Update alarm created (onInstalled)')
-})
-
-chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.create(UPDATE_ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL_MINUTES })
-  console.log('[Oh My Prompt Script] Update alarm created (onStartup)')
-})
-
-// Handle alarm for update check
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === UPDATE_ALARM_NAME) {
-    console.log('[Oh My Prompt Script] Checking for updates...')
-    const status = await checkForUpdate()
-    if (status.hasUpdate) {
-      // Show badge to indicate new version
-      await chrome.action.setBadgeText({ text: '↑' })
-      await chrome.action.setBadgeBackgroundColor({ color: '#FF5722' })
-      console.log('[Oh My Prompt Script] New version available:', status.latestVersion)
-    } else {
-      // Clear badge if no update
-      await chrome.action.setBadgeText({ text: '' })
-    }
-  }
-})
-
 chrome.runtime.onMessage.addListener(
   (message, _sender, sendResponse) => {
     console.log('[Oh My Prompt Script] Received message:', message.type)
@@ -170,15 +139,9 @@ chrome.runtime.onMessage.addListener(
         break
 
       case MessageType.CHECK_UPDATE:
-        // Manual update check triggered from popup
+        // Manual update check triggered from popup (no badge notification)
         checkForUpdate()
           .then(status => {
-            if (status.hasUpdate) {
-              chrome.action.setBadgeText({ text: '↑' })
-              chrome.action.setBadgeBackgroundColor({ color: '#FF5722' })
-            } else {
-              chrome.action.setBadgeText({ text: '' })
-            }
             sendResponse({ success: true, data: status } as MessageResponse<UpdateStatus>)
           })
           .catch(error => {
