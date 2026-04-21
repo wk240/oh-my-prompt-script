@@ -1260,6 +1260,24 @@ export function DropdownContainer({
     setTimeout(() => setToastMessage(null), 2000)
   }, [deletingPrompt])
 
+  // Export handler
+  const handleExport = useCallback(async () => {
+    const version = chrome.runtime.getManifest().version
+    const data: StorageSchema = {
+      version,
+      userData: { prompts: localPrompts, categories: localCategories },
+      settings: { showBuiltin: true, syncEnabled: false }
+    }
+    try {
+      await exportData(data)
+      setToastMessage('导出成功')
+      setTimeout(() => setToastMessage(null), 2000)
+    } catch (error) {
+      setToastMessage('导出失败')
+      setTimeout(() => setToastMessage(null), 2000)
+    }
+  }, [localPrompts, localCategories])
+
   // Close dropdown when clicking outside
   // IMPORTANT: Portal container contains dropdown + modals/dialogs - all should skip detection
   useEffect(() => {
