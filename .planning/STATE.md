@@ -1,14 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1.0
-milestone_name: network-prompts
-status: complete
-last_updated: "2026-04-19T20:53:00.000Z"
+milestone: v1.1.2
+milestone_name: Dropdown CRUD Fix Release
+status: shipped
+last_updated: "2026-04-21T18:00:00.000Z"
+last_activity: "2026-04-21 — v1.1.2 shipped: branch release/v1.1.2 pushed"
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 32
-  completed_plans: 23
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 18
+  completed_plans: 18
   percent: 100
 ---
 
@@ -111,6 +112,7 @@ Progress: [████████████████] 100% (5 of 5 Phase 
 **Current:** Milestone v1.1.0 complete — ready for release preparation
 
 Options:
+
 - `/gsd-progress` — view full roadmap status
 - `/gsd-ship` — prepare release
 - Manual testing in Chrome — verify search and collect features

@@ -1,336 +1,228 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-04-17
+**Analysis Date:** 2026-04-21
 
 ## Test Framework
 
 **Runner:**
-- Not configured
-- No test files detected in `src/` directory
-- No `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx` files found
+- Playwright 1.59.x (E2E testing)
+- Config: `playwright.config.ts`
+- No unit test framework configured (no Jest, Vitest, or similar)
 
 **Assertion Library:**
-- Not configured
+- Playwright's built-in assertions (expect)
+- No separate assertion library detected
 
 **Run Commands:**
 ```bash
-# No test commands available
-npm run build    # TypeScript check included via tsc
-npx tsc --noEmit # Type check only
+npm run test              # Run all E2E tests
+npm run test:ui           # Run tests with Playwright UI
+npm run test:headed       # Run tests in headed mode (visible browser)
 ```
 
 ## Test File Organization
 
 **Location:**
-- Tests not implemented
-- Expected pattern: co-located test files next to source (e.g., `utils.test.ts` next to `utils.ts`)
-- Alternative: dedicated `src/__tests__/` directory
+- Playwright test directory: `./tests` (configured in `playwright.config.ts`)
+- No test files co-located with source code
+- Current `tests/` directory contains JSON backup files only (no actual tests)
 
 **Naming:**
-- Expected: `*.test.ts` or `*.spec.ts` for TypeScript
-- Expected: `*.test.tsx` or `*.spec.tsx` for React components
+- Expected: `.spec.ts` or `.test.ts` extension
+- No test files found in project
 
 **Structure:**
 ```
-# Current state: No tests
-src/
-├── lib/
-│   ├── store.ts        # No test file
-│   ├── storage.ts      # No test file
-│   └── import-export.ts # No test file
-├── popup/
-│   └── App.tsx         # No test file
-│   └── components/     # No test files
-└── content/
-    └── content-script.ts # No test file
+tests/
+├── omps-backup-*.json    # Backup files (not test files)
+└── omps-latest.json      # Latest backup (not test file)
 ```
+
+**Note:** The `tests/` directory contains backup data files, not test code. No test files exist in the project currently.
 
 ## Test Structure
 
 **Suite Organization:**
-Tests not implemented. Expected pattern based on project conventions:
+- No existing tests to analyze patterns
+- Playwright standard pattern would be:
 
 ```typescript
-import { describe, it, expect, beforeEach } from 'vitest'
-import { truncateText, sortCategoriesByOrder } from '../shared/utils'
+import { test, expect } from '@playwright/test';
 
-describe('shared/utils', () => {
-  describe('truncateText', () => {
-    it('returns original text when under max length', () => {
-      expect(truncateText('short', 10)).toBe('short')
-    })
-
-    it('truncates with ellipsis when over max length', () => {
-      expect(truncateText('very long text here', 10)).toBe('very long ...')
-    })
-  })
-})
+test.describe('Feature name', () => {
+  test('should do something', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('selector')).toBeVisible();
+  });
+});
 ```
 
-## Recommended Test Setup
-
-**Framework Choice: Vitest**
-- Matches existing Vite build system
-- ESM-first, TypeScript support built-in
-- Fast watch mode for development
-
-**Installation:**
-```bash
-npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
-```
-
-**Configuration (`vitest.config.ts`):**
-```typescript
-import { defineConfig } from 'vitest/config'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-
-export default defineConfig({
-  plugins: [react()],
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      include: ['src/**/*.ts', 'src/**/*.tsx'],
-      exclude: ['src/**/*.d.ts', 'src/**/index.ts']
-    }
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
-})
-```
-
-**Scripts to add:**
-```json
-{
-  "scripts": {
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
-  }
-}
-```
+**Expected Patterns:**
+- Playwright's `test.describe` for grouping
+- `test.beforeEach` for setup
+- `test.afterEach` for teardown
+- Page fixture from Playwright
 
 ## Mocking
 
-**Framework:** Not configured (vitest recommended)
+**Framework:**
+- No mocking framework configured
+- Playwright runs against real browser/extension
 
-**Chrome API Mocking:**
-Essential for extension testing. Use `chrome` global mock:
+**Expected Patterns for Extension Testing:**
+- Mock Chrome APIs may require special setup
+- Extension loading via Playwright's Chrome extension testing capabilities
 
-```typescript
-// setup.ts
-import { vi } from 'vitest'
-
-// Mock chrome APIs
-global.chrome = {
-  runtime: {
-    sendMessage: vi.fn(),
-    onMessage: {
-      addListener: vi.fn(),
-      removeListener: vi.fn()
-    },
-    id: 'test-extension-id',
-    lastError: null
-  },
-  storage: {
-    local: {
-      get: vi.fn(),
-      set: vi.fn(),
-      getBytesInUse: vi.fn()
-    }
-  },
-  downloads: {
-    download: vi.fn()
-  },
-  tabs: {
-    create: vi.fn(),
-    sendMessage: vi.fn()
-  }
-} as unknown as typeof chrome
-```
-
-**What to Mock:**
-- `chrome.runtime.sendMessage` - message passing
-- `chrome.storage.local` - storage operations
-- `chrome.downloads.download` - export functionality
-- `document.execCommand` - content script insertion
-- `window.getSelection` - rich text operations
+**What to Mock (when tests added):**
+- Storage operations for unit tests
+- Chrome API responses
+- Network requests for version checking
 
 **What NOT to Mock:**
-- Pure utility functions (`truncateText`, `sortCategoriesByOrder`)
-- Type definitions and interfaces
-- Constants
+- UI rendering (test actual DOM)
+- User interactions (use Playwright actions)
 
 ## Fixtures and Factories
 
 **Test Data:**
-```typescript
-// fixtures/prompts.ts
-import type { Prompt, Category, StorageSchema } from '@/shared/types'
-
-export const mockCategories: Category[] = [
-  { id: 'cat-1', name: 'Category One', order: 1 },
-  { id: 'cat-2', name: 'Category Two', order: 2 }
-]
-
-export const mockPrompts: Prompt[] = [
-  { id: 'p1', name: 'Test Prompt', content: 'test content', categoryId: 'cat-1' },
-  { id: 'p2', name: 'Another Prompt', content: 'more content', categoryId: 'cat-2', description: 'Optional' }
-]
-
-export const mockStorageData: StorageSchema = {
-  prompts: mockPrompts,
-  categories: mockCategories,
-  version: '1.0.0'
-}
-```
+- No test fixtures directory
+- Built-in data in `src/data/built-in-data.ts` could serve as test fixtures
 
 **Location:**
-- Create `src/__tests__/fixtures/` directory
-- Export typed mock data for consistent testing
+- Potential test data: `src/data/built-in-data.ts`
+- Backup files in `tests/` could be sample data for import/export testing
 
 ## Coverage
 
-**Requirements:** None enforced
+**Requirements:** None enforced (no coverage tool configured)
 
-**Recommended Targets:**
-- Utility functions: 100% (`src/shared/utils.ts`, `src/lib/utils.ts`)
-- Store operations: 80%+ (`src/lib/store.ts`)
-- Storage manager: 80%+ (`src/lib/storage.ts`)
-- Import/export validation: 90%+ (`src/lib/import-export.ts`)
-- React components: 70%+ (user interactions, state changes)
+**Coverage Tool:**
+- Not configured
+- TypeScript `noEmit: true` prevents standard coverage collection
 
-**View Coverage:**
-```bash
-# After adding vitest
-npm run test:coverage
-```
+**Recommendation:**
+- Add Vitest for unit tests with coverage
+- Use Playwright's built-in coverage for E2E
 
 ## Test Types
 
 **Unit Tests:**
-- Scope: Pure functions, utility classes, validation logic
-- Approach: Direct function calls with various inputs
-- Priority areas:
-  - `src/shared/utils.ts` - text truncation, category sorting
-  - `src/lib/import-export.ts` - validation logic
-  - `src/lib/storage.ts` - StorageManager methods
+- Not implemented
+- Recommendation: Add Vitest for store logic, utilities, and storage operations
+- Target coverage: 80%+ for core logic
 
 **Integration Tests:**
-- Scope: Store + storage interaction, message passing
-- Approach: Mock chrome APIs, test full workflows
-- Priority areas:
-  - `src/lib/store.ts` - CRUD operations with storage sync
-  - `src/background/service-worker.ts` - message routing
-  - `src/content/content-script.ts` - component coordination
+- Not implemented
+- Potential scope: Chrome extension message flow, storage sync
 
 **E2E Tests:**
-- Not used
-- Framework recommendation: Playwright with Chrome extension testing
-- Challenge: Testing extension in actual browser context
-- Alternative: Manual testing with hot reload (`npm run dev`)
+- Playwright configured but no tests written
+- Framework ready for:
+  - Extension popup UI testing
+  - Content script injection testing
+  - Import/export functionality
+
+**Playwright Configuration:**
+```typescript
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    baseURL: 'http://localhost:5173',
+    trace: 'on-first-retry',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+});
+```
 
 ## Common Patterns
 
 **Async Testing:**
+- No existing patterns to reference
+- Expected pattern for Playwright:
 ```typescript
-// Testing async storage operations
-it('loads data from storage', async () => {
-  const mockData = { prompts: [], categories: [], version: '1.0.0' }
-  vi.mocked(chrome.storage.local.get).mockResolvedValue({ prompt_script_data: mockData })
-
-  const result = await sendStorageMessage(MessageType.GET_STORAGE)
-
-  expect(result).toEqual(mockData)
-})
+test('async operation', async ({ page }) => {
+  await page.click('button');
+  await expect(page.locator('.result')).toBeVisible();
+});
 ```
 
 **Error Testing:**
+- No existing patterns
+- Expected pattern:
 ```typescript
-// Testing error conditions
-it('handles storage errors gracefully', async () => {
-  vi.mocked(chrome.storage.local.get).mockRejectedValue(new Error('Quota exceeded'))
-
-  const result = await storageManager.getData()
-
-  // Should return default data on error
-  expect(result).toEqual(storageManager.getDefaultData())
-})
+test('handles error gracefully', async ({ page }) => {
+  // Trigger error condition
+  await expect(page.locator('.error-message')).toBeVisible();
+});
 ```
 
-**React Component Testing:**
+## Testing Gaps
+
+**Missing Tests:**
+1. Store operations (`src/lib/store.ts`) - CRUD operations
+2. Storage management (`src/lib/storage.ts`) - persistence and migration
+3. Import/export (`src/lib/import-export.ts`) - file operations and validation
+4. Input detection (`src/content/input-detector.ts`) - DOM observation
+5. Insert handler (`src/content/insert-handler.ts`) - text insertion
+6. Service worker (`src/background/service-worker.ts`) - message handling
+7. UI components (`src/popup/App.tsx`, `src/content/components/*`)
+
+**Priority Areas for Testing:**
+1. StorageSchema validation (high - data integrity)
+2. Migration logic (high - version upgrades)
+3. Message handling (medium - cross-context communication)
+4. Import/export validation (medium - user data operations)
+
+## Recommended Test Setup
+
+**Unit Tests (Vitest):**
 ```typescript
-import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
-import PromptCard from './PromptCard'
+// vitest.config.ts (recommended addition)
+import { defineConfig } from 'vitest/config';
 
-describe('PromptCard', () => {
-  const mockPrompt = {
-    id: 'p1',
-    name: 'Test Prompt',
-    content: 'test content',
-    categoryId: 'cat-1'
-  }
-
-  it('renders prompt name', () => {
-    render(<PromptCard prompt={mockPrompt} onEdit={vi.fn()} onDelete={vi.fn()} />)
-    expect(screen.getByText('Test Prompt')).toBeInTheDocument()
-  })
-
-  it('calls onEdit when clicked', () => {
-    const onEdit = vi.fn()
-    render(<PromptCard prompt={mockPrompt} onEdit={onEdit} onDelete={vi.fn()} />)
-    fireEvent.click(screen.getByText('Test Prompt'))
-    expect(onEdit).toHaveBeenCalledWith(mockPrompt)
-  })
-})
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    coverage: {
+      reporter: ['text', 'html'],
+      exclude: ['node_modules/', 'tests/'],
+    },
+  },
+});
 ```
 
-## Test Coverage Gaps
+**Test File Locations:**
+- Unit tests: `src/**/*.test.ts` (co-located)
+- E2E tests: `tests/e2e/**/*.spec.ts` (separate)
 
-**Untested Areas:**
-
-| Area | Files | Risk | Priority |
-|------|-------|------|----------|
-| Utility functions | `src/shared/utils.ts` | Low | High |
-| Import validation | `src/lib/import-export.ts` | Medium | High |
-| Store CRUD operations | `src/lib/store.ts` | High | High |
-| Storage operations | `src/lib/storage.ts` | High | High |
-| Message routing | `src/background/service-worker.ts` | High | Medium |
-| Insert handler | `src/content/insert-handler.ts` | High | Medium |
-| Input detector | `src/content/input-detector.ts` | Medium | Low |
-| React components | `src/popup/components/*.tsx` | Medium | Medium |
-| Dropdown UI | `src/content/components/*.tsx` | Medium | Medium |
-
-**What could break unnoticed:**
-- Import validation accepting malformed JSON
-- Store operations failing to sync with storage
-- Insert handler failing on specific editor types
-- Extension context invalidation handling
-
-## Manual Testing
-
-**Current Approach:**
-- Hot reload via `npm run dev`
-- Load extension from `dist/` in Chrome Dev Mode
-- Test on Lovart AI platform (production or `file:///*`)
-
-**Testing Checklist:**
-1. Trigger button appears next to Lovart input
-2. Dropdown opens/closes correctly
-3. Prompt insertion works in Lexical editor
-4. Category filtering functions
-5. Settings popup CRUD operations
-6. Import/export file operations
-7. Storage persistence across reloads
+**Chrome API Mocking:**
+```typescript
+// Recommended setup for unit tests
+vi.stubGlobal('chrome', {
+  storage: {
+    local: {
+      get: vi.fn(),
+      set: vi.fn(),
+    },
+  },
+  runtime: {
+    sendMessage: vi.fn(),
+    getManifest: vi.fn(() => ({ version: '1.0.0' })),
+  },
+});
+```
 
 ---
 
-*Testing analysis: 2026-04-17*
+*Testing analysis: 2026-04-21*

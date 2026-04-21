@@ -10,37 +10,6 @@ console.log('[Oh My Prompt Script] Service Worker started')
 
 const storageManager = StorageManager.getInstance()
 
-// Create alarm for periodic update checks
-const UPDATE_ALARM_NAME = 'check-update'
-const UPDATE_INTERVAL_MINUTES = 60
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create(UPDATE_ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL_MINUTES })
-  console.log('[Oh My Prompt Script] Update alarm created (onInstalled)')
-})
-
-chrome.runtime.onStartup.addListener(() => {
-  chrome.alarms.create(UPDATE_ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL_MINUTES })
-  console.log('[Oh My Prompt Script] Update alarm created (onStartup)')
-})
-
-// Handle alarm for update check
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === UPDATE_ALARM_NAME) {
-    console.log('[Oh My Prompt Script] Checking for updates...')
-    const status = await checkForUpdate()
-    if (status.hasUpdate) {
-      // Show badge to indicate new version
-      await chrome.action.setBadgeText({ text: '↑' })
-      await chrome.action.setBadgeBackgroundColor({ color: '#FF5722' })
-      console.log('[Oh My Prompt Script] New version available:', status.latestVersion)
-    } else {
-      // Clear badge if no update
-      await chrome.action.setBadgeText({ text: '' })
-    }
-  }
-})
-
 chrome.runtime.onMessage.addListener(
   (message, _sender, sendResponse) => {
     console.log('[Oh My Prompt Script] Received message:', message.type)
@@ -102,16 +71,6 @@ chrome.runtime.onMessage.addListener(
         sendResponse({ success: true, data: message.payload } as MessageResponse)
         break
 
-      case MessageType.OPEN_SETTINGS:
-        // Open settings page in a new tab (bypasses ad blockers)
-        chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/settings.html') })
-          .then(() => sendResponse({ success: true } as MessageResponse))
-          .catch(error => {
-            console.error('[Oh My Prompt Script] OPEN_SETTINGS error:', error)
-            sendResponse({ success: false, error: 'Failed to open settings' })
-          })
-        return true // Required for async response
-
       case MessageType.SAVE_FOLDER_HANDLE:
         // Save handle from content script (backup already done in content script)
         const handle = message.payload?.handle as FileSystemDirectoryHandle | undefined
@@ -170,15 +129,9 @@ chrome.runtime.onMessage.addListener(
         break
 
       case MessageType.CHECK_UPDATE:
-        // Manual update check triggered from popup
+        // Manual update check triggered from popup (no badge notification)
         checkForUpdate()
           .then(status => {
-            if (status.hasUpdate) {
-              chrome.action.setBadgeText({ text: '↑' })
-              chrome.action.setBadgeBackgroundColor({ color: '#FF5722' })
-            } else {
-              chrome.action.setBadgeText({ text: '' })
-            }
             sendResponse({ success: true, data: status } as MessageResponse<UpdateStatus>)
           })
           .catch(error => {
@@ -214,6 +167,26 @@ chrome.runtime.onMessage.addListener(
           .catch(error => {
             console.error('[Oh My Prompt Script] OPEN_EXTENSIONS error:', error)
             sendResponse({ success: false, error: 'Failed to open extensions page' })
+          })
+        return true // Required for async response
+
+      case MessageType.EXPORT_DATA:
+        // Export data as JSON file download using data URL (service worker doesn't support blob URLs)
+        const exportPayload = message.payload as { version: string; userData: { prompts: unknown[]; categories: unknown[] }; settings: unknown }
+        const exportFilename = 'oh-my-prompt-script.json'
+        const exportJson = JSON.stringify(exportPayload, null, 2)
+        const exportDataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(exportJson)}`
+        chrome.downloads.download({
+          url: exportDataUrl,
+          filename: exportFilename,
+          saveAs: true
+        })
+          .then(() => {
+            sendResponse({ success: true } as MessageResponse)
+          })
+          .catch(error => {
+            console.error('[Oh My Prompt Script] EXPORT_DATA error:', error)
+            sendResponse({ success: false, error: 'Failed to download file' })
           })
         return true // Required for async response
 

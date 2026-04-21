@@ -1,199 +1,188 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-04-17
+**Analysis Date:** 2026-04-21
 
 ## Directory Layout
 
 ```
-prompt-script/
-├── src/                    # Source code (TypeScript/React)
-│   ├── content/            # Content script (runs on Lovart pages)
-│   ├── background/         # Service worker (background context)
-│   ├── popup/              # Extension popup (management UI)
-│   ├── lib/                # Shared utilities and state
-│   ├── shared/             # Cross-context types and constants
-│   ├── data/               # Built-in prompt data
-│   └── hooks/              # React hooks (use-toast)
-├── assets/                 # Extension icons (PNG)
-├── dist/                   # Build output (loaded as extension)
-├── public/                 # Static assets
-├── .planning/              # GSD planning artifacts
-├── .claude/                # Claude Code configuration
-├── package.json            # npm dependencies
-├── manifest.json           # Chrome Extension manifest (MV3)
-├── vite.config.ts          # Vite build configuration
-├── tsconfig.json           # TypeScript configuration
-├── tailwind.config.ts      # Tailwind CSS configuration
-├── postcss.config.js       # PostCSS configuration
-├── components.json         # shadcn/ui component config
-├── BUILD.md                # Build instructions
-├── README.md               # Project documentation
-└── CLAUDE.md               # Claude Code project instructions
+D:/workspace/projects/prompt-script/
+├── .claude/              # Claude Code skills and rules
+├── .planning/            # GSD planning artifacts (phases, research, codebase docs)
+├── assets/               # Extension icons (icon-16.png, icon-48.png, icon-128.png)
+├── dist/                 # Production build output (loaded as extension)
+├── docs/                 # Documentation and superpowers specs
+├── node_modules/         # Dependencies
+├── scripts/              # Build scripts (extract-prompts.ts)
+├── src/                  # Source code
+│   ├── background/       # Service worker (Manifest V3)
+│   ├── content/          # Content script for Lovart pages
+│   ├── data/             # Built-in prompts and resource library JSON
+│   ├── hooks/            # Shared React hooks (use-toast.ts)
+│   ├── lib/              # Shared utilities (store, storage, sync, migrations)
+│   ├── popup/            # Extension popup UI
+│   └── shared/           # Cross-context types, messages, constants
+│   └── tests/            # Playwright E2E tests (currently backup JSON files)
+├── manifest.json         # Chrome Extension manifest (MV3)
+├── package.json          # Dependencies and scripts
+├── vite.config.ts        # Vite build config with @crxjs/vite-plugin
+├── tsconfig.json         # TypeScript config with @ alias
+└── playwright.config.ts  # E2E test configuration
 ```
 
 ## Directory Purposes
 
-**src/content/:**
-- Purpose: Runs on Lovart AI platform pages
-- Contains: Content script, input detector, UI injector, dropdown components
-- Key files:
-  - `content-script.ts` - Entry point, coordinates components
-  - `input-detector.ts` - MutationObserver for Lovart input
-  - `ui-injector.tsx` - Shadow DOM container + React mount
-  - `insert-handler.ts` - Prompt text insertion
-  - `components/DropdownApp.tsx` - Root dropdown component
+**src/background:**
+- Purpose: Service worker for Manifest V3
+- Contains: Message handler, storage operations, update checker
+- Key files: `src/background/service-worker.ts`
 
-**src/background/:**
-- Purpose: Service worker (background context)
-- Contains: Message routing, storage operations
-- Key files:
-  - `service-worker.ts` - Message handler, storage access
+**src/content:**
+- Purpose: Content script injected into Lovart pages
+- Contains: Input detection, UI injection, prompt insertion, React dropdown components
+- Key files: `src/content/content-script.ts`, `src/content/input-detector.ts`, `src/content/ui-injector.tsx`, `src/content/insert-handler.ts`
 
-**src/popup/:**
-- Purpose: Extension popup management UI
-- Contains: React app, CRUD dialogs, UI primitives
-- Key files:
-  - `settings.html` - HTML entry point
-  - `popup.tsx` - React mount entry
-  - `App.tsx` - Main component, import/export handlers
-  - `components/` - Dialogs, sidebar, list components
-  - `components/ui/` - Radix UI primitives (shadcn style)
+**src/content/components:**
+- Purpose: React components for dropdown UI (Shadow DOM isolated)
+- Contains: DropdownApp, DropdownContainer, modals, cards, tooltips
+- Key files: `src/content/components/DropdownApp.tsx`, `src/content/components/DropdownContainer.tsx`
 
-**src/lib/:**
+**src/data:**
+- Purpose: Default prompt data and resource library
+- Contains: Built-in prompts/categories for first install, curated resource library JSON
+- Key files: `src/data/built-in-data.ts`, `src/data/resource-library/prompts.json`
+
+**src/lib:**
 - Purpose: Shared utilities and state management
-- Contains: Zustand store, storage manager, import/export
-- Key files:
-  - `store.ts` - Zustand store with CRUD + storage sync
-  - `storage.ts` - StorageManager singleton
-  - `import-export.ts` - JSON download/upload utilities
-  - `utils.ts` - General utility functions
+- Contains: Zustand store, storage manager, import/export, sync manager, migrations, version checker
+- Key files: `src/lib/store.ts`, `src/lib/storage.ts`, `src/lib/import-export.ts`
 
-**src/shared/:**
+**src/lib/migrations:**
+- Purpose: Storage schema migration handlers
+- Contains: Migration registration and version-specific migrations
+- Key files: `src/lib/migrations/index.ts`, `src/lib/migrations/v1.0.ts`
+
+**src/lib/sync:**
+- Purpose: Local folder sync functionality
+- Contains: File sync, IndexedDB handle storage, sync manager
+- Key files: `src/lib/sync/sync-manager.ts`, `src/lib/sync/file-sync.ts`, `src/lib/sync/indexeddb.ts`
+
+**src/popup:**
+- Purpose: Extension popup UI for prompt management
+- Contains: React app, dialogs, category sidebar, prompt list, backup page
+- Key files: `src/popup/App.tsx`, `src/popup/settings.html`, `src/popup/backup.html`
+
+**src/popup/components:**
+- Purpose: Popup React components
+- Contains: Header, CategorySidebar, PromptList, dialogs, Radix UI primitives
+- Key files: `src/popup/components/Header.tsx`, `src/popup/components/CategorySidebar.tsx`
+
+**src/popup/components/ui:**
+- Purpose: Radix UI primitive components
+- Contains: Button, dialog, input, textarea, select, alert-dialog, toast
+- Key files: `src/popup/components/ui/button.tsx`, `src/popup/components/ui/dialog.tsx`
+
+**src/shared:**
 - Purpose: Cross-context shared definitions
-- Contains: Types, message definitions, constants
-- Key files:
-  - `types.ts` - Prompt, Category, StorageSchema interfaces
-  - `messages.ts` - MessageType enum, Message/Response interfaces
-  - `constants.ts` - STORAGE_KEY, PLATFORM_DOMAIN, etc.
-
-**src/data/:**
-- Purpose: Default/initial data for new users
-- Contains: Built-in prompts and categories
-- Key files:
-  - `built-in-data.ts` - 42 built-in prompts across 7 categories
-
-**src/hooks/:**
-- Purpose: React hooks for popup
-- Contains: Toast notification hook
-- Key files:
-  - `use-toast.ts` - Toast state management
+- Contains: TypeScript interfaces, message types, constants, utility functions
+- Key files: `src/shared/types.ts`, `src/shared/messages.ts`, `src/shared/constants.ts`, `src/shared/utils.ts`
 
 ## Key File Locations
 
 **Entry Points:**
 - `src/content/content-script.ts`: Content script entry (Lovart page)
-- `src/background/service-worker.ts`: Service worker entry (background)
-- `src/popup/settings.html`: Popup HTML entry
-- `src/popup/popup.tsx`: Popup React entry
+- `src/background/service-worker.ts`: Service worker entry
+- `src/popup/App.tsx`: Popup main UI entry
+- `src/popup/BackupApp.tsx`: Backup page entry
 
 **Configuration:**
-- `manifest.json`: Chrome Extension manifest (permissions, matches)
-- `vite.config.ts`: Build configuration with CRX plugin
-- `tsconfig.json`: TypeScript configuration
-- `tailwind.config.ts`: Tailwind CSS configuration
-- `components.json`: shadcn/ui configuration
+- `manifest.json`: Extension manifest (MV3, permissions, content_scripts)
+- `vite.config.ts`: Build config with CRX plugin
+- `tsconfig.json`: TypeScript config with `@/*` alias
+- `playwright.config.ts`: E2E test config
 
 **Core Logic:**
-- `src/lib/store.ts`: Zustand state management
-- `src/lib/storage.ts`: Chrome storage operations
-- `src/content/input-detector.ts`: Input element detection
-- `src/content/insert-handler.ts`: Prompt insertion
+- `src/lib/store.ts`: Zustand state management (CRUD, storage sync)
+- `src/lib/storage.ts`: StorageManager singleton
+- `src/content/insert-handler.ts`: Prompt insertion logic
+- `src/content/input-detector.ts`: Lovart input detection
+- `src/content/ui-injector.tsx`: Shadow DOM injection
 
-**Types & Messages:**
-- `src/shared/types.ts`: Core data types
-- `src/shared/messages.ts`: Message protocol definitions
-- `src/shared/constants.ts`: Extension constants
-
-**Built-in Data:**
-- `src/data/built-in-data.ts`: Default prompts and categories
+**Testing:**
+- `tests/`: Contains backup JSON files (no test code present)
+- `playwright.config.ts`: Test runner configuration
 
 ## Naming Conventions
 
 **Files:**
 - TypeScript: `*.ts` for logic, `*.tsx` for React components
-- React components: PascalCase (e.g., `DropdownApp.tsx`, `PromptCard.tsx`)
-- Utility files: camelCase (e.g., `store.ts`, `storage.ts`)
-- UI primitives: lowercase with dashes (e.g., `button.tsx`, `scroll-area.tsx`)
+- React components: PascalCase (`DropdownApp.tsx`, `CategorySidebar.tsx`)
+- Utilities: camelCase (`storage.ts`, `import-export.ts`)
+- UI primitives: lowercase with dashes (`button.tsx`, `scroll-area.tsx`)
 
 **Directories:**
-- Feature directories: lowercase (e.g., `content`, `popup`, `lib`)
-- Component directories: lowercase (e.g., `components`, `ui`)
+- Feature-based: `content/`, `popup/`, `background/`, `shared/`
+- Sub-features: `components/`, `migrations/`, `sync/`
+- Radix UI: `ui/` for primitive components
 
 **Imports:**
-- Path alias: `@/` prefix (e.g., `import { foo } from '@/lib/utils'`)
-- Relative imports for same-directory files
+- Path alias: `@/` for src-relative imports (`import { foo } from '@/lib/utils'`)
+- Relative: For same-directory imports (`import { Prompt } from '../shared/types'`)
 
 ## Where to Add New Code
 
-**New Feature (Content Script):**
-- Primary code: `src/content/` (new component or handler)
-- UI components: `src/content/components/`
-- Styles: Add to `UIInjector.getStyles()` in `ui-injector.tsx`
+**New Feature (UI in dropdown):**
+- Primary code: `src/content/components/` - Add new React component
+- Integration: `src/content/components/DropdownContainer.tsx` - Import and render
+- Styles: Inline in component or `getDropdownStyles()` in DropdownContainer
 
-**New Feature (Popup):**
-- Primary code: `src/popup/components/` (new dialog or component)
-- UI primitives: `src/popup/components/ui/`
-- Styles: Use Tailwind CSS classes (no new CSS files)
+**New Feature (UI in popup):**
+- Primary code: `src/popup/components/` - Add new React component
+- Integration: `src/popup/App.tsx` - Import and add to layout
+- Dialog: Use Radix UI primitives from `src/popup/components/ui/`
 
-**New Prompt/Category (Built-in):**
-- Data: `src/data/built-in-data.ts`
+**New Storage Field:**
+- Types: `src/shared/types.ts` - Add to `StorageSchema`, `UserData`, or `SyncSettings`
+- Migration: `src/lib/migrations/` - Create new version migration if breaking change
+- Store: `src/lib/store.ts` - Add state and actions if needed
 
 **New Message Type:**
-- Definition: `src/shared/messages.ts` (add to MessageType enum)
-- Handler: `src/background/service-worker.ts` (add case in switch)
-- Usage: Import from messages.ts in calling context
+- Types: `src/shared/messages.ts` - Add to `MessageType` enum
+- Handler: `src/background/service-worker.ts` - Add switch case handler
+- Caller: Content script or popup - Use `chrome.runtime.sendMessage()`
 
-**New Utility:**
-- Shared utilities: `src/lib/` (if used by multiple contexts)
-- Context-specific: Same directory as usage
+**New Utility Function:**
+- Shared: `src/shared/utils.ts` - For cross-context utilities
+- Context-specific: `src/lib/` - For storage, sync, import/export
 
-**New Type:**
-- Shared types: `src/shared/types.ts`
-- Context-specific: Same file as usage (if not shared)
-
-**New Constant:**
-- Shared constants: `src/shared/constants.ts`
+**New Built-in Prompt:**
+- Data: `src/data/built-in-data.ts` - Add to `BUILT_IN_PROMPTS` array
+- Resource library: `src/data/resource-library/prompts.json` - For curated library
 
 ## Special Directories
 
-**dist/:**
-- Purpose: Build output directory
-- Generated: Yes (by Vite build)
-- Committed: Yes (included for direct download per commit history)
-- Load: Chrome loads extension from this directory
-
-**node_modules/:**
-- Purpose: npm dependencies
-- Generated: Yes (by npm install)
+**dist:**
+- Purpose: Production build output
+- Generated: Yes (by `npm run build`)
 - Committed: No (in .gitignore)
 
-**assets/:**
+**tests:**
+- Purpose: Currently contains backup JSON files, Playwright config expects test files here
+- Generated: No
+- Committed: Yes
+- Note: No actual test code present - only backup JSON files
+
+**assets:**
 - Purpose: Extension icons
-- Contains: icon-16.png, icon-48.png, icon-128.png
 - Generated: No
 - Committed: Yes
+- Referenced: In manifest.json icons and action.default_icon
 
-**.planning/:**
+**.planning:**
 - Purpose: GSD workflow planning artifacts
-- Contains: codebase analysis, phase plans, config
 - Generated: Yes (by GSD commands)
-- Committed: Should be committed for workflow continuity
-
-**public/:**
-- Purpose: Static assets copied to dist
-- Generated: No
 - Committed: Yes
+- Contains: phases/, codebase/, milestones/, debug/, research/
 
 ---
 
-*Structure analysis: 2026-04-17*
+*Structure analysis: 2026-04-21*

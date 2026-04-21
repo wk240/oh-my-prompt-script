@@ -1,199 +1,154 @@
 # Architecture
 
-**Analysis Date:** 2026-04-17
+**Analysis Date:** 2026-04-21
 
 ## Pattern Overview
 
 **Overall:** Chrome Extension Three-Context Architecture
 
 **Key Characteristics:**
-- **Context Isolation** - Content script, background (service worker), popup are separate execution contexts
-- **Shadow DOM Isolation** - Content script UI uses Shadow DOM to prevent host page CSS conflicts
-- **Storage-First State** - All state derives from chrome.storage.local via StorageSchema
-- **Message-Based Communication** - Contexts communicate via chrome.runtime.sendMessage
-- **Singleton Pattern** - StorageManager uses singleton for centralized data access
+- Manifest V3 service worker (background) with no DOM access
+- Content script injected into Lovart pages with Shadow DOM isolation
+- Popup UI for prompt management with React + Tailwind
+- Single storage source of truth via chrome.storage.local
+- Message-based communication between contexts
 
 ## Layers
 
 **Content Script Layer:**
-- Purpose: Inject UI into Lovart pages, detect input, insert prompts
+- Purpose: Runs on Lovart.ai pages, detects input elements, injects dropdown UI
 - Location: `src/content/`
-- Contains: Input detector, UI injector, insert handler, dropdown components
-- Depends on: chrome.runtime.sendMessage, chrome.storage (via messages)
-- Used by: Lovart AI platform pages
-- Isolation: Shadow DOM for style isolation from host page
+- Contains: Input detection, UI injection, prompt insertion handlers, React dropdown components
+- Depends on: Service worker for storage (via `chrome.runtime.sendMessage`)
+- Used by: Lovart platform page (as injected script)
 
-**Background Layer (Service Worker):**
-- Purpose: Message routing, storage operations, extension lifecycle
+**Background/Service Worker Layer:**
+- Purpose: Central message router, storage operations, update checking, alarm-based periodic tasks
 - Location: `src/background/service-worker.ts`
-- Contains: Message handler, storage manager calls
-- Depends on: chrome.storage.local (direct access)
-- Used by: Content scripts and popup via messages
-- Note: No DOM access, runs as service worker (MV3)
+- Contains: Message handlers for all `MessageType` enums, storage manager singleton, update checker
+- Depends on: chrome.storage.local, chrome.alarms, chrome.tabs
+- Used by: Content script, popup, backup page (via `chrome.runtime.sendMessage`)
 
 **Popup Layer:**
-- Purpose: Management UI for prompts and categories
+- Purpose: Extension management UI for CRUD operations, import/export, settings
 - Location: `src/popup/`
-- Contains: React app, Zustand store, CRUD dialogs, import/export
-- Depends on: chrome.storage.local (via store), chrome.runtime.sendMessage
-- Used by: User via extension icon click
-- Styling: Tailwind CSS (no Shadow DOM needed)
+- Contains: React app with Zustand store, Radix UI dialogs, Tailwind styling, category/prompt management
+- Depends on: Service worker for storage sync, chrome.tabs for opening backup/settings pages
+- Used by: User via extension toolbar icon click
 
-**Shared Layer:**
-- Purpose: Cross-context types, constants, message definitions
-- Location: `src/shared/`
-- Contains: Type definitions, MessageType enum, constants
-- Depends on: Nothing (pure TypeScript)
+**Shared/Utility Layer:**
+- Purpose: Cross-context types, constants, message definitions, utility functions
+- Location: `src/shared/`, `src/lib/`
+- Contains: TypeScript interfaces, enums, storage manager, import/export utilities, sync manager, resource library loader
+- Depends on: No context-specific APIs
 - Used by: All other layers
-
-**Library Layer:**
-- Purpose: Reusable utilities and state management
-- Location: `src/lib/`
-- Contains: Zustand store, storage manager, import/export utilities
-- Depends on: chrome APIs, shared types
-- Used by: Popup and background
 
 ## Data Flow
 
 **Prompt Insertion Flow:**
 
-1. User clicks trigger button in content script dropdown
-2. `DropdownApp` calls `InsertHandler.insertPrompt()`
-3. `InsertHandler` uses `execCommand('insertText')` for Lexical compatibility
+1. User clicks trigger button in dropdown (content script)
+2. `DropdownApp.handleSelect()` calls `InsertHandler.insertPrompt()`
+3. `InsertHandler` uses `execCommand('insertText')` for Lexical/React compatibility
 4. Input/change events dispatched for Lovart recognition
-5. Prompt content appears in Lovart input field
+5. Dropdown closes, prompt text appears in Lovart input
 
-**Storage Sync Flow:**
+**Data Persistence Flow:**
 
-1. Popup performs CRUD operation via Zustand store action
-2. Store action updates local state
-3. Store calls `saveToStorage()` automatically
-4. `saveToStorage()` sends `SET_STORAGE` message to service worker
-5. Service worker calls `StorageManager.saveData()`
-6. Data persisted to chrome.storage.local
+1. User modifies prompts/categories in popup or dropdown
+2. Zustand store action (`addPrompt`, `updatePrompt`, etc.) updates local state
+3. `saveToStorage()` sends `SET_STORAGE` message to service worker
+4. Service worker merges with existing settings and saves to `chrome.storage.local`
+5. `triggerSync()` optionally syncs to local folder (if syncEnabled)
 
-**Initial Load Flow:**
+**Storage Initialization Flow:**
 
-1. Content script or popup initializes
-2. Calls `loadFromStorage()` or sends `GET_STORAGE` message
-3. Service worker retrieves data via `StorageManager.getData()`
-4. If empty, `StorageManager` initializes with built-in data
-5. Data returned to caller, state populated
+1. Extension first install or `getData()` called
+2. Service worker checks `chrome.storage.local` for existing data
+3. If empty: Initialize with `BUILT_IN_PROMPTS` and `BUILT_IN_CATEGORIES`
+4. If legacy format: Run migration from flat structure to nested `StorageSchema`
+5. Return `StorageSchema` to caller
 
 **State Management:**
-- Zustand store in popup (`src/lib/store.ts`)
-- Reactive state with automatic storage sync
-- Content script maintains local state (not Zustand, no reactivity needed)
-- Single source of truth: chrome.storage.local
+- Zustand store (`usePromptStore`) provides reactive state for popup and content script dropdown
+- All state derives from `chrome.storage.local` via `loadFromStorage()`
+- CRUD operations persist immediately via `saveToStorage()` (no debouncing - popup may close)
 
 ## Key Abstractions
 
-**StorageManager:**
-- Purpose: Centralized chrome.storage.local access
-- Pattern: Singleton class
-- Location: `src/lib/storage.ts`
-- Features:
-  - Default data initialization with built-in prompts
-  - Error handling with fallback
-  - Quota monitoring utility
-
-**InputDetector:**
-- Purpose: Detect Lovart input element with MutationObserver
-- Pattern: Observer class with callbacks
-- Location: `src/content/input-detector.ts`
-- Features:
-  - Debounced detection (100ms)
-  - SPA navigation handling (history API interception)
-  - Periodic health check (30 seconds)
-  - Multiple selector fallbacks
-
-**UIInjector:**
-- Purpose: Create Shadow DOM container for React UI
-- Pattern: Manager class
-- Location: `src/content/ui-injector.tsx`
-- Features:
-  - Shadow DOM isolation
-  - Inline CSS injection (no external styles)
-  - React root management
-  - Cleanup on removal
+**StorageSchema:**
+- Purpose: Single source of truth for all extension data
+- Examples: `src/shared/types.ts` defines `StorageSchema`, `UserData`, `SyncSettings`
+- Pattern: Nested structure with version, userData, settings, migration flag
 
 **InsertHandler:**
-- Purpose: Insert text into Lovart input element
-- Pattern: Utility class
-- Location: `src/content/insert-handler.ts`
-- Features:
-  - execCommand for Lexical compatibility
-  - Fallback DOM manipulation
-  - Event dispatching for React tracking
-  - Native value setter invocation
+- Purpose: Insert prompt text into Lovart's Lexical editor with React compatibility
+- Examples: `src/content/insert-handler.ts`
+- Pattern: `execCommand('insertText')` + native value setter + event dispatch for React tracking
+
+**InputDetector:**
+- Purpose: MutationObserver-based detection of Lovart input element with SPA navigation handling
+- Examples: `src/content/input-detector.ts`
+- Pattern: Debounced detection, history API interception, periodic health check
+
+**UIInjector:**
+- Purpose: Shadow DOM container for CSS isolation, React mount point
+- Examples: `src/content/ui-injector.tsx`
+- Pattern: Create host element, attach Shadow DOM, inject inline styles, mount React root
+
+**StorageManager:**
+- Purpose: Singleton managing all chrome.storage.local operations with migration support
+- Examples: `src/lib/storage.ts`
+- Pattern: getInstance(), getData(), saveData(), updateSettings(), migration handling
+
+**Zustand Store:**
+- Purpose: Reactive state management with CRUD actions and storage sync
+- Examples: `src/lib/store.ts`
+- Pattern: `create()` with prompts, categories, selectedCategoryId, CRUD actions, computed getters
 
 ## Entry Points
 
 **Content Script Entry:**
 - Location: `src/content/content-script.ts`
-- Triggers: Lovart page load (matches manifest content_scripts)
-- Responsibilities:
-  - Initialize InputDetector and UIInjector
-  - Handle input detection callback
-  - Listen for background messages
-  - Cleanup on page unload
+- Triggers: Lovart page load (matches `*://lovart.ai/*`, `file:///*`)
+- Responsibilities: Initialize InputDetector and UIInjector, handle REFRESH_DATA messages
 
 **Service Worker Entry:**
 - Location: `src/background/service-worker.ts`
-- Triggers: Extension install/update, message received
-- Responsibilities:
-  - Route messages to appropriate handlers
-  - Execute storage operations
-  - Open settings page on request
+- Triggers: Extension install, startup, message from content/popup
+- Responsibilities: Message routing, storage ops, update checking alarms, badge updates
 
 **Popup Entry:**
-- Location: `src/popup/settings.html` -> `src/popup/popup.tsx`
-- Triggers: Extension icon click
-- Responsibilities:
-  - Render management UI
-  - CRUD operations via Zustand store
-  - Import/export functionality
+- Location: `src/popup/settings.html` -> `src/popup/App.tsx`
+- Triggers: User clicks extension toolbar icon
+- Responsibilities: Load data, render category sidebar + prompt list, handle CRUD dialogs, import/export
+
+**Backup Page Entry:**
+- Location: `src/popup/backup.html` -> `src/popup/BackupApp.tsx`
+- Triggers: User clicks "备份数据" from dropdown or popup
+- Responsibilities: Folder sync setup, backup history, restore from versions
 
 ## Error Handling
 
-**Strategy:** Graceful degradation with fallbacks
+**Strategy:** Console logging with prefix, graceful fallbacks
 
 **Patterns:**
-- **ErrorBoundary components** in React UIs (`src/popup/components/ErrorBoundary.tsx`, `src/content/components/ErrorBoundary.tsx`)
-- **Console logging** with `[Prompt-Script]` prefix for debugging
-- **Storage fallback** to default data on read failure
-- **Extension context validation** in content script (checks `chrome.runtime?.id`)
-- **execCommand fallback** to direct DOM manipulation on failure
-
-**Error Response Format:**
-```typescript
-interface MessageResponse<T = unknown> {
-  success: boolean
-  data?: T
-  error?: string
-}
-```
+- All console logs prefixed with `[Oh My Prompt Script]` for filtering
+- Storage errors return default data without persisting (avoid data loss on transient error)
+- Insert failures log error and return false (UI can show toast)
+- Message handlers use `return true` for async `sendResponse` (Chrome requirement)
+- Error responses use `{ success: false, error: string }` format
 
 ## Cross-Cutting Concerns
 
-**Logging:** 
-- Console.log with `[Prompt-Script]` prefix
-- Filterable in browser console
-- No production logging service
+**Logging:** Console with `[Oh My Prompt Script]` prefix, warn for large datasets (>500 prompts), warn for storage quota (>80%)
 
-**Validation:**
-- TypeScript strict mode for compile-time checks
-- Import data validation in `src/lib/import-export.ts`
-- Schema validation: prompts/categories array structure, required fields
+**Validation:** Import data validated via `validateImportData()` - checks structure, required fields, types; supports legacy format conversion
 
-**Authentication:**
-- None required - browser-local extension
+**Authentication:** No auth required - extension uses local storage only; update checks use GitHub API (no auth)
 
-**Style Isolation:**
-- Shadow DOM for content script UI (host page CSS isolation)
-- Tailwind CSS for popup (self-contained context)
-- Inline styles defined in `UIInjector.getStyles()`
+**CSS Isolation:** Content script uses Shadow DOM; dropdown uses Portal to document.body with scoped CSS
 
 ---
 
-*Architecture analysis: 2026-04-17*
+*Architecture analysis: 2026-04-21*
