@@ -1,125 +1,126 @@
 # External Integrations
 
-**Analysis Date:** 2026-04-17
+**Analysis Date:** 2026-04-21
 
 ## APIs & External Services
 
-**Chrome Extension APIs:**
-- `chrome.runtime` - Message passing between contexts
-  - `sendMessage()` for content->background communication
-  - `onMessage.addListener()` for receiving messages
-- `chrome.storage.local` - Data persistence
-  - Single key: `prompt_script_data`
-  - Quota: 10MB (100KB for sync, 10MB for local)
-- `chrome.tabs` - Tab operations
-  - `tabs.create()` for opening settings page
-  - `tabs.sendMessage()` for popup->content communication
-- `chrome.downloads` - File downloads
-  - `downloads.download()` for JSON export
+**GitHub Releases API:**
+- Purpose: Check for extension updates from repository releases
+- Endpoint: `https://api.github.com/repos/wk240/oh-my-prompt-script/releases/latest`
+- SDK/Client: Native `fetch()` API
+- Auth: None (public repository)
+- Implementation: `src/lib/version-checker.ts`
 
 **Lovart AI Platform:**
-- Target domain: `lovart.ai` and subdomains
-- Input element selectors:
-  - Primary: `[data-testid="agent-message-input"]`
-  - Alternative: `[data-lexical-editor="true"]`
-  - Fallback: `div[contenteditable="true"][role="textbox"]`
-- UI injection target: `[data-testid="agent-input-bottom-more-button"]`
-- Editor type: Lexical (React-based rich text editor)
-- Integration method: MutationObserver + Shadow DOM
+- Purpose: Target platform for prompt insertion
+- Domain: `lovart.ai` and subdomains
+- Integration: Content script injection via manifest matches
+- Manifest permissions: `"*://lovart.ai/*", "*://*.lovart.ai/*"`
 
 ## Data Storage
 
 **Databases:**
-- Chrome storage.local (browser-provided)
-  - Key: `prompt_script_data`
-  - Schema: `StorageSchema` (prompts, categories, version)
-  - Manager: `StorageManager` singleton in `src/lib/storage.ts`
-  - Quota monitoring: `checkStorageQuota()` function
+- chrome.storage.local - Primary data persistence
+  - Connection: Chrome Extension API
+  - Client: Custom `StorageManager` singleton in `src/lib/storage.ts`
+  - Quota: 10MB maximum
+  - Key: `prompt_script_data` (single key for entire schema)
+
+- IndexedDB - Secondary storage for sync folder handles
+  - Database: `oh-my-prompt-script-sync`
+  - Store: `handles`
+  - Key: `syncFolderHandle`
+  - Implementation: `src/lib/sync/indexeddb.ts`
 
 **File Storage:**
-- Local filesystem only (via chrome.downloads)
-- Export format: JSON file
-- Import: User-selected JSON file
+- File System Access API - Local folder backup/sync
+  - Implementation: `src/lib/sync/file-sync.ts`
+  - Files: `omps-latest.json` (current), `omps-backup-*.json` (history)
+  - History limit: 10 backup files
+  - Requires user folder selection and read/write permission
 
 **Caching:**
-- None - Data stored persistently in chrome.storage.local
+- None - All data persisted to chrome.storage.local
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- None - Extension does not require authentication
-- User identity tied to browser profile
+- Not applicable - Extension runs locally without user authentication
+- No login/registration required
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- Console logging with `[Prompt-Script]` prefix
-- ErrorBoundary components in React UIs
-- No external error tracking service
+- None - Console logging only with `[Oh My Prompt Script]` prefix
 
 **Logs:**
-- Console.log with prefix filtering
-- All logs prefixed: `[Prompt-Script]`
-- Log locations:
-  - Service worker: `src/background/service-worker.ts`
-  - Content script: `src/content/content-script.ts`
-  - UI injector: `src/content/ui-injector.tsx`
-  - Input detector: `src/content/input-detector.ts`
-  - Insert handler: `src/content/insert-handler.ts`
+- Browser console with prefixed messages
+- All modules use `console.log`, `console.warn`, `console.error` with consistent prefix
+- Pattern: `console.log('[Oh My Prompt Script] message')`
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Not applicable - Chrome Extension
-- Distribution: Manual load from `dist/` directory
-- Future: Chrome Web Store (not configured)
+- GitHub Pages - Project website/landing page
+- Chrome Web Store - Extension distribution (manual upload)
+- GitHub Releases - .crx/.zip download files
 
 **CI Pipeline:**
-- None configured
-- Build command: `npm run build`
-- Dev command: `npm run dev`
+- None detected - No GitHub Actions or other CI workflows found
+
+**Build Process:**
+- Manual: `npm run build` produces `dist/` directory
+- Development: `npm run dev` with hot reload via Vite
 
 ## Environment Configuration
 
 **Required env vars:**
-- None - Extension runs entirely in browser context
+- None - Extension does not use environment variables
+- All configuration in `manifest.json` and source code constants
 
 **Secrets location:**
-- None - No secrets required
+- Not applicable - No secrets or API keys required
+- GitHub API uses public endpoint without authentication
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- None - Extension operates client-side only
+- None - Extension does not receive external webhooks
 
 **Outgoing:**
-- None - No external API calls
+- GitHub API GET request for release information
+- No outbound webhooks or callbacks to external services
 
-## Message Protocol
+## Chrome Extension APIs Used
 
-**Internal Message Types:**
-| Type | Direction | Purpose |
-|------|-----------|---------|
-| `PING` | Content -> Background | Connection test |
-| `GET_STORAGE` | Content/Popup -> Background | Fetch data |
-| `SET_STORAGE` | Popup -> Background | Save data |
-| `INSERT_PROMPT` | Content -> Background | Insert acknowledgment |
-| `OPEN_SETTINGS` | Content -> Background | Open settings tab |
+**Storage:**
+- `chrome.storage.local.get()` - Read data
+- `chrome.storage.local.set()` - Write data
+- `chrome.storage.local.remove()` - Clear specific keys
+- `chrome.storage.local.getBytesInUse()` - Check quota usage
 
-**Message Format:**
-```typescript
-interface Message<T = unknown> {
-  type: MessageType
-  payload?: T
-}
+**Runtime:**
+- `chrome.runtime.getManifest()` - Get extension version
+- `chrome.runtime.sendMessage()` - Message to service worker
+- `chrome.runtime.onMessage` - Receive messages in service worker
+- `chrome.runtime.onInstalled` - Extension install/update event
+- `chrome.runtime.onStartup` - Browser startup event
 
-interface MessageResponse<T = unknown> {
-  success: boolean
-  data?: T
-  error?: string
-}
-```
+**Tabs:**
+- `chrome.tabs.create()` - Open new tabs
+- `chrome.tabs.sendMessage()` - Message to content script
+
+**Action:**
+- `chrome.action.setBadgeText()` - Show update indicator
+- `chrome.action.setBadgeBackgroundColor()` - Badge color
+
+**Downloads:**
+- `chrome.downloads.download()` - Export JSON files
+
+**Alarms:**
+- `chrome.alarms.create()` - Periodic update check (60 minute interval)
+- `chrome.alarms.onAlarm` - Alarm trigger handler
 
 ---
 
-*Integration audit: 2026-04-17*
+*Integration audit: 2026-04-21*

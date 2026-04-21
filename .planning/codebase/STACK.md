@@ -1,117 +1,86 @@
 # Technology Stack
 
-**Analysis Date:** 2026-04-17
+**Analysis Date:** 2026-04-21
 
 ## Languages
 
 **Primary:**
-- TypeScript 5.x - Main language for all extension code (content script, background, popup)
+- TypeScript 5.x - All source code (`src/**/*.ts`, `src/**/*.tsx`)
 
 **Secondary:**
-- CSS - Inline styles in Shadow DOM, Tailwind CSS for popup UI
+- JSON - Configuration files and data storage (manifest.json, resource-library JSON)
 
 ## Runtime
 
 **Environment:**
-- Chrome Browser Extension (Manifest V3)
-- Node.js (development only)
+- Chrome Extension Manifest V3 - Browser extension platform
+- ES2020 target (per `tsconfig.json`)
+- ESM modules (`"type": "module"` in package.json)
 
 **Package Manager:**
-- npm (lockfile: `package-lock.json` present)
-- Package manifest: `package.json`
+- npm - Package management
+- Lockfile: `package-lock.json` (present)
 
 ## Frameworks
 
 **Core:**
-- React 19.0.0 - UI framework for popup and content script dropdown
-- @crxjs/vite-plugin 2.0.0 - Chrome Extension bundler for Vite
-- Vite 6.0.0 - Build tool and dev server
+- React 19.x - UI framework for popup and content script UI
+- Chrome Extension Manifest V3 - Extension platform (service worker, content scripts, popup)
+- Vite 6.x - Build tool with hot reload for development
 
-**State Management:**
-- Zustand 5.0.12 - Lightweight state management (popup only)
+**Testing:**
+- Playwright 1.59.1 - E2E testing framework
+- Config: `playwright.config.ts`
 
-**UI Components:**
-- Radix UI primitives - Accessible component primitives
-  - `@radix-ui/react-alert-dialog` ^1.1.15
-  - `@radix-ui/react-dialog` ^1.1.15
-  - `@radix-ui/react-dropdown-menu` ^2.1.16
-  - `@radix-ui/react-scroll-area` ^2.2.10
-  - `@radix-ui/react-select` ^2.2.6
-  - `@radix-ui/react-separator` ^1.1.8
-  - `@radix-ui/react-slot` ^1.2.4
-  - `@radix-ui/react-toast` ^1.2.15
-
-**Styling:**
-- Tailwind CSS 3.4.19 - Utility-first CSS (popup only)
-- tailwindcss-animate 1.0.7 - Animation utilities
-- class-variance-authority 0.7.1 - Component variant styling
-- clsx 2.1.1 + tailwind-merge 3.5.0 - Class name utilities
-
-**Icons:**
-- lucide-react 1.8.0 - Icon library
+**Build/Dev:**
+- @crxjs/vite-plugin 2.x - Chrome extension bundler for Vite
+- @vitejs/plugin-react 4.x - React support for Vite
+- TypeScript 5.x - Type checking and compilation
 
 ## Key Dependencies
 
-**Type Definitions:**
-- `@types/chrome` 0.0.260 - Chrome Extension API types
-- `@types/node` 25.6.0 - Node.js types
-- `@types/react` 19.0.0 - React types
-- `@types/react-dom` 19.0.0 - React DOM types
+**Critical:**
+- zustand 5.0.12 - State management for popup UI
+- @radix-ui/react-* (multiple packages) - Headless UI components (dialog, dropdown-menu, select, toast, alert-dialog, scroll-area, separator, slot)
+- lucide-react 1.8.0 - Icon library
+- class-variance-authority 0.7.1 - CSS class utility for variants
+- clsx 2.1.1 - Class name concatenation utility
+- tailwind-merge 3.5.0 - Tailwind class merging utility
+- @dnd-kit/* - Drag and drop functionality for sortable lists
 
-**Build Plugins:**
-- `@vitejs/plugin-react` 4.0.0 - React support for Vite
-- autoprefixer 10.5.0 - CSS vendor prefixes
-- postcss 8.5.10 - CSS transformations
+**Infrastructure:**
+- @types/chrome 0.0.260 - Chrome Extension API types
+- tailwindcss 3.4.19 - CSS framework for popup styling
+- tailwindcss-animate 1.0.7 - Animation utilities for Tailwind
+- postcss 8.5.10 - CSS processing
+- autoprefixer 10.5.0 - CSS vendor prefix automation
 
 ## Configuration
 
-**TypeScript:**
-- Target: ES2020
-- Module: ESNext
-- Module resolution: bundler
-- Strict mode enabled
-- Path alias: `@/*` -> `./src/*`
-- Config file: `tsconfig.json`
+**Environment:**
+- TypeScript: `tsconfig.json` (strict mode, path alias `@/*` -> `./src/*`)
+- Vite: `vite.config.ts` (CRX plugin, React plugin, path alias)
+- Tailwind: `tailwind.config.ts` (dark mode, custom colors, animations)
+- PostCSS: `postcss.config.js` (Tailwind and autoprefixer plugins)
+- Playwright: `playwright.config.ts` (Chromium only, base URL localhost:5173)
 
-**Vite:**
-- Base path: `./`
-- Output directory: `dist/`
-- Sourcemaps enabled
-- Path alias: `@` -> `./src`
-- Config file: `vite.config.ts`
-
-**Tailwind:**
-- Dark mode: class-based
-- Content: `./src/**/*.{js,ts,jsx,tsx}`
-- Custom color system with CSS variables
-- Custom radius variables
-- Config file: `tailwind.config.ts`
-
-**PostCSS:**
-- Config file: `postcss.config.js`
+**Build:**
+- Entry point: `manifest.json` (service worker, content scripts, popup)
+- Output: `dist/` directory
+- Sourcemaps: enabled
 
 ## Platform Requirements
 
 **Development:**
-- Node.js (for npm, Vite dev server)
+- Node.js (ES2020 support required)
+- npm package manager
 - Chrome/Edge/Brave browser with Developer Mode enabled
 
 **Production:**
-- Chromium-based browser (Chrome, Edge, Brave)
-- Manifest V3 compatible browser
-- Extension loaded from `dist/` directory
-
-**Extension Permissions:**
-- `activeTab` - Access to active tab
-- `downloads` - File download for export
-- `storage` - Local data persistence
-- `tabs` - Tab management
-
-**Content Script Matches:**
-- `*://lovart.ai/*`
-- `*://*.lovart.ai/*`
-- `file:///*` (for local testing)
+- Chromium-based browser (Chrome 88+, Edge, Brave)
+- Extension loaded via `chrome://extensions` page
+- No server-side deployment required
 
 ---
 
-*Stack analysis: 2026-04-17*
+*Stack analysis: 2026-04-21*
