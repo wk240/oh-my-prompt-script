@@ -10,7 +10,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/content-script.ts-loader-1ihs-W22.js"
+        "assets/content-script.ts-loader-CVSax4l9.js"
       ],
       "matches": [
         "*://lovart.ai/*",
@@ -63,16 +63,16 @@
       "resources": [
         "assets/messages-ATzc5Kiq.js",
         "assets/messages-ATzc5Kiq.js.map",
-        "assets/x-BHidqGbR.js",
-        "assets/x-BHidqGbR.js.map",
-        "assets/store-yqu5WsQz.js",
-        "assets/store-yqu5WsQz.js.map",
-        "assets/sync-manager-RGd8ChU2.js",
-        "assets/sync-manager-RGd8ChU2.js.map",
-        "assets/folder-open-CQmWVo0-.js",
-        "assets/folder-open-CQmWVo0-.js.map",
-        "assets/content-script.ts-Bd3qD_HU.js",
-        "assets/content-script.ts-Bd3qD_HU.js.map"
+        "assets/index-CxKT9Azf.js",
+        "assets/index-CxKT9Azf.js.map",
+        "assets/store-DqYCA2xv.js",
+        "assets/store-DqYCA2xv.js.map",
+        "assets/folder-open-wBVGl--b.js",
+        "assets/folder-open-wBVGl--b.js.map",
+        "assets/sync-manager-Dg_CXoNm.js",
+        "assets/sync-manager-Dg_CXoNm.js.map",
+        "assets/content-script.ts-CjA_kEqS.js",
+        "assets/content-script.ts-CjA_kEqS.js.map"
       ],
       "use_dynamic_url": false
     }

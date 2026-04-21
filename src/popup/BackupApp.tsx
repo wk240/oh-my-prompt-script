@@ -68,7 +68,18 @@ function BackupApp() {
         setVersions(versionsResult.versions)
       }
     } else {
-      setError(result.error || '选择文件夹失败')
+      // Permission error on existing folder - auto trigger new folder selection
+      if (result.error?.includes('权限') || result.error?.includes('更换文件夹')) {
+        const changeResult = await changeSyncFolder()
+        if (changeResult.success) {
+          setSuccess('文件夹已更换，备份已启用')
+          await loadStatus()
+        } else {
+          setError(changeResult.error || '选择文件夹失败')
+        }
+      } else {
+        setError(result.error || '选择文件夹失败')
+      }
     }
   }
 
@@ -89,7 +100,12 @@ function BackupApp() {
         setVersions(versionsResult.versions)
       }
     } else {
-      setError(result.error || '备份失败')
+      // Permission lost - auto trigger folder selection
+      if (result.error?.includes('权限') || result.error?.includes('重新选择')) {
+        await handleChangeFolder()
+      } else {
+        setError(result.error || '备份失败')
+      }
     }
   }
 
