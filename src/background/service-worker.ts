@@ -207,6 +207,16 @@ chrome.runtime.onMessage.addListener(
           })
         return true // Required for async response
 
+      case MessageType.OPEN_EXTENSIONS:
+        // Open Chrome extensions page (cannot use window.open in content script)
+        chrome.tabs.create({ url: 'chrome://extensions' })
+          .then(() => sendResponse({ success: true } as MessageResponse))
+          .catch(error => {
+            console.error('[Oh My Prompt Script] OPEN_EXTENSIONS error:', error)
+            sendResponse({ success: false, error: 'Failed to open extensions page' })
+          })
+        return true // Required for async response
+
       default:
         sendResponse({ success: false, error: `Unknown message type: ${message.type}` })
     }

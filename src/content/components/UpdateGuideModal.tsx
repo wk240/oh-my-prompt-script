@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { UpdateStatus } from '../../shared/types'
+import { MessageType } from '../../shared/messages'
 import { Download, RefreshCw, Check, ExternalLink, ChevronRight, ChevronLeft, X, FileDown, FileUp } from 'lucide-react'
 
 interface UpdateGuideModalProps {
@@ -373,7 +374,7 @@ export function UpdateGuideModal({ status, isOpen, onClose }: UpdateGuideModalPr
   }
 
   const handleOpenExtensions = () => {
-    window.open('chrome://extensions', '_blank')
+    chrome.runtime.sendMessage({ type: MessageType.OPEN_EXTENSIONS })
   }
 
   const handleNext = () => {
