@@ -1191,6 +1191,7 @@ export function DropdownContainer({
       } catch (error) {
         console.error('[Oh My Prompt Script] Failed to reorder categories:', error)
       }
+    }
   }
 
   // CRUD handlers for categories
@@ -1657,7 +1658,7 @@ export function DropdownContainer({
         setEditingPrompt(null)
       }}
       mode="edit"
-      prompt={editingPrompt}
+      prompt={editingPrompt ?? undefined}
       categories={sortableCategories}
       onConfirm={handleUpdatePrompt}
     />
