@@ -1,17 +1,49 @@
-import { MessageType, MessageResponse, NetworkDataResponse } from '../shared/messages'
-import type { StorageSchema } from '../shared/types'
+import { MessageType, MessageResponse } from '../shared/messages'
+import type { StorageSchema, SyncSettings } from '../shared/types'
 import { StorageManager } from '../lib/storage'
-import { NanoBananaProvider } from '../lib/providers/nano-banana'
-import { NETWORK_TIMEOUT } from '../shared/constants'
+import { saveFolderHandle } from '../lib/sync/indexeddb'
+import { getSyncStatus } from '../lib/sync/sync-manager'
+import { checkForUpdate, getUpdateStatus, clearUpdateStatus, type UpdateStatus } from '../lib/version-checker'
+import '../lib/migrations/v1.0' // Register migrations
 
-console.log('[Prompt-Script] Service Worker started')
+console.log('[Oh My Prompt Script] Service Worker started')
 
 const storageManager = StorageManager.getInstance()
-const nanoBananaProvider = new NanoBananaProvider()
+
+// Create alarm for periodic update checks
+const UPDATE_ALARM_NAME = 'check-update'
+const UPDATE_INTERVAL_MINUTES = 60
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create(UPDATE_ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL_MINUTES })
+  console.log('[Oh My Prompt Script] Update alarm created (onInstalled)')
+})
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.create(UPDATE_ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL_MINUTES })
+  console.log('[Oh My Prompt Script] Update alarm created (onStartup)')
+})
+
+// Handle alarm for update check
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === UPDATE_ALARM_NAME) {
+    console.log('[Oh My Prompt Script] Checking for updates...')
+    const status = await checkForUpdate()
+    if (status.hasUpdate) {
+      // Show badge to indicate new version
+      await chrome.action.setBadgeText({ text: '↑' })
+      await chrome.action.setBadgeBackgroundColor({ color: '#FF5722' })
+      console.log('[Oh My Prompt Script] New version available:', status.latestVersion)
+    } else {
+      // Clear badge if no update
+      await chrome.action.setBadgeText({ text: '' })
+    }
+  }
+})
 
 chrome.runtime.onMessage.addListener(
   (message, _sender, sendResponse) => {
-    console.log('[Prompt-Script] Received message:', message.type)
+    console.log('[Oh My Prompt Script] Received message:', message.type)
 
     switch (message.type) {
       case MessageType.PING:
@@ -22,25 +54,44 @@ chrome.runtime.onMessage.addListener(
         storageManager.getData()
           .then(data => sendResponse({ success: true, data } as MessageResponse<StorageSchema>))
           .catch(error => {
-            console.error('[Prompt-Script] GET_STORAGE error:', error)
+            console.error('[Oh My Prompt Script] GET_STORAGE error:', error)
             sendResponse({ success: false, error: 'Storage retrieval failed' })
           })
         return true // Required for async response
 
       case MessageType.SET_STORAGE:
-        console.log('[Prompt-Script] SET_STORAGE payload:', message.payload)
+        console.log('[Oh My Prompt Script] SET_STORAGE payload:', message.payload)
         if (!message.payload) {
-          console.error('[Prompt-Script] SET_STORAGE: No payload provided')
+          console.error('[Oh My Prompt Script] SET_STORAGE: No payload provided')
           sendResponse({ success: false, error: 'No payload provided' })
           return true
         }
-        storageManager.saveData(message.payload as StorageSchema)
+
+        // Merge with existing settings to preserve syncEnabled, etc.
+        storageManager.getData()
+          .then(existingData => {
+            const payload = message.payload as StorageSchema
+            // Preserve existing settings if payload doesn't have full settings
+            const mergedSettings: SyncSettings = {
+              ...existingData.settings,
+              ...payload.settings
+            }
+
+            const mergedData: StorageSchema = {
+              version: payload.version,
+              userData: payload.userData,
+              settings: mergedSettings,
+              _migrationComplete: payload._migrationComplete ?? existingData._migrationComplete
+            }
+
+            return storageManager.saveData(mergedData)
+          })
           .then(() => {
-            console.log('[Prompt-Script] SET_STORAGE: Save successful')
+            console.log('[Oh My Prompt Script] SET_STORAGE: Save successful')
             sendResponse({ success: true } as MessageResponse)
           })
           .catch(error => {
-            console.error('[Prompt-Script] SET_STORAGE error:', error)
+            console.error('[Oh My Prompt Script] SET_STORAGE error:', error)
             sendResponse({ success: false, error: 'Storage save failed' })
           })
         return true // Required for async response
@@ -56,36 +107,103 @@ chrome.runtime.onMessage.addListener(
         chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/settings.html') })
           .then(() => sendResponse({ success: true } as MessageResponse))
           .catch(error => {
-            console.error('[Prompt-Script] OPEN_SETTINGS error:', error)
+            console.error('[Oh My Prompt Script] OPEN_SETTINGS error:', error)
             sendResponse({ success: false, error: 'Failed to open settings' })
           })
         return true // Required for async response
 
-      case MessageType.FETCH_NETWORK_PROMPTS:
-        // D-06: 10 second timeout with AbortController
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), NETWORK_TIMEOUT)
-
-        nanoBananaProvider.fetch()
-          .then(rawData => {
-            clearTimeout(timeoutId)
-            const prompts = nanoBananaProvider.parse(rawData)
-            const categories = nanoBananaProvider.getCategories()
-
-            console.log('[Prompt-Script] FETCH_NETWORK_PROMPTS: parsed', prompts.length, 'prompts')
-
-            sendResponse({
-              success: true,
-              data: { prompts, categories }
-            } as MessageResponse<NetworkDataResponse>)
+      case MessageType.SAVE_FOLDER_HANDLE:
+        // Save handle from content script (backup already done in content script)
+        const handle = message.payload?.handle as FileSystemDirectoryHandle | undefined
+        const folderName = message.payload?.folderName as string | undefined
+        const lastSyncTime = message.payload?.lastSyncTime as number | undefined
+        if (!handle) {
+          sendResponse({ success: false, error: 'No handle provided' })
+          return true
+        }
+        saveFolderHandle(handle)
+          .then(() => storageManager.updateSettings({
+            lastSyncTime: lastSyncTime || Date.now()
+          }))
+          .then(() => getSyncStatus())
+          .then(status => {
+            // Update status with folder name if provided
+            if (folderName && status) {
+              status.folderName = folderName
+            }
+            sendResponse({ success: true, data: status } as MessageResponse)
           })
           .catch(error => {
-            clearTimeout(timeoutId)
-            const errorMsg = error instanceof Error
-              ? (error.name === 'AbortError' ? 'Request timeout' : error.message)
-              : 'Network fetch failed'
-            console.error('[Prompt-Script] FETCH_NETWORK_PROMPTS error:', errorMsg)
-            sendResponse({ success: false, error: errorMsg })
+            console.error('[Oh My Prompt Script] SAVE_FOLDER_HANDLE error:', error)
+            sendResponse({ success: false, error: String(error) })
+          })
+        return true // Required for async response
+
+      case MessageType.GET_SYNC_STATUS:
+        // Get current sync status for UI display
+        getSyncStatus()
+          .then(status => sendResponse({ success: true, data: status } as MessageResponse))
+          .catch(error => {
+            console.error('[Oh My Prompt Script] GET_SYNC_STATUS error:', error)
+            sendResponse({ success: false, error: String(error) })
+          })
+        return true // Required for async response
+
+      case MessageType.OPEN_BACKUP_PAGE:
+        // Open backup page in a new tab with source tab ID
+        const sourceTabId = _sender.tab?.id
+        const url = sourceTabId
+          ? `src/popup/backup.html?sourceTabId=${sourceTabId}`
+          : 'src/popup/backup.html'
+        chrome.tabs.create({ url: chrome.runtime.getURL(url) })
+          .then(() => sendResponse({ success: true } as MessageResponse))
+          .catch(error => {
+            console.error('[Oh My Prompt Script] OPEN_BACKUP_PAGE error:', error)
+            sendResponse({ success: false, error: 'Failed to open backup page' })
+          })
+        return true // Required for async response
+
+      case MessageType.REFRESH_DATA:
+        // Broadcast refresh to all content scripts (handled by tabs.sendMessage)
+        // This is just a confirmation from backup page
+        sendResponse({ success: true } as MessageResponse)
+        break
+
+      case MessageType.CHECK_UPDATE:
+        // Manual update check triggered from popup
+        checkForUpdate()
+          .then(status => {
+            if (status.hasUpdate) {
+              chrome.action.setBadgeText({ text: '↑' })
+              chrome.action.setBadgeBackgroundColor({ color: '#FF5722' })
+            } else {
+              chrome.action.setBadgeText({ text: '' })
+            }
+            sendResponse({ success: true, data: status } as MessageResponse<UpdateStatus>)
+          })
+          .catch(error => {
+            console.error('[Oh My Prompt Script] CHECK_UPDATE error:', error)
+            sendResponse({ success: false, error: 'Failed to check for updates' })
+          })
+        return true // Required for async response
+
+      case MessageType.GET_UPDATE_STATUS:
+        // Get stored update status for popup display
+        getUpdateStatus()
+          .then(status => sendResponse({ success: true, data: status } as MessageResponse<UpdateStatus | null>))
+          .catch(error => {
+            console.error('[Oh My Prompt Script] GET_UPDATE_STATUS error:', error)
+            sendResponse({ success: false, error: 'Failed to get update status' })
+          })
+        return true // Required for async response
+
+      case MessageType.CLEAR_UPDATE_STATUS:
+        // Clear update notification (user dismissed)
+        clearUpdateStatus()
+          .then(() => sendResponse({ success: true } as MessageResponse))
+          .catch(error => {
+            console.error('[Oh My Prompt Script] CLEAR_UPDATE_STATUS error:', error)
+            sendResponse({ success: false, error: 'Failed to clear update status' })
           })
         return true // Required for async response
 

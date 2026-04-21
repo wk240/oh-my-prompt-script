@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { usePromptStore } from '../lib/store'
-import { exportData, readImportFile } from '../lib/import-export'
+import { exportData, readImportFile, mergeImportData } from '../lib/import-export'
 import type { Prompt, StorageSchema } from '../shared/types'
+import type { UpdateStatus } from '../lib/version-checker'
 import { useToast } from '../hooks/use-toast'
+import { MessageType } from '../shared/messages'
 import Header from './components/Header'
 import CategorySidebar from './components/CategorySidebar'
 import PromptList from './components/PromptList'
 import PromptEditDialog from './components/PromptEditDialog'
 import AddCategoryDialog from './components/AddCategoryDialog'
 import DeleteConfirmDialog from './components/DeleteConfirmDialog'
+import UpdateGuideDialog from './components/UpdateGuideDialog'
 import { Toaster } from './components/ui/toaster'
 
 const ALL_CATEGORY_ID = 'all'
@@ -28,10 +31,34 @@ function App() {
     id: string
     name: string
   } | null>(null)
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
+  const [updateGuideOpen, setUpdateGuideOpen] = useState(false)
 
   useEffect(() => {
     loadFromStorage()
+    // Fetch update status on popup open
+    chrome.runtime.sendMessage({ type: MessageType.GET_UPDATE_STATUS }, (response) => {
+      if (response?.success && response.data) {
+        setUpdateStatus(response.data)
+      }
+    })
   }, [loadFromStorage])
+
+  const dismissUpdate = () => {
+    chrome.runtime.sendMessage({ type: MessageType.CLEAR_UPDATE_STATUS }, () => {
+      setUpdateStatus(null)
+      setUpdateGuideOpen(false)
+    })
+  }
+
+  const openUpdateGuide = () => {
+    setUpdateGuideOpen(true)
+  }
+
+  const handleRefresh = async () => {
+    // Always open backup page for user to choose action
+    chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
+  }
 
   const handleImport = async () => {
     // Create file input
@@ -46,16 +73,25 @@ function App() {
       const result = await readImportFile(file)
 
       if (result.valid && result.data) {
-        // Save imported data to storage
-        const { prompts, categories } = result.data
+        // Merge imported data with existing data
+        const { prompts: existingPrompts, categories: existingCategories } = usePromptStore.getState()
+        const merged = mergeImportData(
+          { prompts: existingPrompts, categories: existingCategories },
+          result.data.userData
+        )
+
         usePromptStore.setState({
-          prompts,
-          categories,
+          prompts: merged.prompts,
+          categories: merged.categories,
           selectedCategoryId: 'all'
         })
         // Persist to chrome.storage
         await usePromptStore.getState().saveToStorage()
-        toast({ title: '导入成功', description: '提示词数据已恢复' })
+
+        toast({
+          title: '导入成功',
+          description: `新增 ${merged.addedCount} 条提示词，跳过 ${merged.skippedCount} 条重复项`
+        })
       } else {
         toast({
           title: '导入失败',
@@ -69,10 +105,11 @@ function App() {
   }
 
   const handleExport = async () => {
+    const version = chrome.runtime.getManifest().version
     const data: StorageSchema = {
-      prompts,
-      categories,
-      version: '1.0.0'
+      version,
+      userData: { prompts, categories },
+      settings: { showBuiltin: true, syncEnabled: false }
     }
     try {
       await exportData(data)
@@ -152,7 +189,26 @@ function App() {
 
   return (
     <div className="w-full h-full flex flex-col bg-white overflow-hidden">
-      <Header onImport={handleImport} onExport={handleExport} />
+      {/* Update notification banner */}
+      {updateStatus?.hasUpdate && (
+        <div className="bg-orange-50 border-b border-orange-200 px-3 py-2 flex items-center gap-2 text-sm">
+          <span className="text-orange-700 font-medium">新版本 {updateStatus.latestVersion} 可用</span>
+          <button
+            onClick={openUpdateGuide}
+            className="text-orange-600 hover:text-orange-800 underline font-medium cursor-pointer"
+          >
+            查看更新引导
+          </button>
+          <button
+            onClick={dismissUpdate}
+            className="text-gray-400 hover:text-gray-600 ml-auto text-lg leading-none"
+            aria-label="关闭提示"
+          >
+            ×
+          </button>
+        </div>
+      )}
+      <Header onImport={handleImport} onExport={handleExport} onRefresh={handleRefresh} onUpdateAvailable={setUpdateStatus} />
       <div className="flex flex-1 overflow-hidden min-h-0">
         <CategorySidebar
           onDeleteCategory={handleDeleteCategory}
@@ -181,6 +237,11 @@ function App() {
         onConfirm={confirmDelete}
         itemName={promptToDelete?.name || categoryToDelete?.name || ''}
         description={categoryToDelete ? '该分类下的所有提示词将被删除。' : undefined}
+      />
+      <UpdateGuideDialog
+        status={updateStatus}
+        open={updateGuideOpen}
+        onClose={() => setUpdateGuideOpen(false)}
       />
 
       {/* Toast notifications */}

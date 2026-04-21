@@ -45,7 +45,7 @@ Plans:
 - [x] 05-01-PLAN.md — Define DataSourceProvider interface, NetworkPrompt/ProviderCategory types (completed 2026-04-19)
 - [x] 05-02-PLAN.md — Implement NanoBananaProvider with Markdown parser (~900 prompts) (completed 2026-04-19)
 - [x] 05-03-PLAN.md — Add network fetch handlers to service worker + manifest host_permissions (completed 2026-04-19)
-- [ ] 05-04-PLAN.md — Test end-to-end data flow (manual verification checkpoint)
+- [x] 05-04-PLAN.md — Test end-to-end data flow (completed 2026-04-19)
 
 #### Phase 6: Network Cache Layer
 **Goal**: 网络提示词自动缓存，离线可用
@@ -59,10 +59,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 06-01: Implement NetworkCacheManager with TTL support
-- [ ] 06-02: Add cache read/write handlers to service worker
-- [ ] 06-03: Add cache invalidation logic (24h TTL)
-- [ ] 06-04: Handle offline scenarios gracefully
+- [x] 06-01-PLAN.md — Implement NetworkCacheManager singleton with TTL support (completed 2026-04-19)
+- [x] 06-02-PLAN.md — Add GET_NETWORK_CACHE message type and handler (completed 2026-04-19)
+- [x] 06-03-PLAN.md — Extend NetworkDataResponse with cache metadata flags (completed 2026-04-19)
+- [x] 06-04-PLAN.md — Implement network-first with cache fallback strategy (completed 2026-04-19)
 
 #### Phase 7: Dropdown Online Library UI
 **Goal**: 用户可浏览和预览网络提示词
@@ -78,11 +78,11 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 07-01: Add OnlineLibraryTab component to dropdown
-- [ ] 07-02: Create NetworkPromptCard component
-- [ ] 07-03: Implement category filter dropdown
-- [ ] 07-04: Implement pagination (50 per page)
-- [ ] 07-05: Add full preview modal/expand functionality
+- [x] 07-01-PLAN.md — Add isOnlineLibrary state, "在线库" sidebar entry, network data fetch (Wave 1) (completed 2026-04-19)
+- [x] 07-02-PLAN.md — Create NetworkPromptCard component with 2-column grid layout (Wave 2) (completed 2026-04-19)
+- [x] 07-03-PLAN.md — Create ProviderCategoryItem + CacheStatusHeader, integrate sidebar (Wave 3) (completed 2026-04-19)
+- [x] 07-04-PLAN.md — Create LoadMoreButton with pagination (50/page) (Wave 4) (completed 2026-04-19)
+- [x] 07-05-PLAN.md — Create PromptPreviewModal with escape/overlay close (Wave 5) (completed 2026-04-19)
 
 #### Phase 8: Search & Collect Features
 **Goal**: 用户可搜索并收藏网络提示词到本地
@@ -98,11 +98,11 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 08-01: Implement search input with debounce
-- [ ] 08-02: Add search filter logic (title + content)
-- [ ] 08-03: Add "收藏" button to NetworkPromptCard
-- [ ] 08-04: Implement category selector dialog for collect
-- [ ] 08-05: Integrate collect with local storage
+- [ ] 08-01-PLAN.md — Implement search input with debounce (D-01-D-04) (Wave 1)
+- [ ] 08-02-PLAN.md — Add search filter logic (title + content, D-05-D-08) (Wave 1)
+- [ ] 08-03-PLAN.md — Activate "收藏" button in PromptPreviewModal (D-09) (Wave 2)
+- [ ] 08-04-PLAN.md — Implement CategorySelectDialog for collect (D-11-D-15) (Wave 2)
+- [ ] 08-05-PLAN.md — Integrate collect with store + Toast feedback (D-16-D-19) (Wave 2)
 
 ---
 
@@ -114,11 +114,11 @@ Plans:
 | 2. Lovart Integration & Content Script | v1.0 | 4/4 | Complete | 2026-04-16 |
 | 3. Data Management & Popup UI | v1.0 | 9/9 | Complete | 2026-04-16 |
 | 4. Polish & End-to-End Testing | v1.0 | 6/6 | Complete | 2026-04-16 |
-| 5. Provider Foundation | v1.1.0 | 3/4 | In progress | 2026-04-19 |
-| 6. Network Cache Layer | v1.1.0 | 0/4 | Not started | - |
-| 7. Dropdown Online Library UI | v1.1.0 | 0/5 | Not started | - |
-| 8. Search & Collect Features | v1.1.0 | 0/5 | Not started | - |
+| 5. Provider Foundation | v1.1.0 | 4/4 | Complete | 2026-04-19 |
+| 6. Network Cache Layer | v1.1.0 | 4/4 | Complete | 2026-04-19 |
+| 7. Dropdown Online Library UI | v1.1.0 | 5/5 | Complete | 2026-04-19 |
+| 8. Search & Collect Features | v1.1.0 | 0/5 | Ready for execution | - |
 
 ---
 
-*Roadmap updated: 2026-04-19 — Phase 5 plan 05-03 complete*
+*Roadmap updated: 2026-04-19 — Phase 8 planned*

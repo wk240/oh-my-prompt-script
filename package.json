@@ -1,11 +1,12 @@
 {
-  "name": "prompt-script",
-  "version": "1.0.0",
+  "name": "oh-my-prompt-script",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "extract": "npx tsx scripts/extract-prompts.ts",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed"

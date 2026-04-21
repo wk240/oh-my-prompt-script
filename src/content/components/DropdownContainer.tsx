@@ -4,20 +4,33 @@
  * Positioned above the trigger button, right-aligned
  */
 
-import { useRef, useState, useMemo, useEffect } from 'react'
+import { useRef, useState, useMemo, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { MessageType } from '../../shared/messages'
 import type { Prompt, Category } from '../../shared/types'
-import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, FALLBACK_CATEGORY_ORDER } from '../../shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical } from 'lucide-react'
+import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '../../shared/types'
+import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder } from '../../shared/utils'
+import { Sparkles, Palette, Shapes, ArrowUpRight, X, Settings, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { NetworkPromptCard } from './NetworkPromptCard'
+import { ProviderCategoryItem } from './ProviderCategoryItem'
+import { LoadMoreButton } from './LoadMoreButton'
+import { PromptPreviewModal } from './PromptPreviewModal'
+import { CategorySelectDialog } from './CategorySelectDialog'
+import { ToastNotification } from './ToastNotification'
+import { Tooltip } from './Tooltip'
+import { UpdateGuideModal } from './UpdateGuideModal'
+import { usePromptStore } from '../../lib/store'
+import { getResourcePrompts, getResourceCategories } from '../../lib/resource-library'
+import { MessageType } from '../../shared/messages'
 
 interface DropdownContainerProps {
   prompts: Prompt[]
   categories: Category[]
   onSelect: (prompt: Prompt) => void
+  onInjectResource?: (prompt: ResourcePrompt) => void  // Inject resource prompt directly
+  onRefresh?: () => Promise<{ success: boolean; backupSuccess: boolean; error?: string }>  // Refresh data from storage
   isOpen: boolean
   selectedPromptId: string | null
   onClose?: () => void
@@ -46,7 +59,7 @@ const DEFAULT_CATEGORIES: Category[] = [
 ]
 
 // Portal container ID
-const PORTAL_ID = 'prompt-script-dropdown-portal'
+const PORTAL_ID = 'oh-my-prompt-script-dropdown-portal'
 
 // Get or create portal container with styles
 function getPortalContainer(): HTMLElement {
@@ -57,7 +70,7 @@ function getPortalContainer(): HTMLElement {
 
     // Inject styles for dropdown (since we're rendering outside Shadow DOM)
     const style = document.createElement('style')
-    style.id = 'prompt-script-dropdown-styles'
+    style.id = 'oh-my-prompt-script-dropdown-styles'
     style.textContent = getDropdownStyles()
     document.head.appendChild(style)
 
@@ -71,7 +84,7 @@ function getDropdownStyles(): string {
   return `
     #${PORTAL_ID} .dropdown-container {
       position: fixed;
-      width: 480px;
+      width: 640px;
       max-height: 600px;
       background: #ffffff;
       border: 1px solid #E5E5E5;
@@ -84,7 +97,7 @@ function getDropdownStyles(): string {
     }
 
     #${PORTAL_ID} .dropdown-sidebar {
-      width: 120px;
+      width: 160px;
       background: #f8f8f8;
       border-right: 1px solid #E5E5E5;
       display: flex;
@@ -178,27 +191,43 @@ function getDropdownStyles(): string {
 
     #${PORTAL_ID} .dropdown-header-actions {
       display: flex;
+      align-items: center;
       gap: 8px;
+      flex-shrink: 0;
     }
 
-    #${PORTAL_ID} .dropdown-settings,
-    #${PORTAL_ID} .dropdown-close {
+    #${PORTAL_ID} .dropdown-action-btn {
       width: 24px;
       height: 24px;
+      padding: 0;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
       background: #ffffff;
       border: none;
       border-radius: 4px;
       cursor: pointer;
       transition: background 0.15s ease;
       color: #171717;
+      box-sizing: border-box;
     }
 
-    #${PORTAL_ID} .dropdown-settings:hover,
-    #${PORTAL_ID} .dropdown-close:hover {
+    #${PORTAL_ID} .dropdown-action-btn:hover {
       background: #f8f8f8;
+    }
+
+    #${PORTAL_ID} .dropdown-action-btn.refreshing {
+      cursor: wait;
+    }
+
+    #${PORTAL_ID} .dropdown-action-btn.refreshing svg {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
 
     #${PORTAL_ID} .dropdown-content {
@@ -252,6 +281,9 @@ function getDropdownStyles(): string {
       font-size: 12px;
       font-weight: 500;
       color: #171717;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     #${PORTAL_ID} .dropdown-item-preview {
@@ -308,7 +340,7 @@ function getDropdownStyles(): string {
       height: 16px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify: center;
       cursor: grab;
       color: #64748B;
       opacity: 0;
@@ -342,7 +374,7 @@ function getDropdownStyles(): string {
       height: 16px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify: center;
       flex-shrink: 0;
     }
 
@@ -366,7 +398,7 @@ function getDropdownStyles(): string {
       height: 14px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify: center;
       cursor: grab;
       color: #64748B;
       opacity: 0;
@@ -394,7 +426,7 @@ function getDropdownStyles(): string {
       height: 14px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify: center;
       flex-shrink: 0;
     }
 
@@ -412,11 +444,102 @@ function getDropdownStyles(): string {
     #${PORTAL_ID} .sidebar-category-item:hover .sidebar-category-icon {
       opacity: 0;
     }
+
+    /* Resource library styles */
+
+    #${PORTAL_ID} .network-prompt-cards-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    #${PORTAL_ID} .network-prompt-card:hover {
+      background: #f8f8f8;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+
+    #${PORTAL_ID} .network-prompt-card:focus {
+      outline: 2px solid #A16207;
+      outline-offset: 2px;
+    }
+
+    /* Update notification banner styles */
+    #${PORTAL_ID} .update-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #fff3cd;
+      border-bottom: 1px solid #ffc107;
+    }
+
+    #${PORTAL_ID} .update-banner-text {
+      font-size: 11px;
+      color: #856404;
+      flex: 1;
+    }
+
+    #${PORTAL_ID} .update-banner-link {
+      font-size: 11px;
+      color: #d97706;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    #${PORTAL_ID} .update-banner-link:hover {
+      color: #b45309;
+    }
+
+    #${PORTAL_ID} .update-banner-close {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #856404;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    #${PORTAL_ID} .update-banner-close:hover {
+      color: #533b04;
+    }
+
+    #${PORTAL_ID} .version-badge {
+      font-size: 10px;
+      color: #64748B;
+      font-weight: 400;
+      margin-left: 4px;
+    }
+
+    #${PORTAL_ID} .update-latest-tip {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      border-radius: 4px;
+      padding: 4px 8px;
+      white-space: nowrap;
+      z-index: 10;
+    }
   `
 }
 
 // Category icon mapping for sidebar
 const CATEGORY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  // Built-in categories
+  'cat-quality': Sparkles,     // 质量与细节
+  'cat-style': Palette,        // 艺术风格
+  'cat-lighting': Sun,         // 光影效果
+  'cat-composition': Frame,    // 构图视角
+  'cat-color': Paintbrush,     // 色彩配色
+  'cat-theme': Image,          // 主题场景
+  'cat-medium': Layers,        // 媒介材质
+  // Resource library and special categories
   all: FolderOpen,
   design: Sparkle,
   style: Brush,
@@ -475,7 +598,9 @@ function SortableCategoryItem({
         )}
         <IconComponent className="sidebar-category-icon" />
       </div>
-      <span>{category.name}</span>
+      <Tooltip content={category.name}>
+        <span>{category.name}</span>
+      </Tooltip>
     </div>
   )
 }
@@ -536,8 +661,12 @@ function SortableDropdownItem({
         <IconComponent className="dropdown-item-icon" />
       </div>
       <div className="dropdown-item-text">
-        <span className="dropdown-item-name">{prompt.name}</span>
-        <span className="dropdown-item-preview">{truncateText(prompt.content, 40)}</span>
+        <Tooltip content={prompt.name}>
+          <span className="dropdown-item-name">{prompt.name}</span>
+        </Tooltip>
+        <Tooltip content={prompt.description || prompt.content}>
+          <span className="dropdown-item-preview">{truncateText(prompt.description || prompt.content, 40)}</span>
+        </Tooltip>
       </div>
       <ArrowUpRight className="dropdown-item-arrow" />
     </div>
@@ -548,6 +677,8 @@ export function DropdownContainer({
   prompts,
   categories: propCategories,
   onSelect,
+  onInjectResource,
+  onRefresh,
   isOpen,
   selectedPromptId,
   onClose,
@@ -558,6 +689,130 @@ export function DropdownContainer({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
   const [localPrompts, setLocalPrompts] = useState<Prompt[]>([])
   const [localCategories, setLocalCategories] = useState<Category[]>([])
+
+  // Resource library state (loaded from local JSON)
+  const [isResourceLibrary, setIsResourceLibrary] = useState(false)
+  const [resourcePrompts] = useState<ResourcePrompt[]>(getResourcePrompts())
+  const [resourceCategories] = useState<ResourceCategory[]>(getResourceCategories())
+  const [selectedResourceCategoryId, setSelectedResourceCategoryId] = useState<string>('all')
+  const [loadedCount, setLoadedCount] = useState(50)
+
+  // Modal state for prompt preview
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedResourcePrompt, setSelectedResourcePrompt] = useState<ResourcePrompt | null>(null)
+
+  // Category select dialog state
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
+
+  // Toast state
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  // Refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Update notification state
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
+  const [showLatestTip, setShowLatestTip] = useState(false)
+  const [isUpdateGuideOpen, setIsUpdateGuideOpen] = useState(false)
+
+  // Fetch update status when dropdown opens
+  useEffect(() => {
+    if (!isOpen) return
+    chrome.runtime.sendMessage({ type: MessageType.GET_UPDATE_STATUS }, (response) => {
+      if (response?.success && response.data) {
+        setUpdateStatus(response.data)
+      }
+    })
+  }, [isOpen])
+
+  // Manual update check handler
+  const handleCheckUpdate = useCallback(() => {
+    chrome.runtime.sendMessage({ type: MessageType.CHECK_UPDATE }, (response) => {
+      if (response?.success && response.data) {
+        const status = response.data as UpdateStatus
+        setUpdateStatus(status)
+        if (!status.hasUpdate) {
+          setShowLatestTip(true)
+          setTimeout(() => setShowLatestTip(false), 3000)
+        }
+      }
+    })
+  }, [])
+
+  // Clear update notification
+  const handleDismissUpdate = useCallback(() => {
+    chrome.runtime.sendMessage({ type: MessageType.CLEAR_UPDATE_STATUS }, () => {
+      setUpdateStatus(null)
+    })
+  }, [])
+
+  // Handle refresh with loading state
+  const handleRefreshClick = useCallback(async () => {
+    if (isRefreshing || !onRefresh) return
+    setIsRefreshing(true)
+    try {
+      await onRefresh()
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [isRefreshing, onRefresh])
+
+  // Check if a resource prompt is already collected
+  const isPromptCollected = useCallback((resourcePrompt: ResourcePrompt): boolean => {
+    return localPrompts.some(p => p.content === resourcePrompt.content)
+  }, [localPrompts])
+
+  // Handle quick collect from card (skip modal)
+  const handleQuickCollect = useCallback((resourcePrompt: ResourcePrompt) => {
+    setSelectedResourcePrompt(resourcePrompt)
+    setIsCategoryDialogOpen(true)
+  }, [])
+
+  // Handle inject from card (direct injection)
+  const handleInjectFromCard = useCallback((resourcePrompt: ResourcePrompt) => {
+    if (onInjectResource) {
+      onInjectResource(resourcePrompt)
+      setToastMessage('已注入提示词')
+      setTimeout(() => setToastMessage(null), 2000)
+    }
+  }, [onInjectResource])
+
+  // Handle collect confirmation
+  const handleConfirmCollect = useCallback((categoryId: string, newCategoryName?: string) => {
+    if (!selectedResourcePrompt) return
+
+    let targetCategoryId = categoryId
+
+    if (newCategoryName && newCategoryName.trim()) {
+      usePromptStore.getState().addCategory(newCategoryName.trim())
+      const storeCategories = usePromptStore.getState().categories
+      const newCategory = storeCategories.find(c => c.name === newCategoryName.trim())
+      if (newCategory) {
+        targetCategoryId = newCategory.id
+      }
+    }
+
+    if (!targetCategoryId) {
+      console.error('[Oh My Prompt Script] No target category for collect')
+      return
+    }
+
+    const localPrompt: Omit<Prompt, 'id'> = {
+      name: selectedResourcePrompt.name,
+      content: selectedResourcePrompt.content,
+      categoryId: targetCategoryId,
+      description: selectedResourcePrompt.description,
+      order: 0,
+    }
+
+    usePromptStore.getState().addPrompt(localPrompt)
+
+    const categoryName = usePromptStore.getState().categories.find(c => c.id === targetCategoryId)?.name || '未知分类'
+    setToastMessage(`已收藏到 ${categoryName}`)
+    setIsCategoryDialogOpen(false)
+    setIsModalOpen(false)
+    setSelectedResourcePrompt(null)
+  }, [selectedResourcePrompt])
 
   const dropdownGap = 8
   const dropdownMaxHeight = 600
@@ -572,27 +827,23 @@ export function DropdownContainer({
     setLocalCategories(propCategories)
   }, [propCategories])
 
-  // Calculate position relative to trigger button with viewport boundary check
+  // Calculate position relative to trigger button
   useEffect(() => {
     if (!isOpen) return
 
     const calculatePosition = () => {
-      const hostElement = document.querySelector('[data-testid="prompt-script-trigger"]')
+      const hostElement = document.querySelector('[data-testid="oh-my-prompt-script-trigger"]')
       if (!hostElement) return
 
       const rect = hostElement.getBoundingClientRect()
       const viewportWidth = window.innerWidth
 
-      // Position dropdown above the button, right edge aligned to button's left edge
       const rightPos = viewportWidth - rect.left
       const preferredTopPos = rect.top - dropdownGap
 
-      // Check if dropdown would exceed viewport top when positioned above button
-      // Dropdown height is max 600px, translateY(-100%) means bottom of dropdown at preferredTopPos
       const dropdownBottom = preferredTopPos
       const dropdownTop = dropdownBottom - dropdownMaxHeight
 
-      // If dropdown top would be above viewport top, use sticky top positioning
       const isStickyTop = dropdownTop < 0
 
       setPosition({
@@ -614,7 +865,7 @@ export function DropdownContainer({
     }
   }, [isOpen, dropdownGap, dropdownMaxHeight])
 
-  // Use passed categories or fallback to default logic (using localCategories for drag updates)
+  // Use passed categories or fallback to default logic
   const categories = useMemo(() => {
     const allCategory: Category = { id: 'all', name: '全部分类', order: 0 }
     if (localCategories.length > 0) {
@@ -624,19 +875,19 @@ export function DropdownContainer({
     const cats: Category[] = [allCategory]
     uniqueCategoryIds.forEach((catId) => {
       const existing = DEFAULT_CATEGORIES.find((c) => c.id === catId)
-      cats.push(existing || { id: catId, name: catId, order: FALLBACK_CATEGORY_ORDER })
+      cats.push(existing || { id: catId, name: catId, order: 999 })
     })
     return cats
   }, [localCategories, prompts])
 
-  // Sortable categories (excluding 'all' which is virtual)
+  // Sortable categories (excluding 'all')
   const sortableCategories = useMemo(() => {
     return categories.filter(c => c.id !== 'all')
   }, [categories])
 
   const showCategoryDragHandles = sortableCategories.length >= 2
 
-  // Filter prompts by selected category and sort by order
+  // Filter prompts by selected category
   const filteredPrompts = useMemo(() => {
     let result: Prompt[]
     if (selectedCategoryId === 'all') {
@@ -647,42 +898,60 @@ export function DropdownContainer({
     return sortPromptsByOrder(result)
   }, [localPrompts, selectedCategoryId])
 
-  const showDragHandles = filteredPrompts.length >= 2 && selectedCategoryId !== 'all'
+  const showDragHandles = filteredPrompts.length >= 2
 
-  // Handle drag end for prompt reorder
+  // Filter resource prompts by category
+  const filteredResourcePrompts = useMemo(() => {
+    return selectedResourceCategoryId === 'all'
+      ? resourcePrompts
+      : resourcePrompts.filter(p => p.categoryId === selectedResourceCategoryId || p.sourceCategory === selectedResourceCategoryId)
+  }, [resourcePrompts, selectedResourceCategoryId])
+
+  const paginatedResourcePrompts = useMemo(() => {
+    return filteredResourcePrompts.slice(0, loadedCount)
+  }, [filteredResourcePrompts, loadedCount])
+
+  // Reset pagination on resource category change
+  useEffect(() => {
+    if (isResourceLibrary) {
+      setLoadedCount(50)
+    }
+  }, [selectedResourceCategoryId, isResourceLibrary])
+
+  // Handle drag end for prompt reorder (supports global sorting in 'all' category)
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
-    if (over && active.id !== over.id && selectedCategoryId !== 'all') {
+    if (over && active.id !== over.id) {
       const oldIndex = filteredPrompts.findIndex(p => p.id === active.id)
       const newIndex = filteredPrompts.findIndex(p => p.id === over.id)
       const newOrder = [...filteredPrompts]
       newOrder.splice(oldIndex, 1)
       newOrder.splice(newIndex, 0, filteredPrompts[oldIndex])
 
-      // Update local state immediately for visual feedback
+      // Global sorting: update order for all prompts based on new position
       const updatedPrompts = localPrompts.map((prompt) => {
-        if (prompt.categoryId === selectedCategoryId) {
+        const newIndexInOrder = newOrder.map(p => p.id).indexOf(prompt.id)
+        if (newIndexInOrder !== -1) {
           return {
             ...prompt,
-            order: newOrder.map(p => p.id).indexOf(prompt.id)
+            order: newIndexInOrder
           }
         }
         return prompt
       })
       setLocalPrompts(updatedPrompts)
 
-      // Update storage via service worker
       try {
         await chrome.runtime.sendMessage({
-          type: MessageType.SET_STORAGE,
+          type: 'SET_STORAGE',
           payload: {
-            prompts: updatedPrompts,
-            categories: localCategories,
-            version: '1.0.0'
+            version: '1.0.0',
+            userData: { prompts: updatedPrompts, categories: localCategories },
+            settings: { showBuiltin: true, syncEnabled: false }
           }
         })
       } catch (error) {
-        console.error('[Prompt-Script] Failed to reorder prompts:', error)
+        console.error('[Oh My Prompt Script] Failed to reorder prompts:', error)
       }
     }
   }
@@ -698,7 +967,6 @@ export function DropdownContainer({
       newOrder.splice(oldIndex, 1)
       newOrder.splice(newIndex, 0, sortedCategories[oldIndex])
 
-      // Update local state immediately for visual feedback
       const updatedCategories = localCategories.map((category) => {
         return {
           ...category,
@@ -707,28 +975,34 @@ export function DropdownContainer({
       })
       setLocalCategories(updatedCategories)
 
-      // Update storage via service worker
       try {
         await chrome.runtime.sendMessage({
-          type: MessageType.SET_STORAGE,
+          type: 'SET_STORAGE',
           payload: {
-            prompts: localPrompts,
-            categories: updatedCategories,
-            version: '1.0.0'
+            version: '1.0.0',
+            userData: { prompts: localPrompts, categories: updatedCategories },
+            settings: { showBuiltin: true, syncEnabled: false }
           }
         })
       } catch (error) {
-        console.error('[Prompt-Script] Failed to reorder categories:', error)
+        console.error('[Oh My Prompt Script] Failed to reorder categories:', error)
       }
     }
   }
 
   // Close dropdown when clicking outside
+  // IMPORTANT: Portal container contains dropdown + modals/dialogs - all should skip detection
   useEffect(() => {
     if (!isOpen) return
 
     const handleClickOutside = (e: MouseEvent) => {
-      const hostElement = document.querySelector('[data-testid="prompt-script-trigger"]')
+      // Skip if click is inside portal container (dropdown + modals/dialogs all render there)
+      const portalContainer = document.getElementById(PORTAL_ID)
+      if (portalContainer && portalContainer.contains(e.target as Node)) {
+        return
+      }
+
+      const hostElement = document.querySelector('[data-testid="oh-my-prompt-script-trigger"]')
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
           hostElement && !hostElement.contains(e.target as Node)) {
         onClose?.()
@@ -744,13 +1018,12 @@ export function DropdownContainer({
   const dropdownStyle: React.CSSProperties = {
     top: position.top,
     right: position.right,
-    // Only translateY(-100%) when not sticky at top (normal positioning above button)
     transform: position.isStickyTop ? 'none' : 'translateY(-100%)',
   }
 
-  // Open settings page via background worker (bypasses ad blockers)
+  // Open settings page via background worker
   const handleOpenSettings = () => {
-    chrome.runtime.sendMessage({ type: MessageType.OPEN_SETTINGS })
+    chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' })
     onClose?.()
   }
 
@@ -760,78 +1033,215 @@ export function DropdownContainer({
   }
 
   return createPortal(
-    <div
-      ref={dropdownRef}
-      className="dropdown-container"
-      style={dropdownStyle}
-    >
+    <>
+      <div
+        ref={dropdownRef}
+        className="dropdown-container"
+        style={dropdownStyle}
+      >
       <div className="dropdown-sidebar">
         <div className="sidebar-categories">
-          {/* "全部" category - virtual, not sortable */}
-          <button
-            className={`sidebar-category-item ${selectedCategoryId === 'all' ? 'selected' : ''}`}
-            onClick={() => setSelectedCategoryId('all')}
-            aria-label="全部分类"
-          >
-            <div className="sidebar-category-icon-wrapper">
-              <FolderOpen className="sidebar-category-icon" />
-            </div>
-            <span>全部分类</span>
-          </button>
+          {isResourceLibrary ? (
+            <>
+              {/* Back to local categories */}
+              <button
+                className="sidebar-category-item"
+                onClick={() => setIsResourceLibrary(false)}
+                aria-label="返回本地分类"
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <ArrowLeft className="sidebar-category-icon" />
+                </div>
+                <span>返回</span>
+              </button>
+              {/* "全部" ResourceCategory entry */}
+              <button
+                className={`sidebar-category-item ${selectedResourceCategoryId === 'all' ? 'selected' : ''}`}
+                onClick={() => setSelectedResourceCategoryId('all')}
+                aria-label="全部资源提示词"
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <Database className="sidebar-category-icon" />
+                </div>
+                <span>全部</span>
+              </button>
+              {/* ResourceCategory list */}
+              {sortProviderCategoriesByOrder(resourceCategories).map((category) => (
+                <ProviderCategoryItem
+                  key={category.id}
+                  category={category}
+                  isSelected={selectedResourceCategoryId === category.id}
+                  onSelect={setSelectedResourceCategoryId}
+                />
+              ))}
+            </>
+          ) : (
+            <>
+              {/* "全部" category - virtual, not sortable */}
+              <button
+                className={`sidebar-category-item ${selectedCategoryId === 'all' ? 'selected' : ''}`}
+                onClick={() => {
+                  setSelectedCategoryId('all')
+                }}
+                aria-label="全部分类"
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <FolderOpen className="sidebar-category-icon" />
+                </div>
+                <span>全部分类</span>
+              </button>
 
-          {/* Sortable categories */}
-          <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
-            <SortableContext
-              items={sortableCategories.map(c => c.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {sortableCategories.map((category) => {
-                const IconComponent = getCategoryIcon(category.id)
-                return (
-                  <SortableCategoryItem
-                    key={category.id}
-                    category={category}
-                    isSelected={selectedCategoryId === category.id}
-                    onSelect={setSelectedCategoryId}
-                    showDragHandle={showCategoryDragHandles}
-                    IconComponent={IconComponent}
-                  />
-                )
-              })}
-            </SortableContext>
-          </DndContext>
+              {/* "资源库" entry */}
+              <button
+                className={`sidebar-category-item ${isResourceLibrary ? 'selected' : ''}`}
+                onClick={() => setIsResourceLibrary(true)}
+                aria-label="资源库"
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <Database className="sidebar-category-icon" />
+                </div>
+                <span>资源库</span>
+              </button>
+
+              {/* Sortable local categories */}
+              <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+                <SortableContext
+                  items={sortableCategories.map(c => c.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {sortableCategories.map((category) => {
+                    const IconComponent = getCategoryIcon(category.id)
+                    return (
+                      <SortableCategoryItem
+                        key={category.id}
+                        category={category}
+                        isSelected={selectedCategoryId === category.id}
+                        onSelect={(id) => {
+                          setSelectedCategoryId(id)
+                        }}
+                        showDragHandle={showCategoryDragHandles}
+                        IconComponent={IconComponent}
+                      />
+                    )
+                  })}
+                </SortableContext>
+              </DndContext>
+            </>
+          )}
         </div>
       </div>
 
       <div className="dropdown-main">
         <div className="dropdown-header">
           <span className="dropdown-header-title">
-            <img className="dropdown-header-logo" src={chrome.runtime.getURL('assets/icon-128.png')} alt="Prompt Script" />
-            Prompt Script
+            <img className="dropdown-header-logo" src={chrome.runtime.getURL('assets/icon-128.png')} alt="Oh My Prompt Script" />
+            Oh My Prompt Script
+            <span className="version-badge">v{chrome.runtime.getManifest().version}</span>
           </span>
           <div className="dropdown-header-actions">
-            <button
-              className="dropdown-settings"
-              onClick={handleOpenSettings}
-              aria-label="设置"
-            >
-              <Settings style={{ width: 14, height: 14 }} />
-            </button>
-            <button
-              className="dropdown-close"
-              onClick={onClose}
-              aria-label="关闭"
-            >
-              <X style={{ width: 14, height: 14 }} />
-            </button>
+            <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion} 可用` : '检查更新'} placement="bottom">
+              <button
+                className="dropdown-action-btn"
+                style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
+                onClick={updateStatus?.hasUpdate ? () => setIsUpdateGuideOpen(true) : handleCheckUpdate}
+                aria-label={updateStatus?.hasUpdate ? '查看更新引导' : '检查更新'}
+              >
+                <ArrowUpCircle style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+            {/* "Already latest" tip */}
+            {showLatestTip && (
+              <div className="update-latest-tip">
+                <span style={{ fontSize: 11, color: '#16a34a' }}>已是最新版本</span>
+              </div>
+            )}
+            <Tooltip content="备份数据" placement="bottom">
+              <button
+                className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
+                onClick={handleRefreshClick}
+                aria-label="备份数据"
+                disabled={isRefreshing}
+              >
+                <RefreshCw style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+            <Tooltip content="打开设置" placement="bottom">
+              <button
+                className="dropdown-action-btn"
+                onClick={handleOpenSettings}
+                aria-label="设置"
+              >
+                <Settings style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+            <Tooltip content="关闭" placement="bottom">
+              <button
+                className="dropdown-action-btn"
+                onClick={onClose}
+                aria-label="关闭"
+              >
+                <X style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
           </div>
         </div>
+
+        {/* Update notification banner */}
+        {updateStatus?.hasUpdate && (
+          <div className="update-banner">
+            <ArrowUpCircle style={{ width: 14, height: 14, color: '#856404' }} />
+            <span className="update-banner-text">新版本 {updateStatus.latestVersion} 可用</span>
+            <span
+              className="update-banner-link"
+              onClick={() => setIsUpdateGuideOpen(true)}
+            >
+              查看更新引导
+            </span>
+            <span className="update-banner-close" onClick={handleDismissUpdate}>×</span>
+          </div>
+        )}
 
         <div className="dropdown-content">
           {isLoading ? (
             <div className="empty-state">
               <div className="empty-message">加载中...</div>
             </div>
+          ) : isResourceLibrary ? (
+            paginatedResourcePrompts.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-message">
+                  {resourcePrompts.length === 0
+                    ? '资源库数据加载失败'
+                    : '该分类暂无提示词'}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="network-prompt-cards-grid">
+                  {paginatedResourcePrompts.map((prompt) => (
+                    <NetworkPromptCard
+                      key={prompt.id}
+                      prompt={prompt}
+                      onClick={() => {
+                        setSelectedResourcePrompt(prompt)
+                        setIsModalOpen(true)
+                      }}
+                      onInject={() => handleInjectFromCard(prompt)}
+                      onCollect={() => handleQuickCollect(prompt)}
+                      isCollected={isPromptCollected(prompt)}
+                    />
+                  ))}
+                </div>
+                {filteredResourcePrompts.length > 50 && (
+                  <LoadMoreButton
+                    loadedCount={loadedCount}
+                    totalCount={filteredResourcePrompts.length}
+                    onLoadMore={() => setLoadedCount(prev => prev + 50)}
+                    isLoading={false}
+                  />
+                )}
+              </>
+            )
           ) : filteredPrompts.length === 0 ? (
             <div className="empty-state">
               <div className="empty-message">
@@ -861,7 +1271,47 @@ export function DropdownContainer({
           )}
         </div>
       </div>
-    </div>,
+    </div>
+    {/* Prompt preview modal with collect */}
+    {selectedResourcePrompt && (
+      <PromptPreviewModal
+        prompt={selectedResourcePrompt}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedResourcePrompt(null)
+        }}
+        onCollect={() => setIsCategoryDialogOpen(true)}
+        onInject={() => {
+          if (onInjectResource) {
+            onInjectResource(selectedResourcePrompt)
+            setToastMessage('已注入提示词')
+            setTimeout(() => setToastMessage(null), 2000)
+          }
+        }}
+      />
+    )}
+    {/* Category select dialog */}
+    <CategorySelectDialog
+      categories={sortableCategories}
+      isOpen={isCategoryDialogOpen}
+      onClose={() => setIsCategoryDialogOpen(false)}
+      onConfirm={handleConfirmCollect}
+    />
+    {/* Toast notification */}
+    {toastMessage && (
+      <ToastNotification
+        message={toastMessage}
+        onClose={() => setToastMessage(null)}
+      />
+    )}
+    {/* Update guide modal */}
+    <UpdateGuideModal
+      status={updateStatus}
+      isOpen={isUpdateGuideOpen}
+      onClose={() => setIsUpdateGuideOpen(false)}
+    />
+  </>,
     getPortalContainer()
   )
 }

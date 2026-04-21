@@ -8,6 +8,7 @@ import { create } from 'zustand'
 import type { Prompt, Category, StorageSchema } from '../shared/types'
 import { MessageType } from '../shared/messages'
 import { sortPromptsByOrder } from '../shared/utils'
+import { triggerSync } from './sync/sync-manager'
 
 interface PromptStore {
   prompts: Prompt[]
@@ -32,6 +33,7 @@ interface PromptStore {
   // Reorder
   reorderCategories: (newOrder: string[]) => void
   reorderPrompts: (categoryId: string, newOrder: string[]) => void
+  reorderAllPrompts: (newOrder: string[]) => void
 
   // Computed getters
   getPromptsByCategory: (categoryId: string) => Prompt[]
@@ -57,7 +59,7 @@ async function sendStorageMessage(
 
     return response.data
   } catch (error) {
-    console.error('[Prompt-Script] Storage message error:', error)
+    console.error('[Oh My Prompt Script] Storage message error:', error)
     throw error
   }
 }
@@ -107,12 +109,9 @@ function migratePromptOrders(prompts: Prompt[]): Prompt[] {
     })
   })
 
-  console.log('[Prompt-Script] Migrated prompt order field for', migrated.length, 'prompts')
+  console.log('[Oh My Prompt Script] Migrated prompt order field for', migrated.length, 'prompts')
   return migrated
 }
-
-// Debounce timer for delayed storage save
-let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 export const usePromptStore = create<PromptStore>((set, get) => ({
   // Initial state
@@ -126,30 +125,30 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     set({ isLoading: true })
     try {
       const data = await sendStorageMessage(MessageType.GET_STORAGE)
-      if (data) {
+      if (data && data.userData) {
         // Warn for large datasets
-        if (data.prompts.length > 500) {
-          console.warn('[Prompt-Script] Large dataset loaded:', data.prompts.length, 'prompts')
+        if (data.userData.prompts.length > 500) {
+          console.warn('[Oh My Prompt Script] Large dataset loaded:', data.userData.prompts.length, 'prompts')
         }
 
         // Migrate prompts without order field
-        const migratedPrompts = migratePromptOrders(data.prompts)
+        const migratedPrompts = migratePromptOrders(data.userData.prompts)
 
         set({
           prompts: migratedPrompts,
-          categories: data.categories,
+          categories: data.userData.categories,
           selectedCategoryId: 'all',
           isLoading: false
         })
 
         // Save migrated data if migration happened
-        if (migratedPrompts !== data.prompts) {
+        if (migratedPrompts !== data.userData.prompts) {
           get().saveToStorage()
         }
 
         return { success: true }
       } else {
-        // Use default state if no data
+        // Use default state if no data or missing userData
         const defaultState = getDefaultState()
         set({
           prompts: defaultState.prompts,
@@ -160,7 +159,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         return { success: true }
       }
     } catch (error) {
-      console.error('[Prompt-Script] Failed to load storage:', error)
+      console.error('[Oh My Prompt Script] Failed to load storage:', error)
       const defaultState = getDefaultState()
       set({
         prompts: defaultState.prompts,
@@ -175,14 +174,21 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
   saveToStorage: async () => {
     const { prompts, categories } = get()
     try {
+      const version = chrome.runtime.getManifest().version
       await sendStorageMessage(MessageType.SET_STORAGE, {
-        prompts,
-        categories,
-        version: '1.0.0'
+        version,
+        userData: { prompts, categories },
+        settings: { showBuiltin: true, syncEnabled: false }
       })
+
+      // Trigger sync after save (non-blocking)
+      triggerSync({ prompts, categories }).catch(err => {
+        console.warn('[Oh My Prompt Script] Sync trigger failed:', err)
+      })
+
       return { success: true }
     } catch (error) {
-      console.error('[Prompt-Script] Failed to save storage:', error)
+      console.error('[Oh My Prompt Script] Failed to save storage:', error)
       return { success: false, error: '数据保存失败，请检查存储配额' }
     }
   },
@@ -268,14 +274,8 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
       }))
       return { categories: updatedCategories }
     })
-    // Debounced save
-    if (saveDebounceTimer) {
-      clearTimeout(saveDebounceTimer)
-    }
-    saveDebounceTimer = setTimeout(() => {
-      get().saveToStorage()
-      saveDebounceTimer = null
-    }, 500)
+    // Immediate save (popup may close before debounced timer fires)
+    get().saveToStorage()
   },
 
   // Reorder prompts within a category
@@ -292,14 +292,27 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
       })
       return { prompts: updatedPrompts }
     })
-    // Debounced save
-    if (saveDebounceTimer) {
-      clearTimeout(saveDebounceTimer)
-    }
-    saveDebounceTimer = setTimeout(() => {
-      get().saveToStorage()
-      saveDebounceTimer = null
-    }, 500)
+    // Immediate save (popup may close before debounced timer fires)
+    get().saveToStorage()
+  },
+
+  // Reorder all prompts globally
+  reorderAllPrompts: (newOrder: string[]) => {
+    set((state) => {
+      const updatedPrompts = state.prompts.map((prompt) => {
+        const newIndex = newOrder.indexOf(prompt.id)
+        if (newIndex !== -1) {
+          return {
+            ...prompt,
+            order: newIndex
+          }
+        }
+        return prompt
+      })
+      return { prompts: updatedPrompts }
+    })
+    // Immediate save (popup may close before debounced timer fires)
+    get().saveToStorage()
   },
 
   // Computed getters

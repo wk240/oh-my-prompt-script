@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error): void {
-    console.error('[Popup ErrorBoundary]', error.message)
+    console.error('[Oh My Prompt Script] Popup error:', error.message)
   }
 
   render(): ReactNode {

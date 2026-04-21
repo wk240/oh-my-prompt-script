@@ -6,9 +6,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { TriggerButton } from './TriggerButton'
 import { DropdownContainer } from './DropdownContainer'
-import { MessageType } from '../../shared/messages'
-import type { Prompt, Category, StorageSchema } from '../../shared/types'
+import type { Prompt } from '../../shared/types'
+import type { ResourcePrompt } from '../../shared/types'
 import { InsertHandler } from '../insert-handler'
+import { usePromptStore } from '../../lib/store'
+import { MessageType } from '../../shared/messages'
 
 interface DropdownAppProps {
   inputElement: HTMLElement
@@ -17,42 +19,17 @@ interface DropdownAppProps {
 export function DropdownApp({ inputElement }: DropdownAppProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null)
-  const [prompts, setPrompts] = useState<Prompt[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const insertHandlerRef = useRef<InsertHandler>(new InsertHandler())
 
-  useEffect(() => {
-    // Check if extension context is still valid
-    if (!chrome.runtime?.id) {
-      console.log('[Prompt-Script] Extension context invalidated')
-      setIsLoading(false)
-      return
-    }
+  // Subscribe to Zustand store for reactive updates
+  const prompts = usePromptStore((state) => state.prompts)
+  const categories = usePromptStore((state) => state.categories)
+  const isLoading = usePromptStore((state) => state.isLoading)
+  const loadFromStorage = usePromptStore((state) => state.loadFromStorage)
 
-    try {
-      chrome.runtime.sendMessage(
-        { type: MessageType.GET_STORAGE },
-        (response) => {
-          // Check again in callback - context might have been invalidated
-          if (chrome.runtime?.lastError) {
-            console.log('[Prompt-Script] Runtime error:', chrome.runtime.lastError.message)
-            setIsLoading(false)
-            return
-          }
-          if (response?.success && response.data) {
-            const data = response.data as StorageSchema
-            setPrompts(data.prompts)
-            setCategories(data.categories)
-          }
-          setIsLoading(false)
-        }
-      )
-    } catch (error) {
-      console.log('[Prompt-Script] Extension context error:', error)
-      setIsLoading(false)
-    }
-  }, [])
+  useEffect(() => {
+    loadFromStorage()
+  }, [loadFromStorage])
 
   const handleToggle = useCallback(() => {
     setIsOpen((prev) => !prev)
@@ -70,6 +47,19 @@ export function DropdownApp({ inputElement }: DropdownAppProps) {
     }, 2000)
   }, [inputElement])
 
+  const handleRefresh = useCallback(async () => {
+    // Open backup page instead of doing backup in content script
+    console.log('[Oh My Prompt Script] Refresh clicked, opening backup page...')
+    await chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
+    return { success: true, backupSuccess: false }
+  }, [])
+
+  // Handle direct injection of resource prompt
+  const handleInjectResource = useCallback((resourcePrompt: ResourcePrompt) => {
+    insertHandlerRef.current.insertPrompt(inputElement, resourcePrompt.content)
+    setIsOpen(false)
+  }, [inputElement])
+
   // Always use DropdownContainer (Portal) to escape overflow clipping
   return (
     <div className="dropdown-app">
@@ -82,6 +72,8 @@ export function DropdownApp({ inputElement }: DropdownAppProps) {
         prompts={prompts}
         categories={categories}
         onSelect={handleSelect}
+        onInjectResource={handleInjectResource}
+        onRefresh={handleRefresh}
         isOpen={isOpen}
         selectedPromptId={selectedPromptId}
         onClose={handleClose}

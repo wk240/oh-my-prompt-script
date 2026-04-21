@@ -15,25 +15,56 @@ export interface Category {
   order: number
 }
 
-// Phase 3: Storage schema
+// User data container - all prompts and categories owned by user
+export interface UserData {
+  prompts: Prompt[]
+  categories: Category[]
+}
+
+// Sync settings for local folder backup
+export interface SyncSettings {
+  showBuiltin: boolean // Show resource library reference in UI
+  syncEnabled: boolean // Auto-sync to local folder enabled
+  lastSyncTime?: number // Timestamp of last successful sync
+}
+
+// New storage schema with nested structure
 export interface StorageSchema {
+  version: string // From manifest, dynamic read
+  userData: UserData // User's prompts and categories
+  settings: SyncSettings // Sync and display settings
+  _migrationComplete?: boolean // Prevents re-migration
+}
+
+// Legacy schema for migration detection
+export interface LegacyStorageSchema {
   prompts: Prompt[]
   categories: Category[]
   version: string
 }
 
-// Phase 5: Network prompt types (D-08, D-09)
-export interface NetworkPrompt extends Prompt {
-  sourceProvider?: string // e.g., 'nano-banana'
+// Resource library prompt types (from local JSON data)
+export interface ResourcePrompt extends Prompt {
   sourceCategory?: string // Original category from source
-  previewImage?: string // Preview image URL (D-10: display logic deferred to Phase 7)
-  sourceUrl?: string // Source attribution link
+  previewImage?: string // Preview image URL
+  author?: string // Original author name, e.g. "宝玉"
+  authorUrl?: string // Author attribution link, e.g. "https://x.com/..."
 }
 
-// Phase 5: Provider category metadata
-export interface ProviderCategory {
-  id: string // e.g., '3d-miniatures'
-  name: string // e.g., '3D Miniatures & Dioramas'
-  order: number // Display order (1-17)
+// Resource library category metadata
+export interface ResourceCategory {
+  id: string
+  name: string
+  order: number
   count: number // Number of prompts in category
+}
+
+// Update notification status
+export interface UpdateStatus {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string
+  downloadUrl: string
+  releaseNotes?: string
+  checkedAt: number
 }
