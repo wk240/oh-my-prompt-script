@@ -1350,12 +1350,6 @@ export function DropdownContainer({
     transform: position.isStickyTop ? 'none' : 'translateY(-100%)',
   }
 
-  // Open settings page via background worker
-  const handleOpenSettings = () => {
-    chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' })
-    onClose?.()
-  }
-
   // Get category icon
   const getCategoryIcon = (categoryId: string) => {
     return CATEGORY_ICON_MAP[categoryId] || Layers
