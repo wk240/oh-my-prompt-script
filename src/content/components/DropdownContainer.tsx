@@ -42,8 +42,10 @@ interface DropdownContainerProps {
 
 interface DropdownPosition {
   top: number
-  right: number
+  right?: number
+  left?: number
   isStickyTop: boolean // 是否吸顶模式
+  isStickyLeft: boolean // 是否吸左模式
 }
 
 // Icon mapping
@@ -877,7 +879,7 @@ export function DropdownContainer({
 }: DropdownContainerProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0, isStickyTop: false })
+  const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0, isStickyTop: false, isStickyLeft: false })
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
   const [localPrompts, setLocalPrompts] = useState<Prompt[]>([])
   const [localCategories, setLocalCategories] = useState<Category[]>([])
@@ -1021,6 +1023,7 @@ export function DropdownContainer({
 
   const dropdownGap = 8
   const dropdownMaxHeight = 600
+  const dropdownWidth = 640
 
   // Sync local prompts with props
   useEffect(() => {
@@ -1043,19 +1046,35 @@ export function DropdownContainer({
       const rect = hostElement.getBoundingClientRect()
       const viewportWidth = window.innerWidth
 
-      const rightPos = viewportWidth - rect.left
+      // 计算下拉框左边缘位置（默认右对齐触发按钮）
+      const dropdownLeftEdge = rect.left - dropdownWidth
+
+      // 检测左侧是否超出viewport
+      const isStickyLeft = dropdownLeftEdge < 0
+
+      // 垂直位置计算
       const preferredTopPos = rect.top - dropdownGap
-
-      const dropdownBottom = preferredTopPos
-      const dropdownTop = dropdownBottom - dropdownMaxHeight
-
+      const dropdownTop = preferredTopPos - dropdownMaxHeight
       const isStickyTop = dropdownTop < 0
 
-      setPosition({
-        top: isStickyTop ? 0 : preferredTopPos,
-        right: rightPos,
-        isStickyTop
-      })
+      if (isStickyLeft) {
+        // 左侧超出：改为左对齐（left: 0）
+        setPosition({
+          top: isStickyTop ? 0 : preferredTopPos,
+          left: 0,
+          isStickyTop,
+          isStickyLeft
+        })
+      } else {
+        // 正常情况：右对齐触发按钮
+        const rightPos = viewportWidth - rect.left
+        setPosition({
+          top: isStickyTop ? 0 : preferredTopPos,
+          right: rightPos,
+          isStickyTop,
+          isStickyLeft
+        })
+      }
     }
 
     calculatePosition()
@@ -1068,7 +1087,7 @@ export function DropdownContainer({
       window.removeEventListener('scroll', handleReposition)
       window.removeEventListener('resize', handleReposition)
     }
-  }, [isOpen, dropdownGap, dropdownMaxHeight])
+  }, [isOpen, dropdownGap, dropdownMaxHeight, dropdownWidth])
 
   // Use passed categories or fallback to default logic
   const categories = useMemo(() => {
@@ -1373,8 +1392,12 @@ export function DropdownContainer({
 
   const dropdownStyle: React.CSSProperties = {
     top: position.top,
-    right: position.right,
     transform: position.isStickyTop ? 'none' : 'translateY(-100%)',
+    // 左侧超出时用 left: 0，否则右对齐触发按钮
+    ...(position.isStickyLeft
+      ? { left: position.left }
+      : { right: position.right }
+    ),
   }
 
   // Get category icon
