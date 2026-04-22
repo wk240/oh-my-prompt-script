@@ -519,19 +519,6 @@ function getDropdownStyles(): string {
       margin-left: 4px;
     }
 
-    #${PORTAL_ID} .update-latest-tip {
-      position: absolute;
-      top: 100%;
-      right: 0;
-      margin-top: 4px;
-      background: #f0fdf4;
-      border: 1px solid #86efac;
-      border-radius: 4px;
-      padding: 4px 8px;
-      white-space: nowrap;
-      z-index: 10;
-    }
-
     /* CRUD action buttons */
     #${PORTAL_ID} .sidebar-add-category-btn {
       display: flex;
@@ -879,6 +866,7 @@ export function DropdownContainer({
 }: DropdownContainerProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const updateButtonRef = useRef<HTMLButtonElement>(null)
   const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0, isStickyTop: false, isStickyLeft: false })
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
   const [localPrompts, setLocalPrompts] = useState<Prompt[]>([])
@@ -1531,7 +1519,8 @@ export function DropdownContainer({
           <div className="dropdown-header-actions">
             <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion} 可用` : '检查更新'} placement="bottom">
               <button
-                className="dropdown-action-btn"
+                ref={updateButtonRef}
+                className={`dropdown-action-btn${showLatestTip ? ' has-tip' : ''}`}
                 style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
                 onClick={updateStatus?.hasUpdate ? () => setIsUpdateGuideOpen(true) : handleCheckUpdate}
                 aria-label={updateStatus?.hasUpdate ? '查看更新引导' : '检查更新'}
@@ -1539,12 +1528,6 @@ export function DropdownContainer({
                 <ArrowUpCircle style={{ width: 14, height: 14 }} />
               </button>
             </Tooltip>
-            {/* "Already latest" tip */}
-            {showLatestTip && (
-              <div className="update-latest-tip">
-                <span style={{ fontSize: 11, color: '#16a34a' }}>已是最新版本</span>
-              </div>
-            )}
             <Tooltip content="备份数据" placement="bottom">
               <button
                 className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
@@ -1713,6 +1696,26 @@ export function DropdownContainer({
         message={toastMessage}
         onClose={() => setToastMessage(null)}
       />
+    )}
+    {/* "Already latest" tip - Portal rendered outside dropdown to escape overflow:hidden */}
+    {showLatestTip && updateButtonRef.current && (
+      <div
+        style={{
+          position: 'fixed',
+          top: updateButtonRef.current.getBoundingClientRect().bottom + 4,
+          left: updateButtonRef.current.getBoundingClientRect().left + updateButtonRef.current.offsetWidth / 2,
+          transform: 'translateX(-50%)',
+          background: '#f0fdf4',
+          border: '1px solid #86efac',
+          borderRadius: '4px',
+          padding: '4px 8px',
+          whiteSpace: 'nowrap',
+          zIndex: 2147483647,
+          pointerEvents: 'none',
+        }}
+      >
+        <span style={{ fontSize: 11, color: '#16a34a' }}>已是最新版本</span>
+      </div>
     )}
     {/* Update guide modal */}
     <UpdateGuideModal
