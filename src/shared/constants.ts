@@ -23,4 +23,4 @@ export const BACKUP_FILE_NAME = 'omps-latest.json'
 // Backup history file prefix and limits
 export const BACKUP_HISTORY_PREFIX = 'omps-backup-'
 export const BACKUP_HISTORY_PATTERN = /^omps-backup-\d{8}-\d{6}\.json$/
-export const MAX_BACKUP_HISTORY = 10
+export const MAX_BACKUP_HISTORY = 100

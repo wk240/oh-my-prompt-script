@@ -176,11 +176,11 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     const { prompts, categories } = get()
     try {
       const version = chrome.runtime.getManifest().version
+      // Only send version and userData - service-worker merges with existing settings
       await sendStorageMessage(MessageType.SET_STORAGE, {
         version,
-        userData: { prompts, categories },
-        settings: { showBuiltin: true, syncEnabled: false }
-      })
+        userData: { prompts, categories }
+      } as StorageSchema)
 
       // Trigger sync after save (non-blocking)
       triggerSync({ prompts, categories }).catch(err => {

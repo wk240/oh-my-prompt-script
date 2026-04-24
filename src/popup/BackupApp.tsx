@@ -179,12 +179,23 @@ function BackupApp() {
     setLoading(false)
 
     if (result.success) {
-      setSuccess('文件夹已更换')
-      await loadStatus()
-      // Refresh history list with new folder's backups
-      if (showHistory) {
-        const versionsResult = await getBackupVersions()
-        setVersions(versionsResult.versions)
+      // Check if there's an existing backup to load
+      if (result.existingBackup?.hasBackup) {
+        setLoadBackupDialog({ open: true, info: result.existingBackup })
+        await loadStatus()
+        // Refresh history list with new folder's backups
+        if (showHistory) {
+          const versionsResult = await getBackupVersions()
+          setVersions(versionsResult.versions)
+        }
+      } else {
+        setSuccess('文件夹已更换')
+        await loadStatus()
+        // Refresh history list with new folder's backups
+        if (showHistory) {
+          const versionsResult = await getBackupVersions()
+          setVersions(versionsResult.versions)
+        }
       }
     } else {
       setError(result.error || '更换文件夹失败')

@@ -172,8 +172,9 @@ export async function disableSync(): Promise<void> {
 
 /**
  * Change sync folder - select new folder and replace existing
+ * Returns existingBackup info if new folder has backup files
  */
-export async function changeSyncFolder(): Promise<{ success: boolean; error?: string }> {
+export async function changeSyncFolder(): Promise<{ success: boolean; error?: string; existingBackup?: ExistingBackupInfo }> {
   const handle = await selectSyncFolder()
   if (!handle) {
     return { success: false, error: '请选择一个文件夹' }
@@ -182,15 +183,38 @@ export async function changeSyncFolder(): Promise<{ success: boolean; error?: st
   try {
     await saveFolderHandle(handle)
 
-    // Sync current data to new folder
+    // Check for existing backup in the new folder
+    const existingBackupInfo: ExistingBackupInfo = { hasBackup: false }
+    try {
+      const existingData = await readFromLocalFolder(handle)
+      if (existingData && existingData.prompts.length > 0) {
+        // Read backup time from latest file
+        try {
+          const fileHandle = await handle.getFileHandle(BACKUP_FILE_NAME)
+          const file = await fileHandle.getFile()
+          const content = await file.text()
+          const parsed = JSON.parse(content)
+          existingBackupInfo.hasBackup = true
+          existingBackupInfo.promptCount = existingData.prompts.length
+          existingBackupInfo.categoryCount = existingData.categories.length
+          existingBackupInfo.backupTime = parsed.backupTime
+        } catch {
+          existingBackupInfo.hasBackup = true
+          existingBackupInfo.promptCount = existingData.prompts.length
+          existingBackupInfo.categoryCount = existingData.categories.length
+        }
+      }
+    } catch {
+      // No existing backup or read error - ignore
+    }
+
     const storageManager = StorageManager.getInstance()
-    const data = await storageManager.getData()
-    await syncToLocalFolder(data.userData, handle)
     await storageManager.updateSettings({
+      syncEnabled: true,
       lastSyncTime: Date.now()
     })
 
-    return { success: true }
+    return { success: true, existingBackup: existingBackupInfo }
   } catch (error) {
     console.error('[Oh My Prompt] Change folder failed:', error)
     return { success: false, error: '更换文件夹失败，请检查权限' }
