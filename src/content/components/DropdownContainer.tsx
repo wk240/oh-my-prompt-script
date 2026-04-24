@@ -1285,6 +1285,8 @@ export function DropdownContainer({
   // CRUD handlers for categories
   const handleAddCategory = useCallback((name: string) => {
     usePromptStore.getState().addCategory(name)
+    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
+    setShowBackupReminder(true)
     setToastMessage('分类已添加')
     setTimeout(() => setToastMessage(null), 2000)
   }, [])
@@ -1292,6 +1294,8 @@ export function DropdownContainer({
   const handleUpdateCategory = useCallback((name: string) => {
     if (!editingCategory) return
     usePromptStore.getState().updateCategory(editingCategory.id, name)
+    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
+    setShowBackupReminder(true)
     setEditingCategory(null)
     setToastMessage('分类已更新')
     setTimeout(() => setToastMessage(null), 2000)
@@ -1300,6 +1304,8 @@ export function DropdownContainer({
   const handleDeleteCategory = useCallback(() => {
     if (!deletingCategory) return
     usePromptStore.getState().deleteCategory(deletingCategory.id)
+    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
+    setShowBackupReminder(true)
     // Update local state
     setLocalCategories(prev => prev.filter(c => c.id !== deletingCategory.id))
     setLocalPrompts(prev => prev.filter(p => p.categoryId !== deletingCategory.id))
@@ -1321,6 +1327,8 @@ export function DropdownContainer({
       categoryId: data.categoryId,
       order: localPrompts.filter(p => p.categoryId === data.categoryId).length,
     })
+    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
+    setShowBackupReminder(true)
     setToastMessage('提示词已添加')
     setTimeout(() => setToastMessage(null), 2000)
   }, [localPrompts])
@@ -1333,6 +1341,8 @@ export function DropdownContainer({
       content: data.content,
       categoryId: data.categoryId,
     })
+    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
+    setShowBackupReminder(true)
     setEditingPrompt(null)
     setToastMessage('提示词已更新')
     setTimeout(() => setToastMessage(null), 2000)
@@ -1341,6 +1351,8 @@ export function DropdownContainer({
   const handleDeletePrompt = useCallback(() => {
     if (!deletingPrompt) return
     usePromptStore.getState().deletePrompt(deletingPrompt.id)
+    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
+    setShowBackupReminder(true)
     setLocalPrompts(prev => prev.filter(p => p.id !== deletingPrompt.id))
     setDeletingPrompt(null)
     setToastMessage('提示词已删除')
