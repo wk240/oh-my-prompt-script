@@ -182,8 +182,20 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         userData: { prompts, categories }
       } as StorageSchema)
 
-      // Trigger sync after save (non-blocking)
-      triggerSync({ prompts, categories }).catch(err => {
+      // Trigger sync after save and notify if failed
+      triggerSync({ prompts, categories }).then(success => {
+        if (!success) {
+          console.warn('[Oh My Prompt] Sync failed, notifying UI')
+          // Broadcast to all Lovart tabs to show backup reminder
+          chrome.tabs.query({ url: ['*://lovart.ai/*', '*://*.lovart.ai/*'] }, (tabs) => {
+            tabs.forEach(tab => {
+              if (tab.id) {
+                chrome.tabs.sendMessage(tab.id, { type: MessageType.SYNC_FAILED })
+              }
+            })
+          })
+        }
+      }).catch(err => {
         console.warn('[Oh My Prompt] Sync trigger failed:', err)
       })
 
