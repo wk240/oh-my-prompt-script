@@ -1080,6 +1080,17 @@ export function DropdownContainer({
     })
   }, [])
 
+  // Listen for sync failure events from service worker
+  useEffect(() => {
+    const handleSyncFailed = () => {
+      setShowBackupReminder(true)
+    }
+    window.addEventListener('oh-my-prompt-sync-failed', handleSyncFailed)
+    return () => {
+      window.removeEventListener('oh-my-prompt-sync-failed', handleSyncFailed)
+    }
+  }, [])
+
   // Clear update notification
   const handleDismissUpdate = useCallback(() => {
     chrome.runtime.sendMessage({ type: MessageType.CLEAR_UPDATE_STATUS }, () => {
@@ -1330,9 +1341,6 @@ export function DropdownContainer({
             userData: { prompts: updatedPrompts, categories: localCategories }
           }
         })
-        // Set unsynced flag and show backup reminder after reorder
-        chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
-        setShowBackupReminder(true)
       } catch (error) {
         console.error('[Oh My Prompt] Failed to reorder prompts:', error)
       }
@@ -1366,9 +1374,6 @@ export function DropdownContainer({
             userData: { prompts: localPrompts, categories: updatedCategories }
           }
         })
-        // Set unsynced flag and show backup reminder after reorder
-        chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
-        setShowBackupReminder(true)
       } catch (error) {
         console.error('[Oh My Prompt] Failed to reorder categories:', error)
       }
@@ -1378,8 +1383,6 @@ export function DropdownContainer({
   // CRUD handlers for categories
   const handleAddCategory = useCallback((name: string) => {
     usePromptStore.getState().addCategory(name)
-    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
-    setShowBackupReminder(true)
     setToastMessage('分类已添加')
     setTimeout(() => setToastMessage(null), 2000)
   }, [])
@@ -1387,8 +1390,6 @@ export function DropdownContainer({
   const handleUpdateCategory = useCallback((name: string) => {
     if (!editingCategory) return
     usePromptStore.getState().updateCategory(editingCategory.id, name)
-    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
-    setShowBackupReminder(true)
     setEditingCategory(null)
     setToastMessage('分类已更新')
     setTimeout(() => setToastMessage(null), 2000)
@@ -1397,8 +1398,6 @@ export function DropdownContainer({
   const handleDeleteCategory = useCallback(() => {
     if (!deletingCategory) return
     usePromptStore.getState().deleteCategory(deletingCategory.id)
-    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
-    setShowBackupReminder(true)
     // Update local state
     setLocalCategories(prev => prev.filter(c => c.id !== deletingCategory.id))
     setLocalPrompts(prev => prev.filter(p => p.categoryId !== deletingCategory.id))
@@ -1420,8 +1419,6 @@ export function DropdownContainer({
       categoryId: data.categoryId,
       order: localPrompts.filter(p => p.categoryId === data.categoryId).length,
     })
-    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
-    setShowBackupReminder(true)
     setToastMessage('提示词已添加')
     setTimeout(() => setToastMessage(null), 2000)
   }, [localPrompts])
@@ -1434,8 +1431,6 @@ export function DropdownContainer({
       content: data.content,
       categoryId: data.categoryId,
     })
-    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
-    setShowBackupReminder(true)
     setEditingPrompt(null)
     setToastMessage('提示词已更新')
     setTimeout(() => setToastMessage(null), 2000)
@@ -1444,8 +1439,6 @@ export function DropdownContainer({
   const handleDeletePrompt = useCallback(() => {
     if (!deletingPrompt) return
     usePromptStore.getState().deletePrompt(deletingPrompt.id)
-    chrome.runtime.sendMessage({ type: MessageType.SET_UNSYNCED_FLAG })
-    setShowBackupReminder(true)
     setLocalPrompts(prev => prev.filter(p => p.id !== deletingPrompt.id))
     setDeletingPrompt(null)
     setToastMessage('提示词已删除')
@@ -1555,7 +1548,57 @@ export function DropdownContainer({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  if (!isOpen) {
+    // When dropdown is closed, only render backup reminder banner if needed
+    return createPortal(
+      <>
+        {showBackupReminder && (
+          <div className="backup-reminder-banner-closed">
+            <RefreshCw style={{ width: 14, height: 14, color: '#1e40af' }} />
+            <span className="backup-reminder-text">本次改动尚未备份</span>
+            <span
+              className="backup-reminder-link"
+              onClick={() => setShowBackupReminder(false)}
+            >
+              已知晓
+            </span>
+            <span className="backup-reminder-close" onClick={() => setShowBackupReminder(false)}>×</span>
+          </div>
+        )}
+        <style>{`.backup-reminder-banner-closed {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          z-index: 999999;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
+          background: #EFF6FF;
+          border: 1px solid #BFDBFE;
+          border-radius: 8px;
+          font-size: 13px;
+          color: #1E40AF;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .backup-reminder-banner-closed .backup-reminder-text { color: #1E40AF; }
+        .backup-reminder-banner-closed .backup-reminder-link {
+          color: #2563EB;
+          cursor: pointer;
+          font-weight: 500;
+        }
+        .backup-reminder-banner-closed .backup-reminder-link:hover { text-decoration: underline; }
+        .backup-reminder-banner-closed .backup-reminder-close {
+          cursor: pointer;
+          font-size: 16px;
+          color: #6B7280;
+          margin-left: 4px;
+        }
+        `}</style>
+      </>,
+      document.body
+    )
+  }
 
   const dropdownStyle: React.CSSProperties = {
     top: position.top,

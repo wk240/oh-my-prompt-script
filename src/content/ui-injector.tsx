@@ -775,4 +775,12 @@ export class UIInjector {
   isInjected(): boolean {
     return this.hostElement !== null && document.body.contains(this.hostElement)
   }
+
+  /**
+   * Notify React component that sync failed
+   * Dispatches custom event on window for DropdownContainer to listen
+   */
+  notifySyncFailed(): void {
+    window.dispatchEvent(new CustomEvent('oh-my-prompt-sync-failed'))
+  }
 }

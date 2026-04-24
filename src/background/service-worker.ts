@@ -53,7 +53,7 @@ chrome.runtime.onMessage.addListener(
               _migrationComplete: payload._migrationComplete ?? existingData._migrationComplete
             }
 
-            return storageManager.saveData(mergedData)
+            return storageManager.saveData(mergedData).then(() => mergedData)
           })
           .then(() => {
             console.log('[Oh My Prompt] SET_STORAGE: Save successful')

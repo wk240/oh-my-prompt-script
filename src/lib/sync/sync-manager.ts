@@ -17,31 +17,39 @@ export interface SyncStatus {
 /**
  * Trigger sync after data change
  * Called by store.saveToStorage()
+ * Returns true if sync succeeded, false if failed or skipped (user should be reminded)
  */
-export async function triggerSync(userData: UserData): Promise<void> {
+export async function triggerSync(userData: UserData): Promise<boolean> {
   const storageManager = StorageManager.getInstance()
   const settings = await storageManager.getSettings()
 
+  // If sync not enabled, mark as unsynced and return false to trigger reminder
   if (!settings.syncEnabled) {
-    return
+    if (userData.prompts.length > 0) {
+      await storageManager.updateSettings({ hasUnsyncedChanges: true })
+    }
+    return false // No backup configured - should remind user
   }
 
   const handle = await getFolderHandle()
 
   if (!handle) {
-    // Folder handle lost - disable sync
-    await storageManager.updateSettings({ syncEnabled: false })
+    // Folder handle lost - disable sync and mark as unsynced
+    await storageManager.updateSettings({ syncEnabled: false, hasUnsyncedChanges: true })
     console.warn('[Oh My Prompt] Sync folder handle lost, disabled sync')
-    return
+    return false
   }
 
   try {
     await syncToLocalFolder(userData, handle)
     await storageManager.updateSettings({ lastSyncTime: Date.now(), hasUnsyncedChanges: false })
     console.log('[Oh My Prompt] Auto-sync completed')
+    return true
   } catch (error) {
     console.error('[Oh My Prompt] Auto-sync failed:', error)
-    // Keep syncEnabled - user can see error in settings
+    // Mark as unsynced so UI can show reminder
+    await storageManager.updateSettings({ hasUnsyncedChanges: true })
+    return false
   }
 }
 

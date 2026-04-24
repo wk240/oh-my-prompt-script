@@ -70,6 +70,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true // Required for async sendResponse
   }
 
+  // Handle sync failure - show backup reminder
+  if (message.type === MessageType.SYNC_FAILED) {
+    console.log('[Oh My Prompt] Sync failed, notifying UI to show backup reminder')
+    uiInjector.notifySyncFailed()
+    sendResponse({ success: true })
+  }
+
   return true // Required for async sendResponse
 })
 
