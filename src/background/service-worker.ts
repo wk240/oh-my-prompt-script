@@ -240,13 +240,23 @@ chrome.runtime.onMessage.addListener(
         const payload = message.payload as FetchOnlinePromptsPayload
         const { endpoint, query, categoryId, promptId, page = 1, perPage = 20 } = payload
 
+        // Parameter validation
+        if (endpoint === 'category' && !categoryId) {
+          sendResponse({ success: false, error: 'categoryId is required for category endpoint' })
+          return true
+        }
+        if (endpoint === 'detail' && !promptId) {
+          sendResponse({ success: false, error: 'promptId is required for detail endpoint' })
+          return true
+        }
+
         let url: string
         if (endpoint === 'search') {
           url = `${PROMPTS_CHAT_API_BASE}/prompts?q=${encodeURIComponent(query || '')}&page=${page}&perPage=${perPage}`
         } else if (endpoint === 'category') {
-          url = `${PROMPTS_CHAT_API_BASE}/prompts?category=${categoryId}&page=${page}&perPage=${perPage}`
+          url = `${PROMPTS_CHAT_API_BASE}/prompts?category=${encodeURIComponent(categoryId!)}&page=${page}&perPage=${perPage}`
         } else if (endpoint === 'detail') {
-          url = `${PROMPTS_CHAT_API_BASE}/prompts/${promptId}`
+          url = `${PROMPTS_CHAT_API_BASE}/prompts/${encodeURIComponent(promptId!)}`
         } else {
           sendResponse({ success: false, error: 'Invalid endpoint' })
           return true
