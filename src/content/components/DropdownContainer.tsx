@@ -27,7 +27,7 @@ const DeleteConfirmModal = lazy(() => import('./DeleteConfirmModal').then(m => (
 const PromptEditModal = lazy(() => import('./PromptEditModal').then(m => ({ default: m.PromptEditModal })))
 import { usePromptStore } from '../../lib/store'
 import { getResourcePrompts, getResourceCategories } from '../../lib/resource-library'
-import { PREDEFINED_ONLINE_CATEGORIES, convertOnlinePromptToLocal } from '../../lib/prompts-chat-api'
+import { convertOnlinePromptToLocal } from '../../lib/prompts-chat-api'
 import { MessageType } from '../../shared/messages'
 import { readImportFile, mergeImportData } from '../../lib/import-export'
 
@@ -1724,22 +1724,6 @@ export function DropdownContainer({
                 </div>
                 <span>返回</span>
               </button>
-              {/* Online categories from prompts.chat */}
-              {PREDEFINED_ONLINE_CATEGORIES.map((category) => (
-                <button
-                  key={category.id}
-                  className="sidebar-category-item"
-                  onClick={() => {/* Category selection handled in OnlineSearchPanel */}}
-                  aria-label={category.name}
-                >
-                  <div className="sidebar-category-icon-wrapper">
-                    <Globe className="sidebar-category-icon" />
-                  </div>
-                  <Tooltip content={category.description || category.name}>
-                    <span>{category.name}</span>
-                  </Tooltip>
-                </button>
-              ))}
             </>
           ) : isResourceLibrary ? (
             <>
