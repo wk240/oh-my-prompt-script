@@ -8,7 +8,6 @@ import { create } from 'zustand'
 import type { Prompt, Category, StorageSchema } from '../shared/types'
 import { MessageType } from '../shared/messages'
 import { sortPromptsByOrder } from '../shared/utils'
-import { triggerSync } from './sync/sync-manager'
 
 interface PromptStore {
   prompts: Prompt[]
@@ -176,28 +175,11 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     const { prompts, categories } = get()
     try {
       const version = chrome.runtime.getManifest().version
-      // Only send version and userData - service-worker merges with existing settings
+      // Send data to service worker - sync is handled by service worker
       await sendStorageMessage(MessageType.SET_STORAGE, {
         version,
         userData: { prompts, categories }
       } as StorageSchema)
-
-      // Trigger sync after save and notify if failed
-      triggerSync({ prompts, categories }).then(success => {
-        if (!success) {
-          console.warn('[Oh My Prompt] Sync failed, notifying UI')
-          // Broadcast to all Lovart tabs to show backup reminder
-          chrome.tabs.query({ url: ['*://lovart.ai/*', '*://*.lovart.ai/*'] }, (tabs) => {
-            tabs.forEach(tab => {
-              if (tab.id) {
-                chrome.tabs.sendMessage(tab.id, { type: MessageType.SYNC_FAILED })
-              }
-            })
-          })
-        }
-      }).catch(err => {
-        console.warn('[Oh My Prompt] Sync trigger failed:', err)
-      })
 
       return { success: true }
     } catch (error) {
