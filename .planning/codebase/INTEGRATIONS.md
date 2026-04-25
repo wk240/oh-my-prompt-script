@@ -1,33 +1,40 @@
 # External Integrations
 
-**Analysis Date:** 2026-04-21
+**Analysis Date:** 2026-04-25
 
 ## APIs & External Services
 
 **GitHub Releases API:**
 - Purpose: Check for extension updates from repository releases
-- Endpoint: `https://api.github.com/repos/wk240/oh-my-prompt-script/releases/latest`
+- Endpoint: `https://api.github.com/repos/wk240/oh-my-prompt/releases/latest`
 - SDK/Client: Native `fetch()` API
 - Auth: None (public repository)
 - Implementation: `src/lib/version-checker.ts`
+- Host permission: `https://api.github.com/*` in manifest
+
+**GitHub Raw Content:**
+- Purpose: Fetch resource library prompts (optional feature)
+- Host permission: `https://raw.githubusercontent.com/*` in manifest
 
 **Lovart AI Platform:**
 - Purpose: Target platform for prompt insertion
 - Domain: `lovart.ai` and subdomains
-- Integration: Content script injection via manifest matches
-- Manifest permissions: `"*://lovart.ai/*", "*://*.lovart.ai/*"`
+- Integration: Content script injection via manifest `content_scripts.matches`
+- Selector: `[data-testid="agent-message-input"]`, `[data-lexical-editor="true"]`
+- Insertion point: `[data-testid="agent-input-bottom-more-button"]`
 
 ## Data Storage
 
 **Databases:**
 - chrome.storage.local - Primary data persistence
   - Connection: Chrome Extension API
-  - Client: Custom `StorageManager` singleton in `src/lib/storage.ts`
-  - Quota: 10MB maximum
-  - Key: `prompt_script_data` (single key for entire schema)
+  - Client: `StorageManager` singleton at `src/lib/storage.ts`
+  - Key: `prompt_script_data` (single key stores entire `StorageSchema`)
+  - Quota: 10MB maximum (warning at 80% usage)
+  - Types: See `src/shared/types.ts` `StorageSchema` interface
 
-- IndexedDB - Secondary storage for sync folder handles
-  - Database: `oh-my-prompt-script-sync`
+- IndexedDB - Folder handle persistence for File System Access API
+  - Database: `oh-my-prompt-sync` (migration from legacy `oh-my-prompt-script-sync`)
   - Store: `handles`
   - Key: `syncFolderHandle`
   - Implementation: `src/lib/sync/indexeddb.ts`
@@ -35,42 +42,47 @@
 **File Storage:**
 - File System Access API - Local folder backup/sync
   - Implementation: `src/lib/sync/file-sync.ts`
-  - Files: `omps-latest.json` (current), `omps-backup-*.json` (history)
-  - History limit: 10 backup files
-  - Requires user folder selection and read/write permission
+  - Primary file: `omps-latest.json` (current backup)
+  - History files: `omps-backup-{YYYYMMDD}-{HHMMSS}.json`
+  - History pattern: `BACKUP_HISTORY_PATTERN = /^omps-backup-\d{8}-\d{6}\.json$/`
+  - Max history: 100 backup files (`MAX_BACKUP_HISTORY`)
+  - Requires: User folder selection and read/write permission
 
 **Caching:**
-- None - All data persisted to chrome.storage.local
+- None - All data persisted to chrome.storage.local immediately
 
 ## Authentication & Identity
 
 **Auth Provider:**
 - Not applicable - Extension runs locally without user authentication
 - No login/registration required
+- User identity: Browser profile level (extension installed per-profile)
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- None - Console logging only with `[Oh My Prompt Script]` prefix
+- None - Console logging only with `[Oh My Prompt]` prefix
 
 **Logs:**
 - Browser console with prefixed messages
-- All modules use `console.log`, `console.warn`, `console.error` with consistent prefix
-- Pattern: `console.log('[Oh My Prompt Script] message')`
+- Pattern: `console.log('[Oh My Prompt]', message)` for easy filtering
+- Warning logs: Large datasets (>500 prompts), storage quota (>80%)
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- GitHub Pages - Project website/landing page
+- GitHub Releases - .zip download files (`oh-my-prompt-v{version}.zip`)
 - Chrome Web Store - Extension distribution (manual upload)
-- GitHub Releases - .crx/.zip download files
+- Project site: `https://oh-my-prompt.com/`
 
 **CI Pipeline:**
 - None detected - No GitHub Actions or other CI workflows found
+- Manual build and release process
 
 **Build Process:**
 - Manual: `npm run build` produces `dist/` directory
 - Development: `npm run dev` with hot reload via Vite
+- TypeScript check: `npx tsc --noEmit`
 
 ## Environment Configuration
 
@@ -96,31 +108,38 @@
 **Storage:**
 - `chrome.storage.local.get()` - Read data
 - `chrome.storage.local.set()` - Write data
-- `chrome.storage.local.remove()` - Clear specific keys
+- `chrome.storage.local.remove()` - Clear update status
 - `chrome.storage.local.getBytesInUse()` - Check quota usage
 
 **Runtime:**
-- `chrome.runtime.getManifest()` - Get extension version
+- `chrome.runtime.getManifest()` - Get extension version dynamically
 - `chrome.runtime.sendMessage()` - Message to service worker
-- `chrome.runtime.onMessage` - Receive messages in service worker
-- `chrome.runtime.onInstalled` - Extension install/update event
-- `chrome.runtime.onStartup` - Browser startup event
+- `chrome.runtime.onMessage.addListener()` - Receive messages
 
 **Tabs:**
-- `chrome.tabs.create()` - Open new tabs
-- `chrome.tabs.sendMessage()` - Message to content script
-
-**Action:**
-- `chrome.action.setBadgeText()` - Show update indicator
-- `chrome.action.setBadgeBackgroundColor()` - Badge color
+- `chrome.tabs.create()` - Open backup page, extensions page
+- `chrome.tabs.sendMessage()` - Message to content script (sync failure notification)
+- `chrome.tabs.query()` - Query Lovart tabs for broadcast messages
 
 **Downloads:**
-- `chrome.downloads.download()` - Export JSON files
+- `chrome.downloads.download()` - Export JSON files (data URL method in service worker)
 
 **Alarms:**
-- `chrome.alarms.create()` - Periodic update check (60 minute interval)
-- `chrome.alarms.onAlarm` - Alarm trigger handler
+- Not currently used (manifest has permission but no alarm handlers detected)
+
+## Extension Permissions (from manifest.json)
+
+**Required permissions:**
+- `activeTab` - Access to active tab content
+- `downloads` - Export data as JSON download
+- `storage` - chrome.storage.local access
+- `tabs` - Tab querying for messaging
+- `alarms` - Scheduled tasks (permission reserved)
+
+**Host permissions:**
+- `https://raw.githubusercontent.com/*` - Resource library fetching
+- `https://api.github.com/*` - Version checking
 
 ---
 
-*Integration audit: 2026-04-21*
+*Integration audit: 2026-04-25*

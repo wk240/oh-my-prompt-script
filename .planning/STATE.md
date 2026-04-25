@@ -1,16 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1.4
-milestone_name: Backup UX Improvements & Performance
+milestone: v1.1.0
+milestone_name: 网络提示词数据源接入
 status: shipped
-last_updated: "2026-04-25T06:00:00.000Z"
-last_activity: "2026-04-25 — v1.1.4 release shipped"
+last_updated: "2026-04-25T07:06:03.692Z"
 progress:
-  total_phases: 8
-  completed_phases: 7
-  total_plans: 31
-  completed_plans: 26
-  percent: 84
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 18
+  completed_plans: 18
+  percent: 100
 ---
 
 # STATE.md
