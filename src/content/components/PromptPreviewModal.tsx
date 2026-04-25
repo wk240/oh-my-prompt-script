@@ -15,7 +15,8 @@ interface PromptPreviewModalProps {
   isOpen: boolean
   onClose: () => void
   onCollect?: () => void
-  onInject?: () => void // Inject callback
+  onInject?: (language: 'zh' | 'en') => void // Inject callback with language
+  globalLanguage?: 'zh' | 'en' // Global preference for initial state
 }
 
 const PORTAL_ID = 'oh-my-prompt-dropdown-portal'
@@ -39,11 +40,32 @@ function getPortalContainer(): HTMLElement {
   return container
 }
 
-export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect, onInject }: PromptPreviewModalProps) {
+export function PromptPreviewModal({
+  prompt,
+  isOpen,
+  onClose,
+  onCollect,
+  onInject,
+  globalLanguage = 'zh'
+}: PromptPreviewModalProps) {
   // Hover preview state
   const [showPreview, setShowPreview] = useState(false)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Local language state (defaults to global preference, but can be overridden in modal)
+  const [modalLanguage, setModalLanguage] = useState<'zh' | 'en'>(globalLanguage)
+
+  // Sync with global preference when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setModalLanguage(globalLanguage)
+    }
+  }, [isOpen, globalLanguage])
+
+  // Get display values based on modal language
+  const displayName = modalLanguage === 'en' && prompt.nameEn ? prompt.nameEn : prompt.name
+  const displayContent = modalLanguage === 'en' && prompt.contentEn ? prompt.contentEn : prompt.content
 
   // Escape key closes modal
   useEffect(() => {
@@ -70,11 +92,11 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect, onInjec
     if (e.target === e.currentTarget) onClose()
   }, [onClose])
 
-  // Handle inject click - close modal and call inject callback
+  // Handle inject click - close modal and call inject callback with language
   const handleInject = useCallback(() => {
-    onInject?.()
+    onInject?.(modalLanguage)
     onClose()
-  }, [onInject, onClose])
+  }, [onInject, onClose, modalLanguage])
 
   // Handle image mouse enter - start 500ms timer
   const handleImageMouseEnter = () => {
@@ -203,7 +225,7 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect, onInjec
               flex: '1',
               minWidth: '0',
             }}>
-              {prompt.name}
+              {displayName}
             </span>
             <button
               onClick={onClose}
@@ -274,7 +296,56 @@ export function PromptPreviewModal({ prompt, isOpen, onClose, onCollect, onInjec
           color: '#171717',
           lineHeight: '1.4',
         }}>
-          {prompt.content}
+          {displayContent}
+        </div>
+        {/* Language switch - above footer */}
+        <div style={{
+          padding: '12px 16px',
+          borderTop: '1px solid #E5E5E5',
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '8px',
+        }}>
+          <button
+            onClick={() => setModalLanguage('zh')}
+            aria-label="中文版本"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: '6px 12px',
+              background: modalLanguage === 'zh' ? '#171717' : '#ffffff',
+              border: modalLanguage === 'zh' ? 'none' : '1px solid #E5E5E5',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 500,
+              color: modalLanguage === 'zh' ? '#fff' : '#171717',
+              cursor: 'pointer',
+            }}
+          >
+            中文版本
+          </button>
+          <button
+            onClick={() => setModalLanguage('en')}
+            aria-label="英文版本"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: '6px 12px',
+              background: modalLanguage === 'en' ? '#171717' : '#ffffff',
+              border: modalLanguage === 'en' ? 'none' : '1px solid #E5E5E5',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 500,
+              color: modalLanguage === 'en' ? '#fff' : '#171717',
+              cursor: 'pointer',
+            }}
+          >
+            英文版本
+          </button>
         </div>
         {/* Footer */}
         <div style={{

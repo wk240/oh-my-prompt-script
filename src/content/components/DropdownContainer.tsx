@@ -2043,13 +2043,18 @@ export function DropdownContainer({
             setSelectedResourcePrompt(null)
           }}
           onCollect={() => setIsCategoryDialogOpen(true)}
-          onInject={() => {
+          onInject={(language) => {
             if (onInjectResource) {
-              onInjectResource(selectedResourcePrompt)
+              // Use the language version from modal
+              const promptToInject = language === 'en' && selectedResourcePrompt.contentEn
+                ? { ...selectedResourcePrompt, content: selectedResourcePrompt.contentEn }
+                : selectedResourcePrompt
+              onInjectResource(promptToInject)
               setToastMessage('已注入提示词')
               setTimeout(() => setToastMessage(null), 2000)
             }
           }}
+          globalLanguage={resourceLanguage}
         />
       </Suspense>
     )}
