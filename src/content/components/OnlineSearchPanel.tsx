@@ -58,40 +58,43 @@ export function OnlineSearchPanel({
     return () => clearTimeout(timer)
   }, [searchQuery])
 
+  // Fetch prompts - callable from effect and retry handler
+  const fetchPrompts = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    setPrompts([])
+    setPage(1)
+
+    try {
+      let response
+      if (debouncedQuery) {
+        // Search by keyword
+        response = await searchOnlinePrompts(debouncedQuery, 1, PER_PAGE)
+      } else if (selectedCategory) {
+        // Get by category
+        response = await getOnlinePromptsByCategory(selectedCategory.id, 1, PER_PAGE)
+      } else {
+        // Default: show image generation category
+        response = await getOnlinePromptsByCategory(PREDEFINED_ONLINE_CATEGORIES[0].id, 1, PER_PAGE)
+      }
+
+      setPrompts(response.prompts)
+      setTotal(response.total)
+      setHasMore(response.page < response.totalPages)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载失败，请重试')
+      setPrompts([])
+      setTotal(0)
+      setHasMore(false)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [debouncedQuery, selectedCategory])
+
   // Fetch prompts when debouncedQuery or selectedCategory changes
   useEffect(() => {
-    const fetchPrompts = async () => {
-      setIsLoading(true)
-      setError(null)
-
-      try {
-        let response
-        if (debouncedQuery) {
-          // Search by keyword
-          response = await searchOnlinePrompts(debouncedQuery, 1, PER_PAGE)
-        } else if (selectedCategory) {
-          // Get by category
-          response = await getOnlinePromptsByCategory(selectedCategory.id, 1, PER_PAGE)
-        } else {
-          // Default: show image generation category
-          response = await getOnlinePromptsByCategory(PREDEFINED_ONLINE_CATEGORIES[0].id, 1, PER_PAGE)
-        }
-
-        setPrompts(response.prompts)
-        setTotal(response.total)
-        setHasMore(response.page < response.totalPages)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '加载失败，请重试')
-        setPrompts([])
-        setTotal(0)
-        setHasMore(false)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchPrompts()
-  }, [debouncedQuery, selectedCategory])
+  }, [fetchPrompts])
 
   // Load more prompts for infinite scroll
   const loadMore = useCallback(async () => {
@@ -277,10 +280,7 @@ export function OnlineSearchPanel({
             <AlertCircle style={{ width: '32px', height: '32px', color: '#EF4444' }} />
             <span style={{ marginTop: '8px', fontSize: '13px', color: '#737373', textAlign: 'center' }}>{error}</span>
             <button
-              onClick={() => {
-                setError(null)
-                setPage(1)
-              }}
+              onClick={fetchPrompts}
               style={{
                 marginTop: '12px',
                 padding: '8px 16px',
