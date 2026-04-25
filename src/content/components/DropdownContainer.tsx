@@ -1191,11 +1191,15 @@ export function DropdownContainer({
   // Handle inject from card (direct injection)
   const handleInjectFromCard = useCallback((resourcePrompt: ResourcePrompt) => {
     if (onInjectResource) {
-      onInjectResource(resourcePrompt)
+      // Use global language preference for card direct inject
+      const promptToInject = resourceLanguage === 'en' && resourcePrompt.contentEn
+        ? { ...resourcePrompt, content: resourcePrompt.contentEn, name: resourcePrompt.nameEn || resourcePrompt.name }
+        : resourcePrompt
+      onInjectResource(promptToInject)
       setToastMessage('已注入提示词')
       setTimeout(() => setToastMessage(null), 2000)
     }
-  }, [onInjectResource])
+  }, [onInjectResource, resourceLanguage])
 
   // Handle collect confirmation
   const handleConfirmCollect = useCallback(async (categoryId: string, newCategoryName?: string) => {
@@ -2047,7 +2051,7 @@ export function DropdownContainer({
             if (onInjectResource) {
               // Use the language version from modal
               const promptToInject = language === 'en' && selectedResourcePrompt.contentEn
-                ? { ...selectedResourcePrompt, content: selectedResourcePrompt.contentEn }
+                ? { ...selectedResourcePrompt, content: selectedResourcePrompt.contentEn, name: selectedResourcePrompt.nameEn || selectedResourcePrompt.name }
                 : selectedResourcePrompt
               onInjectResource(promptToInject)
               setToastMessage('已注入提示词')
