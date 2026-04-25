@@ -1131,7 +1131,7 @@ export function DropdownContainer({
   }, [onInjectResource])
 
   // Handle collect confirmation
-  const handleConfirmCollect = useCallback((categoryId: string, newCategoryName?: string) => {
+  const handleConfirmCollect = useCallback(async (categoryId: string, newCategoryName?: string) => {
     if (!selectedResourcePrompt) return
 
     let targetCategoryId = categoryId
@@ -1158,10 +1158,21 @@ export function DropdownContainer({
       order: 0,
     }
 
-    usePromptStore.getState().addPrompt(localPrompt)
+    // Wait for addPrompt to complete and get sync status
+    const result = await usePromptStore.getState().addPrompt(localPrompt)
 
     const categoryName = usePromptStore.getState().categories.find(c => c.id === targetCategoryId)?.name || '未知分类'
-    setToastMessage(`已收藏到 ${categoryName}`)
+
+    // Show toast based on sync status
+    if (result.syncSuccess === true) {
+      setToastMessage(`已收藏到 ${categoryName}，已自动备份`)
+    } else if (result.syncSuccess === false) {
+      setToastMessage(`已收藏到 ${categoryName}，备份失败，请检查备份设置`)
+    } else {
+      // syncSuccess undefined means sync not enabled or no response
+      setToastMessage(`已收藏到 ${categoryName}`)
+    }
+
     setIsCategoryDialogOpen(false)
     setIsModalOpen(false)
     setSelectedResourcePrompt(null)

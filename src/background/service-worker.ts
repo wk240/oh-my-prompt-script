@@ -57,10 +57,9 @@ chrome.runtime.onMessage.addListener(
           })
           .then((userData: UserData) => {
             console.log('[Oh My Prompt] SET_STORAGE: Save successful')
-            sendResponse({ success: true } as MessageResponse)
-            // Trigger sync after save and notify content scripts if failed
-            triggerSync(userData).then(success => {
-              if (!success) {
+            // Trigger sync and wait for completion before responding
+            return triggerSync(userData).then(syncSuccess => {
+              if (!syncSuccess) {
                 console.warn('[Oh My Prompt] Sync failed, notifying UI')
                 chrome.tabs.query({ url: ['*://lovart.ai/*', '*://*.lovart.ai/*'] }, (tabs) => {
                   tabs.forEach(tab => {
@@ -70,8 +69,8 @@ chrome.runtime.onMessage.addListener(
                   })
                 })
               }
-            }).catch(err => {
-              console.warn('[Oh My Prompt] Sync trigger failed:', err)
+              // Return sync status in response so caller knows the result
+              sendResponse({ success: true, data: { syncSuccess } } as MessageResponse)
             })
           })
           .catch(error => {

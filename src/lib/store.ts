@@ -17,11 +17,11 @@ interface PromptStore {
 
   // Actions
   loadFromStorage: () => Promise<{ success: boolean; error?: string }>
-  saveToStorage: () => Promise<{ success: boolean; error?: string }>
+  saveToStorage: () => Promise<{ success: boolean; syncSuccess?: boolean; error?: string }>
   setSelectedCategory: (categoryId: string | null) => void
 
   // Prompt CRUD
-  addPrompt: (prompt: Omit<Prompt, 'id'>) => void
+  addPrompt: (prompt: Omit<Prompt, 'id'>) => Promise<{ syncSuccess?: boolean }>
   updatePrompt: (id: string, updates: Partial<Prompt>) => void
   deletePrompt: (id: string) => void
 
@@ -176,12 +176,20 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     try {
       const version = chrome.runtime.getManifest().version
       // Send data to service worker - sync is handled by service worker
-      await sendStorageMessage(MessageType.SET_STORAGE, {
-        version,
-        userData: { prompts, categories }
-      } as StorageSchema)
+      const response = await chrome.runtime.sendMessage({
+        type: MessageType.SET_STORAGE,
+        payload: {
+          version,
+          userData: { prompts, categories }
+        } as StorageSchema
+      })
 
-      return { success: true }
+      if (!response?.success) {
+        throw new Error(response?.error || 'Storage operation failed')
+      }
+
+      // Return sync status from service worker response
+      return { success: true, syncSuccess: response.data?.syncSuccess }
     } catch (error) {
       console.error('[Oh My Prompt] Failed to save storage:', error)
       return { success: false, error: '数据保存失败，请检查存储配额' }
@@ -193,7 +201,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
   },
 
   // Prompt CRUD
-  addPrompt: (prompt: Omit<Prompt, 'id'>) => {
+  addPrompt: async (prompt: Omit<Prompt, 'id'>) => {
     const { prompts } = get()
     // Find max order in the same category
     const categoryPrompts = prompts.filter(p => p.categoryId === prompt.categoryId)
@@ -209,7 +217,9 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     set((state) => ({
       prompts: [...state.prompts, newPrompt]
     }))
-    get().saveToStorage()
+    // Wait for save to complete and return sync status
+    const result = await get().saveToStorage()
+    return { syncSuccess: result.syncSuccess }
   },
 
   updatePrompt: (id: string, updates: Partial<Prompt>) => {
