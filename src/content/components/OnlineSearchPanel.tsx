@@ -23,7 +23,7 @@ interface OnlineSearchPanelProps {
   onInject: (prompt: OnlinePrompt) => void
   onCollect: (prompt: OnlinePrompt) => void
   isCollected: (prompt: OnlinePrompt) => boolean
-  scrollContainerRef: React.RefObject<HTMLDivElement>
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>
 }
 
 export function OnlineSearchPanel({

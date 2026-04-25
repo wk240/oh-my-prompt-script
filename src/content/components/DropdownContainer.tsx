@@ -7,13 +7,14 @@
 import { useRef, useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import type { Prompt, Category, StorageSchema } from '../../shared/types'
-import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '../../shared/types'
+import type { ResourcePrompt, ResourceCategory, UpdateStatus, OnlinePrompt } from '../../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '../../shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle, Plus, Pencil, Trash2, Download, Upload, ExternalLink, AlertTriangle } from 'lucide-react'
+import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle, Plus, Pencil, Trash2, Download, Upload, ExternalLink, AlertTriangle, Globe } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { NetworkPromptCard } from './NetworkPromptCard'
+import { OnlineSearchPanel } from './OnlineSearchPanel'
 import { ProviderCategoryItem } from './ProviderCategoryItem'
 import { CategorySelectDialog } from './CategorySelectDialog'
 import { ToastNotification } from './ToastNotification'
@@ -26,6 +27,7 @@ const DeleteConfirmModal = lazy(() => import('./DeleteConfirmModal').then(m => (
 const PromptEditModal = lazy(() => import('./PromptEditModal').then(m => ({ default: m.PromptEditModal })))
 import { usePromptStore } from '../../lib/store'
 import { getResourcePrompts, getResourceCategories } from '../../lib/resource-library'
+import { PREDEFINED_ONLINE_CATEGORIES, convertOnlinePromptToLocal } from '../../lib/prompts-chat-api'
 import { MessageType } from '../../shared/messages'
 import { readImportFile, mergeImportData } from '../../lib/import-export'
 
@@ -1000,6 +1002,10 @@ export function DropdownContainer({
   const [selectedResourceCategoryId, setSelectedResourceCategoryId] = useState<string>('all')
   const [loadedCount, setLoadedCount] = useState(50)
 
+  // Online search state (prompts.chat integration)
+  const [isOnlineSearch, setIsOnlineSearch] = useState(false)
+  const [selectedOnlinePrompt, setSelectedOnlinePrompt] = useState<OnlinePrompt | null>(null)
+
   // Modal state for prompt preview
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedResourcePrompt, setSelectedResourcePrompt] = useState<ResourcePrompt | null>(null)
@@ -1177,6 +1183,75 @@ export function DropdownContainer({
     setIsModalOpen(false)
     setSelectedResourcePrompt(null)
   }, [selectedResourcePrompt])
+
+  // Check if an online prompt is already collected (by content match)
+  const isOnlinePromptCollected = useCallback((onlinePrompt: OnlinePrompt): boolean => {
+    return localPrompts.some(p => p.content === onlinePrompt.content)
+  }, [localPrompts])
+
+  // Handle inject online prompt directly (convert to ResourcePrompt-like object)
+  const handleInjectOnlinePrompt = useCallback((onlinePrompt: OnlinePrompt) => {
+    if (onInjectResource) {
+      // Create a temporary ResourcePrompt-like object for injection
+      const tempPrompt: ResourcePrompt = {
+        id: onlinePrompt.id,
+        name: onlinePrompt.title,
+        content: onlinePrompt.content,
+        categoryId: '',
+        description: onlinePrompt.description || truncateText(onlinePrompt.content, 100),
+        order: 0,
+      }
+      onInjectResource(tempPrompt)
+      setToastMessage('已注入提示词')
+      setTimeout(() => setToastMessage(null), 2000)
+    }
+  }, [onInjectResource])
+
+  // Handle collect online prompt (opens category dialog)
+  const handleCollectOnlinePrompt = useCallback((onlinePrompt: OnlinePrompt) => {
+    setSelectedOnlinePrompt(onlinePrompt)
+    setIsCategoryDialogOpen(true)
+  }, [])
+
+  // Handle confirm collect for online prompt
+  const handleConfirmOnlineCollect = useCallback(async (categoryId: string, newCategoryName?: string) => {
+    if (!selectedOnlinePrompt) return
+
+    let targetCategoryId = categoryId
+
+    if (newCategoryName && newCategoryName.trim()) {
+      usePromptStore.getState().addCategory(newCategoryName.trim())
+      const storeCategories = usePromptStore.getState().categories
+      const newCategory = storeCategories.find(c => c.name === newCategoryName.trim())
+      if (newCategory) {
+        targetCategoryId = newCategory.id
+      }
+    }
+
+    if (!targetCategoryId) {
+      console.error('[Oh My Prompt] No target category for online collect')
+      return
+    }
+
+    // Convert OnlinePrompt to local Prompt format
+    const localPrompt = convertOnlinePromptToLocal(selectedOnlinePrompt, targetCategoryId)
+
+    const result = await usePromptStore.getState().addPrompt(localPrompt)
+
+    const categoryName = usePromptStore.getState().categories.find(c => c.id === targetCategoryId)?.name || '未知分类'
+
+    if (result.syncSuccess === true) {
+      setToastMessage(`已收藏到 ${categoryName}，已自动备份`)
+    } else if (result.syncSuccess === false) {
+      setToastMessage(`已收藏到 ${categoryName}，备份失败，请检查备份设置`)
+    } else {
+      setToastMessage(`已收藏到 ${categoryName}`)
+    }
+
+    setIsCategoryDialogOpen(false)
+    setIsModalOpen(false)
+    setSelectedOnlinePrompt(null)
+  }, [selectedOnlinePrompt])
 
   const dropdownGap = 8
   const dropdownMaxHeight = 600
@@ -1636,7 +1711,37 @@ export function DropdownContainer({
       >
       <div className="dropdown-sidebar">
         <div className="sidebar-categories">
-          {isResourceLibrary ? (
+          {isOnlineSearch ? (
+            <>
+              {/* Back to local categories */}
+              <button
+                className="sidebar-category-item"
+                onClick={() => setIsOnlineSearch(false)}
+                aria-label="返回本地分类"
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <ArrowLeft className="sidebar-category-icon" />
+                </div>
+                <span>返回</span>
+              </button>
+              {/* Online categories from prompts.chat */}
+              {PREDEFINED_ONLINE_CATEGORIES.map((category) => (
+                <button
+                  key={category.id}
+                  className="sidebar-category-item"
+                  onClick={() => {/* Category selection handled in OnlineSearchPanel */}}
+                  aria-label={category.name}
+                >
+                  <div className="sidebar-category-icon-wrapper">
+                    <Globe className="sidebar-category-icon" />
+                  </div>
+                  <Tooltip content={category.description || category.name}>
+                    <span>{category.name}</span>
+                  </Tooltip>
+                </button>
+              ))}
+            </>
+          ) : isResourceLibrary ? (
             <>
               {/* Back to local categories */}
               <button
@@ -1696,6 +1801,18 @@ export function DropdownContainer({
                   <Database className="sidebar-category-icon" />
                 </div>
                 <span>资源库</span>
+              </button>
+
+              {/* "在线搜索" entry */}
+              <button
+                className={`sidebar-category-item ${isOnlineSearch ? 'selected' : ''}`}
+                onClick={() => setIsOnlineSearch(true)}
+                aria-label="在线搜索"
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <Globe className="sidebar-category-icon" />
+                </div>
+                <span>在线搜索</span>
               </button>
 
               {/* Sortable local categories */}
@@ -1878,6 +1995,17 @@ export function DropdownContainer({
             <div className="empty-state">
               <div className="empty-message">加载中...</div>
             </div>
+          ) : isOnlineSearch ? (
+            <OnlineSearchPanel
+              onPromptClick={(prompt) => {
+                setSelectedOnlinePrompt(prompt)
+                setIsModalOpen(true)
+              }}
+              onInject={handleInjectOnlinePrompt}
+              onCollect={handleCollectOnlinePrompt}
+              isCollected={isOnlinePromptCollected}
+              scrollContainerRef={scrollContainerRef}
+            />
           ) : isResourceLibrary ? (
             paginatedResourcePrompts.length === 0 ? (
               <div className="empty-state">
@@ -1952,20 +2080,42 @@ export function DropdownContainer({
         )}
       </div>
     </div>
-    {/* Prompt preview modal with collect */}
-    {selectedResourcePrompt && (
+    {/* Prompt preview modal with collect - supports both ResourcePrompt and OnlinePrompt */}
+    {(selectedResourcePrompt || selectedOnlinePrompt) && (
       <Suspense fallback={null}>
         <PromptPreviewModal
-          prompt={selectedResourcePrompt}
+          prompt={selectedOnlinePrompt
+            ? {
+                // Convert OnlinePrompt to ResourcePrompt-like object
+                id: selectedOnlinePrompt.id,
+                name: selectedOnlinePrompt.title,
+                content: selectedOnlinePrompt.content,
+                categoryId: '',
+                description: selectedOnlinePrompt.description || truncateText(selectedOnlinePrompt.content, 100),
+                order: 0,
+              }
+            : selectedResourcePrompt!
+          }
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false)
             setSelectedResourcePrompt(null)
+            setSelectedOnlinePrompt(null)
           }}
           onCollect={() => setIsCategoryDialogOpen(true)}
           onInject={() => {
+            const promptToInject = selectedOnlinePrompt
+              ? {
+                  id: selectedOnlinePrompt.id,
+                  name: selectedOnlinePrompt.title,
+                  content: selectedOnlinePrompt.content,
+                  categoryId: '',
+                  description: selectedOnlinePrompt.description || truncateText(selectedOnlinePrompt.content, 100),
+                  order: 0,
+                }
+              : selectedResourcePrompt!
             if (onInjectResource) {
-              onInjectResource(selectedResourcePrompt)
+              onInjectResource(promptToInject)
               setToastMessage('已注入提示词')
               setTimeout(() => setToastMessage(null), 2000)
             }
@@ -1973,12 +2123,24 @@ export function DropdownContainer({
         />
       </Suspense>
     )}
-    {/* Category select dialog */}
+    {/* Category select dialog - unified handler checks prompt type */}
     <CategorySelectDialog
       categories={sortableCategories}
       isOpen={isCategoryDialogOpen}
-      onClose={() => setIsCategoryDialogOpen(false)}
-      onConfirm={handleConfirmCollect}
+      onClose={() => {
+        setIsCategoryDialogOpen(false)
+        // Clear both selections on close
+        setSelectedResourcePrompt(null)
+        setSelectedOnlinePrompt(null)
+      }}
+      onConfirm={(categoryId, newCategoryName) => {
+        // Check which type is selected and call appropriate handler
+        if (selectedOnlinePrompt) {
+          handleConfirmOnlineCollect(categoryId, newCategoryName)
+        } else if (selectedResourcePrompt) {
+          handleConfirmCollect(categoryId, newCategoryName)
+        }
+      }}
     />
     {/* Toast notification */}
     {toastMessage && (
