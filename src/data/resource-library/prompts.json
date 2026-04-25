@@ -7917,7 +7917,13 @@
     {
       "id": "nano-banana",
       "name": "Nano Banana",
-      "order": 2
+      "order": 1
+    },
+    {
+      "id": "prompts-chat-image",
+      "name": "Prompts.Chat",
+      "order": 2,
+      "count": 276
     },
     {
       "id": "3d-miniatures-dioramas",
@@ -8020,12 +8026,6 @@
       "name": "时尚摄影",
       "order": 19,
       "count": 51
-    },
-    {
-      "id": "prompts-chat-image",
-      "name": "Prompts.Chat",
-      "order": 19,
-      "count": 276
     }
   ]
 }
