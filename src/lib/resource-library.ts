@@ -50,12 +50,29 @@ export function filterPromptsByCategory(categoryId: string): ResourcePrompt[] {
 
 /**
  * Search prompts by query (name + content)
+ * Supports both Chinese and English content based on language preference
  */
-export function searchResourcePrompts(query: string): ResourcePrompt[] {
+export function searchResourcePrompts(query: string, lang?: 'zh' | 'en'): ResourcePrompt[] {
   const prompts = getResourcePrompts()
   const lowerQuery = query.toLowerCase()
-  return prompts.filter(p =>
-    p.name.toLowerCase().includes(lowerQuery) ||
-    p.content.toLowerCase().includes(lowerQuery)
-  )
+  return prompts.filter(p => {
+    const nameToSearch = lang === 'en' && p.nameEn ? p.nameEn : p.name
+    const contentToSearch = lang === 'en' && p.contentEn ? p.contentEn : p.content
+    return nameToSearch.toLowerCase().includes(lowerQuery) ||
+           contentToSearch.toLowerCase().includes(lowerQuery)
+  })
+}
+
+/**
+ * Get prompts filtered by language preference
+ * Replaces name/content with English version if available and language is 'en'
+ * Falls back to Chinese if English version is missing
+ */
+export function getResourcePromptsByLanguage(lang: 'zh' | 'en'): ResourcePrompt[] {
+  const prompts = getResourcePrompts()
+  return prompts.map(p => ({
+    ...p,
+    name: lang === 'en' && p.nameEn ? p.nameEn : p.name,
+    content: lang === 'en' && p.contentEn ? p.contentEn : p.content,
+  }))
 }
