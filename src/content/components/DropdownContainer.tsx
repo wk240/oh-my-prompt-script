@@ -1972,6 +1972,7 @@ export function DropdownContainer({
                   <NetworkPromptCard
                     key={prompt.id}
                     prompt={prompt}
+                    language={resourceLanguage}
                     onClick={() => {
                       setSelectedResourcePrompt(prompt)
                       setIsModalOpen(true)

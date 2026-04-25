@@ -18,6 +18,7 @@ interface NetworkPromptCardProps {
   onInject?: () => void
   onCollect?: () => void
   isCollected?: boolean
+  language?: 'zh' | 'en' // Language preference for display
 }
 
 // D-06: Fallback placeholder SVG for failed image loads
@@ -30,7 +31,18 @@ const PREVIEW_OFFSET = 16
 const PREVIEW_MAX_WIDTH = 720
 const PREVIEW_MAX_HEIGHT = 480
 
-export function NetworkPromptCard({ prompt, onClick, onInject, onCollect, isCollected = false }: NetworkPromptCardProps) {
+export function NetworkPromptCard({
+  prompt,
+  onClick,
+  onInject,
+  onCollect,
+  isCollected = false,
+  language = 'zh'
+}: NetworkPromptCardProps) {
+  // Get display name and content based on language
+  const displayName = language === 'en' && prompt.nameEn ? prompt.nameEn : prompt.name
+  const displayContent = language === 'en' && prompt.contentEn ? prompt.contentEn : prompt.content
+
   // Hover preview state - show immediately on hover
   const [showPreview, setShowPreview] = useState(false)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
@@ -107,7 +119,7 @@ export function NetworkPromptCard({ prompt, onClick, onInject, onCollect, isColl
     >
       <img
         src={prompt.previewImage}
-        alt={prompt.name}
+        alt={displayName}
         style={{
           maxWidth: `${PREVIEW_MAX_WIDTH}px`,
           maxHeight: `${PREVIEW_MAX_HEIGHT}px`,
@@ -210,7 +222,7 @@ export function NetworkPromptCard({ prompt, onClick, onInject, onCollect, isColl
       {prompt.previewImage && (
         <img
           src={prompt.previewImage}
-          alt={prompt.name}
+          alt={displayName}
           style={{
             width: '100%',
             height: '80px',
@@ -224,13 +236,13 @@ export function NetworkPromptCard({ prompt, onClick, onInject, onCollect, isColl
         />
       )}
       {/* D-04: Name with tooltip */}
-      <Tooltip content={prompt.name}>
+      <Tooltip content={displayName}>
         <div style={{ fontSize: '12px', fontWeight: 500, color: '#171717', marginTop: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {truncateText(prompt.name, 30)}
+          {truncateText(displayName, 30)}
         </div>
       </Tooltip>
       {/* D-04: ProviderCategory tag with tooltip */}
-      <Tooltip content={prompt.description || prompt.content}>
+      <Tooltip content={prompt.description || displayContent}>
         <div
           style={{
             fontSize: '10px',
