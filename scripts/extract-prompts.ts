@@ -199,7 +199,7 @@ async function main() {
     const categories = generateCategories(prompts)
 
     const data: ResourceLibraryData = {
-      version: '1.1.0',
+      version: '1.2.0',
       source: 'https://github.com/devanshug2307/Awesome-Nano-Banana-Prompts',
       fetchedAt: new Date().toISOString(),
       prompts,

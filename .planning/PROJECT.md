@@ -72,9 +72,11 @@ Tech stack: Vite, @crxjs/vite-plugin, React, Zustand, Shadow DOM.
 | 插入后保持下拉打开 | 支持连续插入多个提示词 | ✓ Good |
 
 ---
-*Last updated: 2026-04-19 after v1.1.0 milestone initialization*
+*Last updated: 2026-04-26 after v1.2.0 milestone initialization*
 
-## Current Milestone: v1.1.0 网络提示词数据源接入
+## Current Milestone: v1.2.0 在线搜索功能
+
+**Goal:** 集成 prompts.chat API，用户可在线搜索、浏览、收藏网络提示词
 
 **Goal:** 实时接入GitHub开源Prompt数据源，用户可在线浏览、搜索、收藏网络提示词
 

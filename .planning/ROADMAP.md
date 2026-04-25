@@ -8,7 +8,8 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-04-16)
-- 🚧 **v1.1.0 网络提示词数据源接入** — Phases 5-8 (in progress)
+- ✅ **v1.1.0 网络提示词数据源接入** — Phases 5-7 (shipped 2026-04-19)
+- 🚧 **v1.2.0 在线搜索功能** — Phase 8 (in progress)
 
 ---
 
@@ -26,9 +27,9 @@
 
 </details>
 
-### 🚧 v1.1.0 网络提示词数据源接入 (In Progress)
+### 🚧 v1.2.0 在线搜索功能 (In Progress)
 
-**Milestone Goal:** 实时接入GitHub开源Prompt数据源，用户可在线浏览、搜索、收藏网络提示词
+**Milestone Goal:** 集成 prompts.chat API，用户可在线搜索、浏览、收藏网络提示词
 
 #### Phase 5: Provider Foundation
 **Goal**: Extension可获取并解析网络提示词数据源
@@ -117,7 +118,7 @@ Plans:
 | 5. Provider Foundation | v1.1.0 | 4/4 | Complete | 2026-04-19 |
 | 6. Network Cache Layer | v1.1.0 | 4/4 | Complete | 2026-04-19 |
 | 7. Dropdown Online Library UI | v1.1.0 | 5/5 | Complete | 2026-04-19 |
-| 8. Search & Collect Features | v1.1.0 | 0/5 | Ready for execution | - |
+| 8. Search & Collect Features | v1.2.0 | 0/5 | Ready for execution | - |
 
 ---
 

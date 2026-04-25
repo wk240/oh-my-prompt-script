@@ -1,7 +1,7 @@
-# Project Research Summary — v1.1.0 网络提示词数据源接入
+# Project Research Summary — v1.2.0 在线搜索功能
 
 **Project:** Lovart Prompt Injector
-**Milestone:** v1.1.0
+**Milestone:** v1.2.0
 **Domain:** Chrome Extension (Manifest V3) / Network Data Integration
 **Researched:** 2026-04-19
 **Confidence:** HIGH
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-v1.1.0 milestone adds real-time network data source integration to Lovart Prompt Injector. Users will be able to browse, search, and collect prompts from GitHub-hosted prompt libraries (primarily Nano Banana Prompts with 900+ image generation prompts) directly from the dropdown UI. Selected prompts can be cached locally for offline use.
+v1.2.0 milestone adds online search feature integration to Lovart Prompt Injector. Users will be able to search, browse, and collect prompts from prompts.chat API directly from the dropdown UI.
 
 Core architecture extensions: Provider abstraction pattern for data sources, Service Worker network handlers (CSP compliant), Network cache layer with 24h TTL, Dropdown UI "在线库" section with search/filter.
 
@@ -93,7 +93,7 @@ User → Dropdown "在线库" → Service Worker fetch → Provider.parse → Ca
 
 ## Implications for Roadmap
 
-### Phase Structure (v1.1.0)
+### Phase Structure (v1.2.0)
 
 | Phase | Name | Goal | LOC |
 |-------|------|------|-----|

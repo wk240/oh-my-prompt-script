@@ -1,6 +1,6 @@
-# Features Research: Network Prompt Data Source Integration
+# Features Research: Online Search Feature Integration
 
-**Milestone:** v1.1.0 网络提示词数据源接入
+**Milestone:** v1.2.0 在线搜索功能
 **Domain:** Chrome Extension / Online Prompt Library
 **Researched:** 2026-04-19
 **Confidence:** HIGH
@@ -181,7 +181,7 @@ Nano Banana prompts use multiple formats:
 | Preview images | LOW | MEDIUM | P3 |
 
 **Priority key:**
-- P1: Must have for v1.1.0
+- P1: Must have for v1.2.0
 - P2: Should have, add if time permits
 - P3: Nice to have, defer to future
 

@@ -1,6 +1,6 @@
-# Architecture Research: Network Prompt Data Source Integration
+# Architecture Research: Online Search Feature Integration
 
-**Milestone:** v1.1.0 网络提示词数据源接入
+**Milestone:** v1.2.0 在线搜索功能
 **Domain:** Chrome Extension (Manifest V3) / Network Integration
 **Researched:** 2026-04-19
 **Confidence:** HIGH
@@ -150,7 +150,7 @@ export enum MessageType {
   INSERT_PROMPT = 'INSERT_PROMPT',
   OPEN_SETTINGS = 'OPEN_SETTINGS',
   
-  // NEW for v1.1.0
+  // NEW for v1.2.0
   FETCH_NETWORK_PROMPTS = 'FETCH_NETWORK_PROMPTS',
   GET_NETWORK_CACHE = 'GET_NETWORK_CACHE',
   REFRESH_NETWORK_CACHE = 'REFRESH_NETWORK_CACHE',
@@ -251,7 +251,7 @@ OnlineLibraryTab renders NetworkPromptCard[]
 | **Phase 8** | Dropdown UI "在线库" section | Phase 6, 7 | ~300 |
 | **Phase 9** | Search/filter UI + Collect functionality | Phase 8 | ~200 |
 
-**Total phases:** 5 new phases for v1.1.0 milestone
+**Total phases:** 5 new phases for v1.2.0 milestone
 **Starting phase:** Phase 5 (continues from v1.0's Phase 4)
 
 ---

@@ -1,7 +1,7 @@
-# Requirements: v1.1.0 网络提示词数据源接入
+# Requirements: v1.2.0 在线搜索功能
 
-**Milestone:** v1.1.0
-**Created:** 2026-04-19
+**Milestone:** v1.2.0
+**Created:** 2026-04-26
 **Status:** Active
 
 ---

@@ -2,10 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.5.0] - 2026-04-25
+## [1.2.0] - 2026-04-26
+
+### Added
+- 在线搜索功能设计规范（prompts.chat API 集成）
 
 ### Changed
-- Version bump to v1.1.5
+- Version bump to v1.2.0
+
+## [1.1.5] - 2026-04-25
 
 ## [1.1.4] - 2026-04-25
 

@@ -1,22 +1,22 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1.0
-milestone_name: 网络提示词数据源接入
-status: shipped
-last_updated: "2026-04-25T07:06:03.692Z"
+milestone: v1.2.0
+milestone_name: 在线搜索功能
+status: in_progress
+last_updated: "2026-04-26T00:00:00.000Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 18
-  completed_plans: 18
-  percent: 100
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 0
+  percent: 0
 ---
 
 # STATE.md
 
 **Project:** Lovart Prompt Injector (Oh My Prompt)
 **Created:** 2026-04-16
-**Last Updated:** 2026-04-25
+**Last Updated:** 2026-04-26
 
 ---
 
@@ -25,7 +25,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19)
 
 **Core value:** 一键插入预设提示词，提升Lovart平台创作效率
-**Current focus:** v1.1.4 shipped — Backup UX improvements & Performance
+**Current focus:** v1.2.0 开发中 — 在线搜索功能
 
 ---
 
@@ -38,39 +38,30 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 | v1.1.2 | Complete | Dropdown CRUD Fix Release | 2026-04-21 |
 | v1.1.3 | Complete | Resource Library Enhancement & Docs | 2026-04-22 |
 | v1.1.4 | Complete | Backup UX Improvements & Performance | 2026-04-25 |
+| v1.1.5 | Complete | Version bump | 2026-04-25 |
+| v1.2.0 | In Progress | 在线搜索功能 | - |
 
 ---
 
-## Key Changes in v1.1.4
+## Key Changes in v1.2.0
 
 | Change | Description |
 |--------|-------------|
-| Folder permission restore | 扩展更新后自动恢复文件夹权限，无需重新选择 |
-| Backup warnings | 增删改操作后显示备份提醒，排序后持续提醒直到备份 |
-| Auto-sync fix | 修复自动同步在 Service Worker 中无法执行的问题 |
-| Performance | 移除图片预览延迟，优化打包体积减少 75KB |
-| Docs | README SEO 优化，网站演示图片更新为 GIF |
-
----
-
-## Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 20260425 | 备份警告提示对话框 | 2026-04-25 | 4931151 | [20260425-backup-warning](./quick/20260425-backup-warning/) |
+| Online Search Design | prompts.chat API 集成设计规范完成 |
+| Architecture Docs | 代码库架构文档更新 |
 
 ---
 
 ## Next Action
 
-**Current:** v1.1.4 shipped — all work complete
+**Current:** v1.2.0 开发中 — 在线搜索功能待实现
 
 Options:
 
 - `/gsd-progress` — view full roadmap status
-- `/gsd-new-milestone` — start next milestone planning (Phase 8: Search & Collect Features)
+- `/gsd-execute-phase` — execute Phase 8 plans
 - Manual testing in Chrome — verify new features
 
 ---
 
-*STATE.md updated: 2026-04-25 — v1.1.4 shipped*
+*STATE.md updated: 2026-04-26 — v1.2.0 in progress*

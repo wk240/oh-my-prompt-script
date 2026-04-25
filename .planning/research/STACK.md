@@ -1,6 +1,6 @@
-# Stack Research: Network Prompt Data Source Integration
+# Stack Research: Online Search Feature Integration
 
-**Milestone:** v1.1.0 网络提示词数据源接入
+**Milestone:** v1.2.0 在线搜索功能
 **Domain:** Chrome Extension (Manifest V3) / Network Integration
 **Researched:** 2026-04-19
 **Confidence:** HIGH
