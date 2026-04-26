@@ -19,11 +19,21 @@ PLACEHOLDER_PATTERNS = [
 ]
 
 def is_json_content(text: str) -> bool:
-    """Check if content is a JSON structure (starts with { or [)."""
+    """Check if content is a JSON structure (starts with { or [ and looks like JSON)."""
     if not text:
         return False
     text = text.strip()
-    return text.startswith('{') or text.startswith('[')
+    # Check if it starts with { or [ AND looks like JSON (has quotes or colon after the brace)
+    # This distinguishes actual JSON objects from placeholder variables like {Scene}
+    if text.startswith('{'):
+        # Check for JSON object pattern: {"key" or { "key"
+        if len(text) > 2 and (text[1] == '"' or text[1:3] == ' "'):
+            return True
+        # Single placeholder at start followed by space or text is not JSON
+        return False
+    if text.startswith('['):
+        return True
+    return False
 
 def extract_placeholders(text: str) -> list[str]:
     """Extract placeholder variables from text, ignoring JSON structures."""
