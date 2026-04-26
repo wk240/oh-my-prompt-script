@@ -3,8 +3,8 @@
   "prompts": [
     {
       "id": "resource-anime-manga-0",
-      "name": "激烈的电影级僵尸末日幸存者场景",
-      "content": "我的照片，一个20岁的美国男性，穿着探险装备，在一场枪战后靠在一辆受损轿车的后部。他用右手握着手枪，躺在布满玻璃碎片和灰尘的沥青路面上。\n他的脸看起来疲惫而紧张，脸上和腿上沾满灰尘并带有伤痕。周围是准备攻击的僵尸。自然日光，紧张而逼真的氛围，如同现代动作电影场景，锐利的焦点，带有电影感的蓝灰色调。",
+      "name": "激烈的电影僵尸启示录幸存者场景",
+      "content": "我的照片是一名 20 岁的美国男子，他穿着冒险服装，在枪战后靠在一辆受损轿车的后座上。他躺在布满玻璃碎片和灰尘的柏油路上，右手握着手枪。\n他的脸看起来疲倦而紧张，脸上和腿上都有伤口，有些脏。它被僵尸包围，准备攻击。自然光，强烈而真实的氛围，如现代动作电影场景，锐利的焦点和电影般的蓝灰色色调。",
       "categoryId": "anime-manga",
       "order": 0,
       "sourceCategory": "Anime & Manga",
@@ -29,7 +29,7 @@
     },
     {
       "id": "resource-anime-manga-2",
-      "name": "动漫与照片分割肖像：俏皮数字艺术女性",
+      "name": "动漫与照片分割肖像：俏皮的数字艺术女人",
       "content": "{\n  \"image_generation\": {\n    \"requirements\": {\n      \"face_preservation\": {\n        \"preserve_original\": true,\n        \"accuracy_level\": \"与参考图100%一致\",\n        \"details\": [\n          \"真实面部比例\",\n          \"精确的皮肤纹理\",\n          \"真实的眼睛形状和颜色\",\n          \"自然柔和的妆容\",\n          \"微微上扬的眼线\",\n          \"柔和的粉色眼影\",\n          \"自然的玫瑰色嘴唇\"\n        ]\n      },\n      \"pose\": {\n        \"match_reference_pose\": true,\n        \"description\": \"胸部以上肖像，面部朝前但从观察者视角轻轻向右倾斜。\"\n      },\n      \"lighting\": {\n        \"match_reference_lighting\": true,\n        \"type\": \"柔和的室内漫射光\",\n        \"direction\": \"从前方及略微左侧照射\",\n        \"shadows\": \"面部和颈部两侧有柔和的阴影\",\n        \"background_tone\": \"柔和的中性色调，略带蓝色调\"\n      }\n    },\n\n    \"subject\": {\n      \"gender\": \"女性\",\n      \"hairstyle\": {\n        \"match_reference\": true,\n        \"description\": \"与参考图片中完全相同的发型\"\n      },\n      \"expression\": \"中性，略带沉思\",\n      \"clothing\": {\n        \"top\": \"简约黑色T恤\",\n        \"necklace\": \"细银项链配小吊坠\"\n      }\n    },\n\n    \"composition\": {\n      \"frame\": \"胸部以上肖像\",\n      \"orientation\": \"正面略向右倾斜\",\n      \"style\": \"超写实配真实/卡通分割效果\"\n    },\n\n    \"special_effects\": {\n      \"split_effect\": {\n        \"type\": \"不规则居中撕裂\",\n        \"edges\": \"白色倾斜撕裂纸张效果\",\n        \"description\": \"图像从中间呈现撕裂效果\"\n      },\n\n      \"realistic_side\": {\n        \"background\": \"柔和、中性、略带蓝色的环境\",\n        \"filters\": [\n          \"柔和的模拟颗粒\",\n          \"轻微老化纹理\",\n          \"降低饱和度\",\n          \"微妙的胶片瑕疵\"\n        ],\n        \"overlays\": [\n          \"左眼下方的蓝色风格化泪滴贴纸\",\n          \"额头附近的小'Zzz'睡眠符号\",\n          \"左上角的黄色新月\",\n          \"浅蓝色手绘云朵\"\n        ]\n      },\n\n      \"illustrated_side\": {\n        \"art_style\": \"粗线条卡通，数字插画\",\n        \"color_palette\": \"明亮、鲜艳、高饱和度\",\n        \"hair\": \"与真实侧相同色调但风格化处理\",\n        \"eyes\": \"夸张的眼线，戏剧性的表情\",\n        \"background\": \"鲜艳的浅粉色波普艺术风格\",\n        \"decorations\": {\n          \"kawaii_elements\": [\n            \"拿着麦克风的Hello Kitty\",\n            \"像素艺术粉色吉祥物角色\",\n            \"黄色星星\",\n            \"粉色爱心\",\n            \"彩色行星\",\n            \"粗体粉色日文字符\"\n          ]\n        }\n      }\n    },\n\n    \"aesthetic\": {\n      \"overall_tone\": \"柔和、梦幻、轻微复古\",\n      \"lighting_consistency\": \"必须与参考图完美匹配\",\n      \"skin_texture_realism\": \"高\",\n      \"blending_quality\": \"平滑、自然的真实与插画两半之间的过渡，撕裂边缘清晰\"\n    },\n\n    \"output\": {\n      \"style\": \"超写实 + 数字卡通融合\",\n      \"quality\": \"超高分辨率\",\n      \"filters\": [\n        \"微妙的模拟复古胶片滤镜\",\n        \"柔和颗粒\"\n      ]\n    }\n  }\n}",
       "categoryId": "anime-manga",
       "order": 2,
@@ -42,8 +42,8 @@
     },
     {
       "id": "resource-anime-manga-3",
-      "name": "动漫女孩冬季场景：奇幻神秘鸟居门",
-      "content": "明年也请多多关照。",
+      "name": "动漫女孩冬季场景：幻想与神秘的鸟居门",
+      "content": "我们希望明年见到您。",
       "categoryId": "anime-manga",
       "order": 3,
       "sourceCategory": "Anime & Manga",
@@ -55,7 +55,7 @@
     },
     {
       "id": "resource-anime-manga-4",
-      "name": "欢快动漫VTuber漫画条：Polka、Luna、Kanata",
+      "name": "欢快的动漫 VTuber 漫画：Polka、Luna、Kanata",
       "content": "nano banana pro",
       "categoryId": "anime-manga",
       "order": 4,
@@ -68,8 +68,8 @@
     },
     {
       "id": "resource-anime-manga-5",
-      "name": "咖啡店艺术：动漫、素描与粘土动画角色",
-      "content": "使用 Nano Banana Pro，在一张图片中轻松融合不同风格。在这张照片中，我们包含了动漫角色、素描角色和粘土动画角色，全部只需一个提示词即可完成。",
+      "name": "咖啡厅艺术：动漫、素描和粘土动画角色",
+      "content": "使用 Nano Banana Pro，可以轻松地将不同风格组合到单个图像中。在这张照片中，我们包含了一个动漫角色、一个素描角色和一个粘土动画角色，所有这些都只有一个提示。",
       "categoryId": "anime-manga",
       "order": 5,
       "sourceCategory": "Anime & Manga",
@@ -81,7 +81,7 @@
     },
     {
       "id": "resource-anime-manga-6",
-      "name": "Hololive VTuber漫画条：Shiori Novella和朋友们反应",
+      "name": "Hololive VTuber 漫画：Shiori Novella 和朋友们 React",
       "content": "nano banana pro",
       "categoryId": "anime-manga",
       "order": 6,
@@ -94,8 +94,8 @@
     },
     {
       "id": "resource-anime-manga-7",
-      "name": "漫画书冒险：年轻团队失落之城任务",
-      "content": "Nano Banana Pro 可在一张漫画中生成多个角色并配有故事情节！\n\n观看此提示词\n\n仅限未来48小时 - 在 Higgsfield 获得一年无限 Nano Banana Pro！\n\n12小时内：关注、点赞、转发并评论 = 免费100积分",
+      "name": "漫画冒险：年轻团队执行失落之城任务",
+      "content": "Nano Banana Pro 和一代漫画中的多个角色和故事情节！\n\n注意这个提示\n\n仅限接下来的 48 小时 - 在 Higgsfield 获得 1 年无限期 Nano Banana Pro！\n\n12 小时内：关注、点赞、转发和评论 = 免费 100 个积分",
       "categoryId": "anime-manga",
       "order": 7,
       "sourceCategory": "Anime & Manga",
@@ -107,8 +107,8 @@
     },
     {
       "id": "resource-anime-manga-8",
-      "name": "动漫科幻飞行员太空飞船战斗 - 激烈动作",
-      "content": "这将避免触发\"照片级CGI\"效果，你不必使用整个\"幕后\"技巧。\n\n@venturetwins",
+      "name": "宇宙飞船战斗中的动漫科幻飞行员 - 激烈的动作",
+      "content": "这将避免触发\"真实的 CGI\"，并且您不必执行整个\"幕后\"技巧。\n\n@venturetwins",
       "categoryId": "anime-manga",
       "order": 8,
       "sourceCategory": "Anime & Manga",
