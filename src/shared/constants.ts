@@ -24,3 +24,8 @@ export const BACKUP_FILE_NAME = 'omps-latest.json'
 export const BACKUP_HISTORY_PREFIX = 'omps-backup-'
 export const BACKUP_HISTORY_PATTERN = /^omps-backup-\d{8}-\d{6}\.json$/
 export const MAX_BACKUP_HISTORY = 100
+
+// Image storage constants
+export const IMAGE_DIR_NAME = 'images'
+export const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB limit
+export const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif']
