@@ -2,9 +2,12 @@
 export interface Prompt {
   id: string
   name: string
+  nameEn?: string // English name for bilingual support
   content: string
+  contentEn?: string // English content for bilingual support
   categoryId: string
   description?: string // Optional description for display in selection UI
+  descriptionEn?: string // English description for bilingual support
   order: number // 分类内排序顺序
 }
 
@@ -12,6 +15,7 @@ export interface Prompt {
 export interface Category {
   id: string
   name: string
+  nameEn?: string // English name for bilingual support
   order: number
 }
 

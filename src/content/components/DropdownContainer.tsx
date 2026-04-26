@@ -1022,8 +1022,11 @@ export function DropdownContainer({
   const [selectedResourceCategoryId, setSelectedResourceCategoryId] = useState<string>('all')
   const [loadedCount, setLoadedCount] = useState(50)
 
-  // Language preference state (for resource library)
+  // Language preference state (for resource library and local prompts)
   const [resourceLanguage, setResourceLanguage] = useState<'zh' | 'en'>('zh')
+
+  // Display prompts state (transformed by language preference)
+  const [displayPrompts, setDisplayPrompts] = useState<Prompt[]>([])
 
   // Load language preference from storage on dropdown open
   useEffect(() => {
@@ -1034,6 +1037,16 @@ export function DropdownContainer({
       }
     })
   }, [isOpen])
+
+  // Transform local prompts by language preference
+  useEffect(() => {
+    setDisplayPrompts(localPrompts.map(p => ({
+      ...p,
+      name: resourceLanguage === 'en' && p.nameEn ? p.nameEn : p.name,
+      content: resourceLanguage === 'en' && p.contentEn ? p.contentEn : p.content,
+      description: resourceLanguage === 'en' && p.descriptionEn ? p.descriptionEn : p.description,
+    })))
+  }, [localPrompts, resourceLanguage])
 
   // Filter resource prompts by language preference
   useEffect(() => {
@@ -1335,16 +1348,16 @@ export function DropdownContainer({
 
   const showCategoryDragHandles = sortableCategories.length >= 2
 
-  // Filter prompts by selected category
+  // Filter prompts by selected category (using displayPrompts with language transformation)
   const filteredPrompts = useMemo(() => {
     let result: Prompt[]
     if (selectedCategoryId === 'all') {
-      result = localPrompts
+      result = displayPrompts
     } else {
-      result = localPrompts.filter((p) => p.categoryId === selectedCategoryId)
+      result = displayPrompts.filter((p) => p.categoryId === selectedCategoryId)
     }
     return sortPromptsByOrder(result)
-  }, [localPrompts, selectedCategoryId])
+  }, [displayPrompts, selectedCategoryId])
 
   const showDragHandles = filteredPrompts.length >= 2
 
@@ -1857,16 +1870,14 @@ export function DropdownContainer({
                 <Download style={{ width: 14, height: 14 }} />
               </button>
             </Tooltip>
-            {/* Language toggle - only in resource library mode */}
-            {isResourceLibrary && (
-              <button
-                className="dropdown-language-btn"
-                onClick={() => handleLanguageSwitch(resourceLanguage === 'zh' ? 'en' : 'zh')}
-                aria-label={resourceLanguage === 'zh' ? '切换到英文' : '切换到中文'}
-              >
-                {resourceLanguage === 'zh' ? '中文' : 'ENG'}
-              </button>
-            )}
+            {/* Language toggle - works for both local prompts and resource library */}
+            <button
+              className="dropdown-language-btn"
+              onClick={() => handleLanguageSwitch(resourceLanguage === 'zh' ? 'en' : 'zh')}
+              aria-label={resourceLanguage === 'zh' ? '切换到英文' : '切换到中文'}
+            >
+              {resourceLanguage === 'zh' ? '中文' : 'ENG'}
+            </button>
             <Tooltip content="访问官网" placement="bottom">
               <a
                 className="dropdown-action-btn"
