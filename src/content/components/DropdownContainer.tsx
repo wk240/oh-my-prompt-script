@@ -28,6 +28,7 @@ import { usePromptStore } from '../../lib/store'
 import { getResourcePrompts, getResourceCategories } from '../../lib/resource-library'
 import { MessageType } from '../../shared/messages'
 import { readImportFile, mergeImportData } from '../../lib/import-export'
+import { getCachedImageUrl, clearImageUrlCache } from '../../lib/sync/image-sync'
 
 interface DropdownContainerProps {
   prompts: Prompt[]
@@ -367,6 +368,35 @@ function getDropdownStyles(): string {
 
     #${PORTAL_ID} .dropdown-item-drag-handle:active {
       cursor: grabbing;
+    }
+
+    #${PORTAL_ID} .dropdown-item-thumbnail {
+      width: 60px;
+      height: 40px;
+      border-radius: 4px;
+      object-fit: cover;
+      background: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    #${PORTAL_ID} .dropdown-item-thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #${PORTAL_ID} .dropdown-item-thumbnail-placeholder {
+      width: 20px;
+      height: 20px;
+      color: #999;
+    }
+
+    #${PORTAL_ID} .dropdown-item-with-thumbnail {
+      gap: 8px;
     }
 
     #${PORTAL_ID} .dropdown-item.dragging {
@@ -887,6 +917,7 @@ function SortableDropdownItem({
   showDragHandle,
   onEdit,
   onDelete,
+  thumbnailUrl,
 }: {
   prompt: Prompt
   isLast: boolean
@@ -895,6 +926,7 @@ function SortableDropdownItem({
   showDragHandle: boolean
   onEdit: (prompt: Prompt) => void
   onDelete: (prompt: Prompt) => void
+  thumbnailUrl?: string | null
 }) {
   const {
     attributes,
@@ -918,7 +950,7 @@ function SortableDropdownItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`dropdown-item${isSelected ? ' selected' : ''}${isLast ? ' last' : ''}${isDragging ? ' dragging' : ''}`}
+      className={`dropdown-item${isSelected ? ' selected' : ''}${isLast ? ' last' : ''}${isDragging ? ' dragging' : ''}${thumbnailUrl ? ' dropdown-item-with-thumbnail' : ''}`}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => onSelect(prompt)}
       role="button"
@@ -930,6 +962,16 @@ function SortableDropdownItem({
         }
       }}
     >
+      {/* Thumbnail - 60x40 image preview */}
+      {prompt.localImage && (
+        <div className="dropdown-item-thumbnail">
+          {thumbnailUrl ? (
+            <img src={thumbnailUrl} alt={prompt.name} />
+          ) : (
+            <Shapes className="dropdown-item-thumbnail-placeholder" style={{ width: 20, height: 20 }} />
+          )}
+        </div>
+      )}
       <div className="dropdown-item-icon-wrapper">
         {showDragHandle && (
           <div className="dropdown-item-drag-handle" {...attributes} {...listeners}>
@@ -1038,6 +1080,9 @@ export function DropdownContainer({
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null)
   const [isDeletePromptModalOpen, setIsDeletePromptModalOpen] = useState(false)
   const [deletingPrompt, setDeletingPrompt] = useState<Prompt | null>(null)
+
+  // Thumbnail URLs state - cached blob URLs for prompts with images
+  const [thumbnailUrls, setThumbnailUrls] = useState<Map<string, string>>(new Map())
 
   // Fetch update status and sync status when dropdown opens
   useEffect(() => {
@@ -1280,6 +1325,36 @@ export function DropdownContainer({
   }, [localPrompts, selectedCategoryId])
 
   const showDragHandles = filteredPrompts.length >= 2
+
+  // Load thumbnail URLs for prompts with images
+  useEffect(() => {
+    const loadThumbnails = async () => {
+      const newUrls = new Map<string, string>()
+
+      for (const prompt of filteredPrompts) {
+        if (prompt.localImage) {
+          const url = await getCachedImageUrl(prompt.localImage)
+          if (url) {
+            newUrls.set(prompt.id, url)
+          }
+        }
+      }
+
+      setThumbnailUrls(newUrls)
+    }
+
+    if (filteredPrompts.some(p => p.localImage)) {
+      loadThumbnails()
+    }
+  }, [filteredPrompts])
+
+  // Clear image URL cache when dropdown closes
+  useEffect(() => {
+    if (!isOpen) {
+      clearImageUrlCache()
+      setThumbnailUrls(new Map())
+    }
+  }, [isOpen])
 
   // Filter resource prompts by category
   const filteredResourcePrompts = useMemo(() => {
@@ -1925,6 +2000,7 @@ export function DropdownContainer({
                       isSelected={selectedPromptId === prompt.id}
                       onSelect={onSelect}
                       showDragHandle={showDragHandles}
+                      thumbnailUrl={thumbnailUrls.get(prompt.id)}
                       onEdit={(p) => {
                         setEditingPrompt(p)
                         setIsPromptEditModalOpen(true)
