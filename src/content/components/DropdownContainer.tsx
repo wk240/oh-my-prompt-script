@@ -2000,7 +2000,9 @@ export function DropdownContainer({
                     prompt={prompt}
                     language={resourceLanguage}
                     onClick={() => {
-                      setSelectedResourcePrompt(prompt)
+                      // Find the original raw prompt (unmodified name/content) for the modal
+                      const rawPrompt = rawResourcePrompts.find(p => p.id === prompt.id)
+                      setSelectedResourcePrompt(rawPrompt || prompt)
                       setIsModalOpen(true)
                     }}
                     onInject={() => handleInjectFromCard(prompt)}
