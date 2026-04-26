@@ -2,9 +2,12 @@
 export interface Prompt {
   id: string
   name: string
+  nameEn?: string // English name for bilingual support
   content: string
+  contentEn?: string // English content for bilingual support
   categoryId: string
   description?: string // Optional description for display in selection UI
+  descriptionEn?: string // English description for bilingual support
   order: number // 分类内排序顺序
   // Image support fields (optional)
   localImage?: string // Local image relative path, e.g. "images/{id}.jpg"
@@ -15,6 +18,7 @@ export interface Prompt {
 export interface Category {
   id: string
   name: string
+  nameEn?: string // English name for bilingual support
   order: number
 }
 
@@ -31,6 +35,7 @@ export interface SyncSettings {
   lastSyncTime?: number // Timestamp of last successful sync
   hasUnsyncedChanges?: boolean // Flag to show backup reminder after reorder
   dismissedBackupWarning?: boolean // User dismissed the backup warning dialog
+  resourceLanguage?: 'zh' | 'en' // Language preference for resource library, default 'zh'
 }
 
 // New storage schema with nested structure
@@ -54,6 +59,10 @@ export interface ResourcePrompt extends Prompt {
   previewImage?: string // Preview image URL
   author?: string // Original author name, e.g. "宝玉"
   authorUrl?: string // Author attribution link, e.g. "https://x.com/..."
+  // Bilingual fields (optional, supports progressive translation)
+  nameEn?: string // English name
+  contentEn?: string // English content
+  descriptionEn?: string // English description
 }
 
 // Resource library category metadata
