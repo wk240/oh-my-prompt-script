@@ -73,6 +73,29 @@ export function Tooltip({
     setIsVisible(false)
   }, [])
 
+  // Global mouse tracking as fallback - ensures tooltip closes even if mouseleave event is lost
+  useEffect(() => {
+    if (!isVisible || !triggerRef.current) return
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!triggerRef.current) return
+      const rect = triggerRef.current.getBoundingClientRect()
+      const margin = 5 // 5px margin to allow slight movement outside
+      const isOutside = e.clientX < rect.left - margin ||
+                        e.clientX > rect.right + margin ||
+                        e.clientY < rect.top - margin ||
+                        e.clientY > rect.bottom + margin
+      if (isOutside) {
+        setIsVisible(false)
+      }
+    }
+
+    document.addEventListener('mousemove', handleGlobalMouseMove)
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove)
+    }
+  }, [isVisible])
+
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
