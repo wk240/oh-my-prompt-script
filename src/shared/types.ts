@@ -9,6 +9,9 @@ export interface Prompt {
   description?: string // Optional description for display in selection UI
   descriptionEn?: string // English description for bilingual support
   order: number // 分类内排序顺序
+  // Image support fields (optional)
+  localImage?: string // Local image relative path, e.g. "images/{id}.jpg"
+  remoteImageUrl?: string // Original network URL (record source, optional)
 }
 
 // Phase 3: Category types
