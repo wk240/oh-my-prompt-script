@@ -28,7 +28,9 @@ import { usePromptStore } from '../../lib/store'
 import { getResourcePrompts, getResourceCategories } from '../../lib/resource-library'
 import { MessageType } from '../../shared/messages'
 import { readImportFile, mergeImportData } from '../../lib/import-export'
-import { getCachedImageUrl, clearImageUrlCache, isFolderConfigured, downloadImageFromUrl, saveImage } from '../../lib/sync/image-sync'
+import { clearImageUrlCache, isFolderConfigured, downloadImageFromUrl, saveImage } from '../../lib/sync/image-sync'
+import { clearLoadQueue } from '../../lib/sync/image-loader-queue'
+import { PromptThumbnail } from './PromptThumbnail'
 import { PORTAL_ID, STYLE_ID, DROPDOWN_STYLES } from '../styles/dropdown-styles'
 
 interface DropdownContainerProps {
@@ -205,7 +207,6 @@ function SortableDropdownItem({
   showDragHandle,
   onEdit,
   onDelete,
-  thumbnailUrl,
   onThumbnailClick,
 }: {
   prompt: Prompt
@@ -215,7 +216,6 @@ function SortableDropdownItem({
   showDragHandle: boolean
   onEdit: (prompt: Prompt) => void
   onDelete: (prompt: Prompt) => void
-  thumbnailUrl?: string | null
   onThumbnailClick?: (prompt: Prompt) => void  // Click on thumbnail to open preview
 }) {
   const {
@@ -240,7 +240,7 @@ function SortableDropdownItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`dropdown-item${isSelected ? ' selected' : ''}${isLast ? ' last' : ''}${isDragging ? ' dragging' : ''}${thumbnailUrl ? ' dropdown-item-with-thumbnail' : ''}`}
+      className={`dropdown-item${isSelected ? ' selected' : ''}${isLast ? ' last' : ''}${isDragging ? ' dragging' : ''}${prompt.localImage ? ' dropdown-item-with-thumbnail' : ''}`}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => onSelect(prompt)}
       role="button"
@@ -252,24 +252,13 @@ function SortableDropdownItem({
         }
       }}
     >
-      {/* Thumbnail - 60x40 image preview, click to open preview modal */}
+      {/* Thumbnail - 60x40 image preview, lazy-loaded with Intersection Observer */}
       {prompt.localImage && (
-        <div
-          className="dropdown-item-thumbnail"
-          style={onThumbnailClick && thumbnailUrl ? { cursor: 'pointer' } : {}}
-          onClick={(e) => {
-            if (onThumbnailClick && thumbnailUrl) {
-              e.stopPropagation()
-              onThumbnailClick(prompt)
-            }
-          }}
-        >
-          {thumbnailUrl ? (
-            <img src={thumbnailUrl} alt={prompt.name} />
-          ) : (
-            <Shapes className="dropdown-item-thumbnail-placeholder" style={{ width: 20, height: 20 }} />
-          )}
-        </div>
+        <PromptThumbnail
+          relativePath={prompt.localImage}
+          promptName={prompt.name}
+          onClick={onThumbnailClick ? () => onThumbnailClick(prompt) : undefined}
+        />
       )}
       <div className="dropdown-item-icon-wrapper">
         {showDragHandle && (
@@ -456,9 +445,6 @@ export function DropdownContainer({
   // Backup warning data states (not modal-related)
   const [backupWarningPromptCount, setBackupWarningPromptCount] = useState(0)
   const [dontShowBackupWarning, setDontShowBackupWarning] = useState(false)
-
-  // Thumbnail URLs state - cached blob URLs for prompts with images
-  const [thumbnailUrls, setThumbnailUrls] = useState<Map<string, string>>(new Map())
 
   // Fetch update status and sync status when dropdown opens
   useEffect(() => {
@@ -774,33 +760,11 @@ export function DropdownContainer({
 
   const showDragHandles = filteredPrompts.length >= 2
 
-  // Load thumbnail URLs for prompts with images
-  useEffect(() => {
-    const loadThumbnails = async () => {
-      const newUrls = new Map<string, string>()
-
-      for (const prompt of filteredPrompts) {
-        if (prompt.localImage) {
-          const url = await getCachedImageUrl(prompt.localImage)
-          if (url) {
-            newUrls.set(prompt.id, url)
-          }
-        }
-      }
-
-      setThumbnailUrls(newUrls)
-    }
-
-    if (filteredPrompts.some(p => p.localImage)) {
-      loadThumbnails()
-    }
-  }, [filteredPrompts])
-
-  // Clear image URL cache when dropdown closes
+  // Clear image URL cache and load queue when dropdown closes
   useEffect(() => {
     if (!isOpen) {
       clearImageUrlCache()
-      setThumbnailUrls(new Map())
+      clearLoadQueue()
     }
   }, [isOpen])
 
@@ -1463,7 +1427,6 @@ export function DropdownContainer({
                       isSelected={selectedPromptId === prompt.id}
                       onSelect={onSelect}
                       showDragHandle={showDragHandles}
-                      thumbnailUrl={thumbnailUrls.get(prompt.id)}
                       onThumbnailClick={(p) => {
                         setEditingItem('userPrompt', p)
                         openModal('isUserPreview')
