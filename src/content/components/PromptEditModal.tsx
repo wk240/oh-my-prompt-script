@@ -39,6 +39,10 @@ function getImageErrorMessage(error?: string): string {
   switch (error) {
     case 'FOLDER_NOT_CONFIGURED':
       return '请先配置备份文件夹'
+    case 'FOLDER_NOT_FOUND':
+      return '备份文件夹不存在或已移动，请重新选择文件夹'
+    case 'PERMISSION_DENIED':
+      return '文件夹权限不足，请重新选择文件夹或授权访问'
     case 'WRITE_FAILED':
       return '图片保存失败，请检查文件夹权限'
     case 'FILE_TOO_LARGE':

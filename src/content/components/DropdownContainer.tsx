@@ -1641,25 +1641,29 @@ export function DropdownContainer({
   }, [deletingCategory, selectedCategoryId])
 
   // CRUD handlers for prompts
-  const handleAddPrompt = useCallback((data: { name: string; description?: string; content: string; categoryId: string }) => {
+  const handleAddPrompt = useCallback((data: { name: string; description?: string; content: string; categoryId: string; localImage?: string; remoteImageUrl?: string }) => {
     usePromptStore.getState().addPrompt({
       name: data.name,
       description: data.description,
       content: data.content,
       categoryId: data.categoryId,
       order: localPrompts.filter(p => p.categoryId === data.categoryId).length,
+      localImage: data.localImage,
+      remoteImageUrl: data.remoteImageUrl,
     })
     setToastMessage('提示词已添加')
     setTimeout(() => setToastMessage(null), 2000)
   }, [localPrompts])
 
-  const handleUpdatePrompt = useCallback((data: { name: string; description?: string; content: string; categoryId: string }) => {
+  const handleUpdatePrompt = useCallback((data: { name: string; description?: string; content: string; categoryId: string; localImage?: string; remoteImageUrl?: string }) => {
     if (!editingPrompt) return
     usePromptStore.getState().updatePrompt(editingPrompt.id, {
       name: data.name,
       description: data.description,
       content: data.content,
       categoryId: data.categoryId,
+      localImage: data.localImage,
+      remoteImageUrl: data.remoteImageUrl,
     })
     setEditingPrompt(null)
     setToastMessage('提示词已更新')

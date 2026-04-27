@@ -1,5 +1,5 @@
 import type { UserData } from '../../shared/types'
-import { BACKUP_FILE_NAME } from '../../shared/constants'
+import { BACKUP_FILE_NAME, IMAGE_DIR_NAME } from '../../shared/constants'
 import { StorageManager } from '../storage'
 import { getFolderHandle, saveFolderHandle, checkFolderPermission, requestFolderPermission } from './indexeddb'
 import { syncToLocalFolder, readFromLocalFolder, selectSyncFolder, listBackupVersions, readBackupFile } from './file-sync'
@@ -130,6 +130,17 @@ export async function enableSync(): Promise<EnableSyncResult> {
   }
 
   try {
+    // IMPORTANT: Verify permission by creating images directory BEFORE saving handle
+    // This ensures permission is actually granted in the current context (popup)
+    // Service Worker cannot request permission without user activation
+    try {
+      await handle.getDirectoryHandle(IMAGE_DIR_NAME, { create: true })
+      console.log('[Oh My Prompt] Images directory created, permission verified')
+    } catch (permError) {
+      console.error('[Oh My Prompt] Permission verification failed:', permError)
+      return { success: false, error: '文件夹权限验证失败，请重新选择' }
+    }
+
     await saveFolderHandle(handle)
 
     // Check for existing backup in the selected folder
@@ -191,6 +202,16 @@ export async function changeSyncFolder(): Promise<{ success: boolean; error?: st
   }
 
   try {
+    // IMPORTANT: Verify permission by creating images directory BEFORE saving handle
+    // This ensures permission is actually granted in the current context (popup)
+    try {
+      await handle.getDirectoryHandle(IMAGE_DIR_NAME, { create: true })
+      console.log('[Oh My Prompt] Images directory created, permission verified')
+    } catch (permError) {
+      console.error('[Oh My Prompt] Permission verification failed:', permError)
+      return { success: false, error: '文件夹权限验证失败，请重新选择' }
+    }
+
     await saveFolderHandle(handle)
 
     // Check for existing backup in the new folder
