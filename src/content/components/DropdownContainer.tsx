@@ -1110,48 +1110,81 @@ export function DropdownContainer({
     })))
   }, [rawResourcePrompts, resourceLanguage])
 
-  // Modal state for prompt preview
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [selectedResourcePrompt, setSelectedResourcePrompt] = useState<ResourcePrompt | null>(null)
+  // Grouped modal states
+  interface ModalStates {
+    isPreview: boolean           // Resource prompt preview modal
+    isUserPreview: boolean       // User prompt preview modal (thumbnail click)
+    isCategoryDialog: boolean    // Category select dialog
+    isCategoryAdd: boolean       // Category add modal
+    isCategoryEdit: boolean      // Category edit modal
+    isCategoryDelete: boolean    // Category delete modal
+    isPromptAdd: boolean         // Prompt add modal
+    isPromptEdit: boolean        // Prompt edit modal
+    isPromptDelete: boolean      // Prompt delete modal
+    isUpdateGuide: boolean       // Update guide modal
+    showLatestTip: boolean       // "Already latest" tip
+    showBackupReminder: boolean  // Backup reminder banner
+    showFirstBackupWarning: boolean // First-time backup warning banner
+    toastMessage: string | null  // Toast notification message
+  }
 
-  // User prompt preview modal state (triggered by thumbnail click)
-  const [isUserPromptModalOpen, setIsUserPromptModalOpen] = useState(false)
-  const [selectedUserPrompt, setSelectedUserPrompt] = useState<Prompt | null>(null)
+  const [modalStates, setModalStates] = useState<ModalStates>({
+    isPreview: false,
+    isUserPreview: false,
+    isCategoryDialog: false,
+    isCategoryAdd: false,
+    isCategoryEdit: false,
+    isCategoryDelete: false,
+    isPromptAdd: false,
+    isPromptEdit: false,
+    isPromptDelete: false,
+    isUpdateGuide: false,
+    showLatestTip: false,
+    showBackupReminder: false,
+    showFirstBackupWarning: false,
+    toastMessage: null,
+  })
 
-  // Category select dialog state
-  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
+  // Helper methods for modal state
+  const openModal = (key: keyof ModalStates) => setModalStates(prev => ({ ...prev, [key]: true }))
+  const closeModal = (key: keyof ModalStates) => setModalStates(prev => ({ ...prev, [key]: false }))
+  const setToastMessage = (message: string) => setModalStates(prev => ({ ...prev, toastMessage: message }))
+  const hideToast = () => setModalStates(prev => ({ ...prev, toastMessage: null }))
 
-  // Toast state
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  // Grouped editing states
+  interface EditingStates {
+    resourcePrompt: ResourcePrompt | null  // Resource prompt for preview/collect
+    userPrompt: Prompt | null              // User prompt for preview
+    category: Category | null              // Category being edited
+    prompt: Prompt | null                  // Prompt being edited
+    deletingCategory: Category | null      // Category being deleted
+    deletingPrompt: Prompt | null          // Prompt being deleted
+  }
 
-  // Refresh state
+  const [editingStates, setEditingStates] = useState<EditingStates>({
+    resourcePrompt: null,
+    userPrompt: null,
+    category: null,
+    prompt: null,
+    deletingCategory: null,
+    deletingPrompt: null,
+  })
+
+  // Helper methods for editing state
+  const setEditingItem = <K extends keyof EditingStates>(key: K, value: EditingStates[K]) =>
+    setEditingStates(prev => ({ ...prev, [key]: value }))
+  const clearEditingItem = <K extends keyof EditingStates>(key: K) =>
+    setEditingStates(prev => ({ ...prev, [key]: null }))
+
+  // Refresh/loading state (not modal-related)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Update notification state
+  // Update notification data state (not modal-related)
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
-  const [showLatestTip, setShowLatestTip] = useState(false)
-  const [isUpdateGuideOpen, setIsUpdateGuideOpen] = useState(false)
 
-  // Backup reminder state - shows after sorting changes
-  const [showBackupReminder, setShowBackupReminder] = useState(false)
-
-  // First-time backup warning state - shows on first open if no backup set
-  const [showFirstBackupWarning, setShowFirstBackupWarning] = useState(false)
+  // Backup warning data states (not modal-related)
   const [backupWarningPromptCount, setBackupWarningPromptCount] = useState(0)
   const [dontShowBackupWarning, setDontShowBackupWarning] = useState(false)
-
-  // CRUD modal states
-  const [isCategoryAddModalOpen, setIsCategoryAddModalOpen] = useState(false)
-  const [isCategoryEditModalOpen, setIsCategoryEditModalOpen] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
-  const [isDeleteCategoryModalOpen, setIsDeleteCategoryModalOpen] = useState(false)
-  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null)
-
-  const [isPromptAddModalOpen, setIsPromptAddModalOpen] = useState(false)
-  const [isPromptEditModalOpen, setIsPromptEditModalOpen] = useState(false)
-  const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null)
-  const [isDeletePromptModalOpen, setIsDeletePromptModalOpen] = useState(false)
-  const [deletingPrompt, setDeletingPrompt] = useState<Prompt | null>(null)
 
   // Thumbnail URLs state - cached blob URLs for prompts with images
   const [thumbnailUrls, setThumbnailUrls] = useState<Map<string, string>>(new Map())
@@ -1169,7 +1202,7 @@ export function DropdownContainer({
       if (response?.success && response.data) {
         const syncStatus = response.data
         if (syncStatus.hasUnsyncedChanges) {
-          setShowBackupReminder(true)
+          openModal('showBackupReminder')
         }
         // Check for first-time backup warning
         if (!syncStatus.hasFolder && !syncStatus.dismissedBackupWarning) {
@@ -1177,7 +1210,7 @@ export function DropdownContainer({
           const promptCount = localPrompts.length
           if (promptCount > 0) {
             setBackupWarningPromptCount(promptCount)
-            setShowFirstBackupWarning(true)
+            openModal('showFirstBackupWarning')
           }
         }
       }
@@ -1191,8 +1224,8 @@ export function DropdownContainer({
         const status = response.data as UpdateStatus
         setUpdateStatus(status)
         if (!status.hasUpdate) {
-          setShowLatestTip(true)
-          setTimeout(() => setShowLatestTip(false), 3000)
+          openModal('showLatestTip')
+          setTimeout(() => closeModal('showLatestTip'), 3000)
         }
       }
     })
@@ -1201,7 +1234,7 @@ export function DropdownContainer({
   // Listen for sync failure events from service worker
   useEffect(() => {
     const handleSyncFailed = () => {
-      setShowBackupReminder(true)
+      openModal('showBackupReminder')
     }
     window.addEventListener('oh-my-prompt-sync-failed', handleSyncFailed)
     return () => {
@@ -1253,8 +1286,8 @@ export function DropdownContainer({
 
   // Handle quick collect from card (skip modal)
   const handleQuickCollect = useCallback((resourcePrompt: ResourcePrompt) => {
-    setSelectedResourcePrompt(resourcePrompt)
-    setIsCategoryDialogOpen(true)
+    setEditingItem('resourcePrompt', resourcePrompt)
+    openModal('isCategoryDialog')
   }, [])
 
   // Handle inject from card (direct injection)
@@ -1266,13 +1299,14 @@ export function DropdownContainer({
         : resourcePrompt
       onInjectResource(promptToInject)
       setToastMessage('已注入提示词')
-      setTimeout(() => setToastMessage(null), 2000)
+      setTimeout(() => hideToast(), 2000)
     }
   }, [onInjectResource, resourceLanguage])
 
   // Handle collect confirmation - auto-download preview image when available
   const handleConfirmCollect = useCallback(async (categoryId: string, newCategoryName?: string) => {
-    if (!selectedResourcePrompt) return
+    if (!editingStates.resourcePrompt) return
+    const resourcePrompt = editingStates.resourcePrompt // Capture reference for async operations
 
     let targetCategoryId = categoryId
 
@@ -1295,21 +1329,21 @@ export function DropdownContainer({
     let localImage: string | undefined = undefined
 
     // Auto-download image if folder configured and prompt has preview image
-    if (folderConfigured && selectedResourcePrompt.previewImage) {
+    if (folderConfigured && resourcePrompt.previewImage) {
       try {
-        const downloadResult = await downloadImageFromUrl(selectedResourcePrompt.previewImage)
+        const downloadResult = await downloadImageFromUrl(resourcePrompt.previewImage)
         if (downloadResult.success && downloadResult.blob) {
           // Store the blob temporarily
           const imageBlob = downloadResult.blob
 
           // Create prompt first to get ID
           const tempPrompt: Omit<Prompt, 'id'> = {
-            name: selectedResourcePrompt.name,
-            content: selectedResourcePrompt.content,
+            name: resourcePrompt.name,
+            content: resourcePrompt.content,
             categoryId: targetCategoryId,
-            description: selectedResourcePrompt.description,
+            description: resourcePrompt.description,
             order: 0,
-            remoteImageUrl: selectedResourcePrompt.previewImage,
+            remoteImageUrl: resourcePrompt.previewImage,
           }
 
           // Add prompt and get the created prompt with ID
@@ -1317,7 +1351,7 @@ export function DropdownContainer({
 
           // Get the newly created prompt ID from store
           const newPrompt = usePromptStore.getState().prompts.find(p =>
-            p.content === selectedResourcePrompt.content && p.categoryId === targetCategoryId
+            p.content === resourcePrompt.content && p.categoryId === targetCategoryId
           )
 
           if (newPrompt) {
@@ -1336,21 +1370,21 @@ export function DropdownContainer({
         console.warn('[Oh My Prompt] Failed to download resource image:', error)
         // Continue without image - user can add later
       }
-    } else if (!folderConfigured && selectedResourcePrompt.previewImage) {
+    } else if (!folderConfigured && resourcePrompt.previewImage) {
       // Folder not configured - show toast
       setToastMessage('图片未保存，请先配置备份文件夹')
-      setTimeout(() => setToastMessage(null), 3000)
+      setTimeout(() => hideToast(), 3000)
     }
 
     // If image download failed or no image, create prompt without image
     if (!localImage) {
       const localPrompt: Omit<Prompt, 'id'> = {
-        name: selectedResourcePrompt.name,
-        content: selectedResourcePrompt.content,
+        name: resourcePrompt.name,
+        content: resourcePrompt.content,
         categoryId: targetCategoryId,
-        description: selectedResourcePrompt.description,
+        description: resourcePrompt.description,
         order: 0,
-        remoteImageUrl: selectedResourcePrompt.previewImage,
+        remoteImageUrl: resourcePrompt.previewImage,
       }
 
       await usePromptStore.getState().addPrompt(localPrompt)
@@ -1361,10 +1395,10 @@ export function DropdownContainer({
     // Show success toast
     setToastMessage(`已收藏到 ${categoryName}`)
 
-    setIsCategoryDialogOpen(false)
-    setIsModalOpen(false)
-    setSelectedResourcePrompt(null)
-  }, [selectedResourcePrompt])
+    closeModal('isCategoryDialog')
+    closeModal('isPreview')
+    clearEditingItem('resourcePrompt')
+  }, [editingStates.resourcePrompt])
 
   const dropdownGap = 8
   const dropdownMaxHeight = 600
@@ -1614,31 +1648,31 @@ export function DropdownContainer({
   const handleAddCategory = useCallback((name: string) => {
     usePromptStore.getState().addCategory(name)
     setToastMessage('分类已添加')
-    setTimeout(() => setToastMessage(null), 2000)
+    setTimeout(() => hideToast(), 2000)
   }, [])
 
   const handleUpdateCategory = useCallback((name: string) => {
-    if (!editingCategory) return
-    usePromptStore.getState().updateCategory(editingCategory.id, name)
-    setEditingCategory(null)
+    if (!editingStates.category) return
+    usePromptStore.getState().updateCategory(editingStates.category.id, name)
+    clearEditingItem('category')
     setToastMessage('分类已更新')
-    setTimeout(() => setToastMessage(null), 2000)
-  }, [editingCategory])
+    setTimeout(() => hideToast(), 2000)
+  }, [editingStates.category])
 
   const handleDeleteCategory = useCallback(() => {
-    if (!deletingCategory) return
-    usePromptStore.getState().deleteCategory(deletingCategory.id)
+    if (!editingStates.deletingCategory) return
+    usePromptStore.getState().deleteCategory(editingStates.deletingCategory.id)
     // Update local state
-    setLocalCategories(prev => prev.filter(c => c.id !== deletingCategory.id))
-    setLocalPrompts(prev => prev.filter(p => p.categoryId !== deletingCategory.id))
+    setLocalCategories(prev => prev.filter(c => c.id !== editingStates.deletingCategory!.id))
+    setLocalPrompts(prev => prev.filter(p => p.categoryId !== editingStates.deletingCategory!.id))
     // If deleted category was selected, switch to 'all'
-    if (selectedCategoryId === deletingCategory.id) {
+    if (selectedCategoryId === editingStates.deletingCategory.id) {
       setSelectedCategoryId('all')
     }
-    setDeletingCategory(null)
+    clearEditingItem('deletingCategory')
     setToastMessage('分类已删除')
-    setTimeout(() => setToastMessage(null), 2000)
-  }, [deletingCategory, selectedCategoryId])
+    setTimeout(() => hideToast(), 2000)
+  }, [editingStates.deletingCategory, selectedCategoryId])
 
   // CRUD handlers for prompts
   const handleAddPrompt = useCallback((data: { name: string; description?: string; content: string; categoryId: string; localImage?: string; remoteImageUrl?: string }) => {
@@ -1652,12 +1686,12 @@ export function DropdownContainer({
       remoteImageUrl: data.remoteImageUrl,
     })
     setToastMessage('提示词已添加')
-    setTimeout(() => setToastMessage(null), 2000)
+    setTimeout(() => hideToast(), 2000)
   }, [localPrompts])
 
   const handleUpdatePrompt = useCallback((data: { name: string; description?: string; content: string; categoryId: string; localImage?: string; remoteImageUrl?: string }) => {
-    if (!editingPrompt) return
-    usePromptStore.getState().updatePrompt(editingPrompt.id, {
+    if (!editingStates.prompt) return
+    usePromptStore.getState().updatePrompt(editingStates.prompt.id, {
       name: data.name,
       description: data.description,
       content: data.content,
@@ -1665,19 +1699,19 @@ export function DropdownContainer({
       localImage: data.localImage,
       remoteImageUrl: data.remoteImageUrl,
     })
-    setEditingPrompt(null)
+    clearEditingItem('prompt')
     setToastMessage('提示词已更新')
-    setTimeout(() => setToastMessage(null), 2000)
-  }, [editingPrompt])
+    setTimeout(() => hideToast(), 2000)
+  }, [editingStates.prompt])
 
   const handleDeletePrompt = useCallback(() => {
-    if (!deletingPrompt) return
-    usePromptStore.getState().deletePrompt(deletingPrompt.id)
-    setLocalPrompts(prev => prev.filter(p => p.id !== deletingPrompt.id))
-    setDeletingPrompt(null)
+    if (!editingStates.deletingPrompt) return
+    usePromptStore.getState().deletePrompt(editingStates.deletingPrompt.id)
+    setLocalPrompts(prev => prev.filter(p => p.id !== editingStates.deletingPrompt!.id))
+    clearEditingItem('deletingPrompt')
     setToastMessage('提示词已删除')
-    setTimeout(() => setToastMessage(null), 2000)
-  }, [deletingPrompt])
+    setTimeout(() => hideToast(), 2000)
+  }, [editingStates.deletingPrompt])
 
   // Export handler - send message to background worker (chrome.downloads only works in background)
   const handleExport = useCallback(async () => {
@@ -1694,10 +1728,10 @@ export function DropdownContainer({
       } else {
         setToastMessage(response?.error || '导出失败')
       }
-      setTimeout(() => setToastMessage(null), 2000)
+      setTimeout(() => hideToast(), 2000)
     } catch (error) {
       setToastMessage('导出失败')
-      setTimeout(() => setToastMessage(null), 2000)
+      setTimeout(() => hideToast(), 2000)
     }
   }, [localPrompts, localCategories])
 
@@ -1732,10 +1766,10 @@ export function DropdownContainer({
         await usePromptStore.getState().saveToStorage()
 
         setToastMessage(`导入成功：新增 ${merged.addedCount} 条，跳过 ${merged.skippedCount} 条重复`)
-        setTimeout(() => setToastMessage(null), 2000)
+        setTimeout(() => hideToast(), 2000)
       } else {
         setToastMessage(result.error || '导入失败')
-        setTimeout(() => setToastMessage(null), 2000)
+        setTimeout(() => hideToast(), 2000)
       }
     }
 
@@ -1744,7 +1778,7 @@ export function DropdownContainer({
 
   // Handle first-time backup warning actions
   const handleBackupWarningSelectFolder = useCallback(async () => {
-    setShowFirstBackupWarning(false)
+    closeModal('showFirstBackupWarning')
     if (dontShowBackupWarning) {
       chrome.runtime.sendMessage({ type: MessageType.DISMISS_BACKUP_WARNING })
     }
@@ -1753,7 +1787,7 @@ export function DropdownContainer({
   }, [dontShowBackupWarning])
 
   const handleBackupWarningSkip = useCallback(() => {
-    setShowFirstBackupWarning(false)
+    closeModal('showFirstBackupWarning')
     if (dontShowBackupWarning) {
       chrome.runtime.sendMessage({ type: MessageType.DISMISS_BACKUP_WARNING })
     }
@@ -1786,17 +1820,17 @@ export function DropdownContainer({
     // When dropdown is closed, only render backup reminder banner if needed
     return createPortal(
       <>
-        {showBackupReminder && (
+        {modalStates.showBackupReminder && (
           <div className="backup-reminder-banner-closed">
             <RefreshCw style={{ width: 14, height: 14, color: '#1e40af' }} />
             <span className="backup-reminder-text">本次改动尚未备份</span>
             <span
               className="backup-reminder-link"
-              onClick={() => setShowBackupReminder(false)}
+              onClick={() => closeModal('showBackupReminder')}
             >
               已知晓
             </span>
-            <span className="backup-reminder-close" onClick={() => setShowBackupReminder(false)}>×</span>
+            <span className="backup-reminder-close" onClick={() => closeModal('showBackupReminder')}>×</span>
           </div>
         )}
         <style>{`.backup-reminder-banner-closed {
@@ -1939,12 +1973,12 @@ export function DropdownContainer({
                         showDragHandle={showCategoryDragHandles}
                         IconComponent={IconComponent}
                         onEdit={(cat) => {
-                          setEditingCategory(cat)
-                          setIsCategoryEditModalOpen(true)
+                          setEditingItem('category', cat)
+                          openModal('isCategoryEdit')
                         }}
                         onDelete={(cat) => {
-                          setDeletingCategory(cat)
-                          setIsDeleteCategoryModalOpen(true)
+                          setEditingItem('deletingCategory', cat)
+                          openModal('isCategoryDelete')
                         }}
                       />
                     )
@@ -1954,7 +1988,7 @@ export function DropdownContainer({
               {/* Add category button */}
               <button
                 className="sidebar-add-category-btn"
-                onClick={() => setIsCategoryAddModalOpen(true)}
+                onClick={() => openModal('isCategoryAdd')}
                 aria-label="添加分类"
               >
                 <Plus style={{ width: 14, height: 14 }} />
@@ -1976,9 +2010,9 @@ export function DropdownContainer({
             <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion} 可用` : '检查更新'} placement="bottom">
               <button
                 ref={updateButtonRef}
-                className={`dropdown-action-btn${showLatestTip ? ' has-tip' : ''}`}
+                className={`dropdown-action-btn${modalStates.showLatestTip ? ' has-tip' : ''}`}
                 style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
-                onClick={updateStatus?.hasUpdate ? () => setIsUpdateGuideOpen(true) : handleCheckUpdate}
+                onClick={updateStatus?.hasUpdate ? () => openModal('isUpdateGuide') : handleCheckUpdate}
                 aria-label={updateStatus?.hasUpdate ? '查看更新引导' : '检查更新'}
               >
                 <ArrowUpCircle style={{ width: 14, height: 14 }} />
@@ -2041,7 +2075,7 @@ export function DropdownContainer({
             <span className="update-banner-text">新版本 {updateStatus.latestVersion} 可用</span>
             <span
               className="update-banner-link"
-              onClick={() => setIsUpdateGuideOpen(true)}
+              onClick={() => openModal('isUpdateGuide')}
             >
               查看更新引导
             </span>
@@ -2050,25 +2084,25 @@ export function DropdownContainer({
         )}
 
         {/* Backup reminder banner - shows after sorting changes */}
-        {showBackupReminder && (
+        {modalStates.showBackupReminder && (
           <div className="backup-reminder-banner">
             <RefreshCw style={{ width: 14, height: 14, color: '#1e40af' }} />
             <span className="backup-reminder-text">本次改动尚未备份</span>
             <span
               className="backup-reminder-link"
               onClick={() => {
-                setShowBackupReminder(false)
+                closeModal('showBackupReminder')
                 handleRefreshClick()
               }}
             >
               立即备份
             </span>
-            <span className="backup-reminder-close" onClick={() => setShowBackupReminder(false)}>×</span>
+            <span className="backup-reminder-close" onClick={() => closeModal('showBackupReminder')}>×</span>
           </div>
         )}
 
         {/* First-time backup warning banner - shows on first open if no backup */}
-        {showFirstBackupWarning && (
+        {modalStates.showFirstBackupWarning && (
           <div className="first-backup-warning-banner">
             <div className="first-backup-warning-header">
               <AlertTriangle className="first-backup-warning-icon" />
@@ -2127,8 +2161,8 @@ export function DropdownContainer({
                     onClick={() => {
                       // Find the original raw prompt (unmodified name/content) for the modal
                       const rawPrompt = rawResourcePrompts.find(p => p.id === prompt.id)
-                      setSelectedResourcePrompt(rawPrompt || prompt)
-                      setIsModalOpen(true)
+                      setEditingItem('resourcePrompt', rawPrompt || prompt)
+                      openModal('isPreview')
                     }}
                     onInject={() => handleInjectFromCard(prompt)}
                     onCollect={() => handleQuickCollect(prompt)}
@@ -2160,16 +2194,16 @@ export function DropdownContainer({
                       showDragHandle={showDragHandles}
                       thumbnailUrl={thumbnailUrls.get(prompt.id)}
                       onThumbnailClick={(p) => {
-                        setSelectedUserPrompt(p)
-                        setIsUserPromptModalOpen(true)
+                        setEditingItem('userPrompt', p)
+                        openModal('isUserPreview')
                       }}
                       onEdit={(p) => {
-                        setEditingPrompt(p)
-                        setIsPromptEditModalOpen(true)
+                        setEditingItem('prompt', p)
+                        openModal('isPromptEdit')
                       }}
                       onDelete={(p) => {
-                        setDeletingPrompt(p)
-                        setIsDeletePromptModalOpen(true)
+                        setEditingItem('deletingPrompt', p)
+                        openModal('isPromptDelete')
                       }}
                     />
                   ))}
@@ -2182,7 +2216,7 @@ export function DropdownContainer({
         {!isResourceLibrary && (
           <button
             className="fab-add-prompt"
-            onClick={() => setIsPromptAddModalOpen(true)}
+            onClick={() => openModal('isPromptAdd')}
             aria-label="添加提示词"
           >
             <Plus style={{ width: 18, height: 18 }} />
@@ -2191,25 +2225,25 @@ export function DropdownContainer({
       </div>
     </div>
     {/* Prompt preview modal with collect */}
-    {selectedResourcePrompt && (
+    {editingStates.resourcePrompt && (
       <Suspense fallback={null}>
         <PromptPreviewModal
-          prompt={selectedResourcePrompt}
-          isOpen={isModalOpen}
+          prompt={editingStates.resourcePrompt}
+          isOpen={modalStates.isPreview}
           onClose={() => {
-            setIsModalOpen(false)
-            setSelectedResourcePrompt(null)
+            closeModal('isPreview')
+            clearEditingItem('resourcePrompt')
           }}
-          onCollect={() => setIsCategoryDialogOpen(true)}
+          onCollect={() => openModal('isCategoryDialog')}
           onInject={(language) => {
-            if (onInjectResource) {
+            if (onInjectResource && editingStates.resourcePrompt) {
               // Use the language version from modal
-              const promptToInject = language === 'en' && selectedResourcePrompt.contentEn
-                ? { ...selectedResourcePrompt, content: selectedResourcePrompt.contentEn, name: selectedResourcePrompt.nameEn || selectedResourcePrompt.name }
-                : selectedResourcePrompt
+              const promptToInject = language === 'en' && editingStates.resourcePrompt.contentEn
+                ? { ...editingStates.resourcePrompt, content: editingStates.resourcePrompt.contentEn, name: editingStates.resourcePrompt.nameEn || editingStates.resourcePrompt.name }
+                : editingStates.resourcePrompt
               onInjectResource(promptToInject)
               setToastMessage('已注入提示词')
-              setTimeout(() => setToastMessage(null), 2000)
+              setTimeout(() => hideToast(), 2000)
             }
           }}
           globalLanguage={resourceLanguage}
@@ -2217,34 +2251,36 @@ export function DropdownContainer({
       </Suspense>
     )}
     {/* User prompt preview modal (triggered by thumbnail click) */}
-    {selectedUserPrompt && (
+    {editingStates.userPrompt && (
       <Suspense fallback={null}>
         <PromptPreviewModal
-          prompt={selectedUserPrompt}
-          isOpen={isUserPromptModalOpen}
+          prompt={editingStates.userPrompt}
+          isOpen={modalStates.isUserPreview}
           onClose={() => {
-            setIsUserPromptModalOpen(false)
-            setSelectedUserPrompt(null)
+            closeModal('isUserPreview')
+            clearEditingItem('userPrompt')
           }}
           isUserPrompt={true}
           onEdit={() => {
-            setIsUserPromptModalOpen(false)
-            setEditingPrompt(selectedUserPrompt)
-            setIsPromptEditModalOpen(true)
+            closeModal('isUserPreview')
+            setEditingItem('prompt', editingStates.userPrompt)
+            openModal('isPromptEdit')
           }}
           onInject={(language) => {
             // For user prompts, inject using onSelect with content
-            const promptToInject = {
-              ...selectedUserPrompt,
-              content: language === 'en' && selectedUserPrompt.contentEn
-                ? selectedUserPrompt.contentEn
-                : selectedUserPrompt.content
+            if (editingStates.userPrompt) {
+              const promptToInject = {
+                ...editingStates.userPrompt,
+                content: language === 'en' && editingStates.userPrompt.contentEn
+                  ? editingStates.userPrompt.contentEn
+                  : editingStates.userPrompt.content
+              }
+              onSelect(promptToInject)
+              closeModal('isUserPreview')
+              clearEditingItem('userPrompt')
+              setToastMessage('已插入提示词')
+              setTimeout(() => hideToast(), 2000)
             }
-            onSelect(promptToInject)
-            setIsUserPromptModalOpen(false)
-            setSelectedUserPrompt(null)
-            setToastMessage('已插入提示词')
-            setTimeout(() => setToastMessage(null), 2000)
           }}
         />
       </Suspense>
@@ -2252,19 +2288,19 @@ export function DropdownContainer({
     {/* Category select dialog */}
     <CategorySelectDialog
       categories={sortableCategories}
-      isOpen={isCategoryDialogOpen}
-      onClose={() => setIsCategoryDialogOpen(false)}
+      isOpen={modalStates.isCategoryDialog}
+      onClose={() => closeModal('isCategoryDialog')}
       onConfirm={handleConfirmCollect}
     />
     {/* Toast notification */}
-    {toastMessage && (
+    {modalStates.toastMessage && (
       <ToastNotification
-        message={toastMessage}
-        onClose={() => setToastMessage(null)}
+        message={modalStates.toastMessage}
+        onClose={() => hideToast()}
       />
     )}
     {/* "Already latest" tip - Portal rendered outside dropdown to escape overflow:hidden */}
-    {showLatestTip && updateButtonRef.current && (
+    {modalStates.showLatestTip && updateButtonRef.current && (
       <div
         style={{
           position: 'fixed',
@@ -2287,35 +2323,35 @@ export function DropdownContainer({
     <Suspense fallback={null}>
       <UpdateGuideModal
         status={updateStatus}
-        isOpen={isUpdateGuideOpen}
-        onClose={() => setIsUpdateGuideOpen(false)}
+        isOpen={modalStates.isUpdateGuide}
+        onClose={() => closeModal('isUpdateGuide')}
       />
     </Suspense>
     {/* Category CRUD modals */}
     <Suspense fallback={null}>
       <CategoryEditModal
-        isOpen={isCategoryAddModalOpen}
-        onClose={() => setIsCategoryAddModalOpen(false)}
+        isOpen={modalStates.isCategoryAdd}
+        onClose={() => closeModal('isCategoryAdd')}
         mode="add"
         onConfirm={handleAddCategory}
       />
       <CategoryEditModal
-        isOpen={isCategoryEditModalOpen}
+        isOpen={modalStates.isCategoryEdit}
         onClose={() => {
-          setIsCategoryEditModalOpen(false)
-          setEditingCategory(null)
+          closeModal('isCategoryEdit')
+          clearEditingItem('category')
         }}
         mode="edit"
-        initialName={editingCategory?.name || ''}
+        initialName={editingStates.category?.name || ''}
         onConfirm={handleUpdateCategory}
       />
       <DeleteConfirmModal
-        isOpen={isDeleteCategoryModalOpen}
+        isOpen={modalStates.isCategoryDelete}
         onClose={() => {
-          setIsDeleteCategoryModalOpen(false)
-          setDeletingCategory(null)
+          closeModal('isCategoryDelete')
+          clearEditingItem('deletingCategory')
         }}
-        itemName={deletingCategory?.name || ''}
+        itemName={editingStates.deletingCategory?.name || ''}
         itemType="category"
         onConfirm={handleDeleteCategory}
       />
@@ -2323,31 +2359,31 @@ export function DropdownContainer({
     {/* Prompt CRUD modals */}
     <Suspense fallback={null}>
       <PromptEditModal
-        isOpen={isPromptAddModalOpen}
-        onClose={() => setIsPromptAddModalOpen(false)}
+        isOpen={modalStates.isPromptAdd}
+        onClose={() => closeModal('isPromptAdd')}
         mode="add"
         categories={sortableCategories}
         defaultCategoryId={selectedCategoryId !== 'all' ? selectedCategoryId : undefined}
         onConfirm={handleAddPrompt}
       />
       <PromptEditModal
-        isOpen={isPromptEditModalOpen}
+        isOpen={modalStates.isPromptEdit}
         onClose={() => {
-          setIsPromptEditModalOpen(false)
-          setEditingPrompt(null)
+          closeModal('isPromptEdit')
+          clearEditingItem('prompt')
         }}
         mode="edit"
-        prompt={editingPrompt ?? undefined}
+        prompt={editingStates.prompt ?? undefined}
         categories={sortableCategories}
         onConfirm={handleUpdatePrompt}
       />
       <DeleteConfirmModal
-        isOpen={isDeletePromptModalOpen}
+        isOpen={modalStates.isPromptDelete}
         onClose={() => {
-          setIsDeletePromptModalOpen(false)
-          setDeletingPrompt(null)
+          closeModal('isPromptDelete')
+          clearEditingItem('deletingPrompt')
         }}
-        itemName={deletingPrompt?.name || ''}
+        itemName={editingStates.deletingPrompt?.name || ''}
         itemType="prompt"
         onConfirm={handleDeletePrompt}
       />
