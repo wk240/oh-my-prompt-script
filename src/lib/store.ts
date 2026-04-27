@@ -48,7 +48,6 @@ interface PromptStore {
  */
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let pendingSaveResolve: ((value: { success: boolean; syncSuccess?: boolean; error?: string }) => void) | null = null
-let pendingSaveReject: ((error: Error) => void) | null = null
 
 /**
  * Debounced save to storage - batches rapid state changes
@@ -66,17 +65,16 @@ function debouncedSaveToStorage(
     saveTimeout = null
   }
 
-  // Reject previous pending promise if exists (will be replaced)
-  if (pendingSaveReject) {
-    // Don't reject, just clear - the new promise will handle the save
+  // Resolve previous pending promise if exists (will be superseded by new promise)
+  // The data will still be saved by the new promise, so old caller gets success
+  if (pendingSaveResolve) {
+    pendingSaveResolve({ success: true })
     pendingSaveResolve = null
-    pendingSaveReject = null
   }
 
   // Create new promise that resolves when save completes
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     pendingSaveResolve = resolve
-    pendingSaveReject = reject
     saveTimeout = setTimeout(async () => {
       saveTimeout = null
       try {
@@ -98,16 +96,14 @@ function debouncedSaveToStorage(
         if (pendingSaveResolve) {
           pendingSaveResolve(result)
           pendingSaveResolve = null
-          pendingSaveReject = null
-        }
+                  }
       } catch (error) {
         console.error('[Oh My Prompt] Debounced save failed:', error)
         const result = { success: false, error: '数据保存失败，请检查存储配额' }
         if (pendingSaveResolve) {
           pendingSaveResolve(result)
           pendingSaveResolve = null
-          pendingSaveReject = null
-        }
+                  }
       }
     }, delay)
   })
@@ -146,16 +142,14 @@ async function flushPendingSave(
       const result = { success: true, syncSuccess: response.data?.syncSuccess }
       pendingSaveResolve(result)
       pendingSaveResolve = null
-      pendingSaveReject = null
-      return result
+            return result
     } catch (error) {
       console.error('[Oh My Prompt] Flush save failed:', error)
       const result = { success: false, error: '数据保存失败，请检查存储配额' }
       if (pendingSaveResolve) {
         pendingSaveResolve(result)
         pendingSaveResolve = null
-        pendingSaveReject = null
-      }
+              }
       return result
     }
   }
@@ -481,8 +475,26 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
 }))
 
 // Setup beforeunload handler to flush pending saves when popup closes
-if (typeof window !== 'undefined') {
+// Guard against duplicate listener registration
+let beforeUnloadHandlerRegistered = false
+if (typeof window !== 'undefined' && !beforeUnloadHandlerRegistered) {
+  beforeUnloadHandlerRegistered = true
   window.addEventListener('beforeunload', () => {
-    usePromptStore.getState().flushSave()
+    // Clear any pending timeout and send message immediately
+    // beforeunload doesn't wait for async operations, so send synchronously
+    if (saveTimeout) {
+      clearTimeout(saveTimeout)
+      saveTimeout = null
+    }
+    const state = usePromptStore.getState()
+    const version = chrome.runtime.getManifest().version
+    // Send message without awaiting - will be queued even if popup closes
+    chrome.runtime.sendMessage({
+      type: MessageType.SET_STORAGE,
+      payload: {
+        version,
+        userData: { prompts: state.prompts, categories: state.categories }
+      }
+    })
   })
 }
