@@ -162,20 +162,20 @@ export const DROPDOWN_STYLES = `
     align-items: center;
     gap: 2px;
     padding: 4px 8px;
-    background: #171717;
-    border: none;
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
     border-radius: 4px;
     cursor: pointer;
     font-size: 11px;
     font-weight: 500;
-    color: #ffffff;
+    color: #171717;
     transition: background 0.15s ease;
     white-space: nowrap;
     flex-shrink: 0;
   }
 
   #${PORTAL_ID} .dropdown-language-btn:hover {
-    background: #404040;
+    background: #f8f8f8;
   }
 
   #${PORTAL_ID} .dropdown-content {
