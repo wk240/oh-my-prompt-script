@@ -341,7 +341,7 @@ export const CAPTURED_IMAGE_STORAGE_KEY = '_capturedImageUrl'
 
 **All other claims verified via:** DefinitelyTyped type definitions, GitHub code examples.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should we add a MessageType for CAPTURED_IMAGE_URL notification?**
    - What we know: CONTEXT.md lists this as Claude's discretion. Phase 11 will consume the stored URL directly from storage.
