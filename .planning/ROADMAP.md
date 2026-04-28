@@ -70,7 +70,7 @@ Plans:
 **Milestone Goal:** 用户右键点击任意网站图片，AI分析生成提示词并直接插入Lovart输入框
 
 - [x] **Phase 9: Context Menu Foundation** - Add right-click menu integration for image-to-prompt (plans created)
-- [ ] **Phase 10: API Key Management** - Secure API key storage and provider selection (plans created)
+- [x] **Phase 10: API Key Management** - Secure API key storage and provider selection (plans created) (completed 2026-04-28)
 - [ ] **Phase 11: Vision API Integration** - Connect to Claude/OpenAI Vision APIs
 - [ ] **Phase 12: Prompt Insertion** - Deliver generated prompt to user
 
@@ -102,12 +102,12 @@ Plans:
   4. User can select Vision AI provider (Claude Vision or OpenAI GPT-4V)
   5. User can update or delete API key at any time
 **UI hint**: yes
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 10-01-PLAN.md — Add VisionApiConfig types, constants, and MessageType entries (Wave 1)
-- [ ] 10-02-PLAN.md — Create Settings UI + service worker handlers (Wave 2)
-- [ ] 10-03-PLAN.md — Update build config + onboarding trigger (Wave 3)
+- [x] 10-01-PLAN.md — Add VisionApiConfig types, constants, and MessageType entries (Wave 1)
+- [x] 10-02-PLAN.md — Create Settings UI + service worker handlers (Wave 2)
+- [x] 10-03-PLAN.md — Update build config + onboarding trigger (Wave 3)
 
 ### Phase 11: Vision API Integration
 **Goal**: 扩展能够调用Vision AI分析图片并生成提示词
@@ -148,7 +148,7 @@ Plans:
 | 7. Dropdown Online Library UI | v1.1.0 | 5/5 | Complete | 2026-04-19 |
 | 8. Search & Collect Features | v1.2.0 | 0/5 | Ready for execution | - |
 | 9. Context Menu Foundation | v1.3.0 | 0/2 | Ready for execution | - |
-| 10. API Key Management | v1.3.0 | 0/3 | Ready for execution | - |
+| 10. API Key Management | v1.3.0 | 3/3 | Complete    | 2026-04-28 |
 | 11. Vision API Integration | v1.3.0 | 0/4 | Not started | - |
 | 12. Prompt Insertion | v1.3.0 | 0/3 | Not started | - |
 
