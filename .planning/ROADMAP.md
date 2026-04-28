@@ -71,7 +71,7 @@ Plans:
 
 - [x] **Phase 9: Context Menu Foundation** - Add right-click menu integration for image-to-prompt (plans created)
 - [x] **Phase 10: API Key Management** - Secure API key storage and provider selection (plans created) (completed 2026-04-28)
-- [ ] **Phase 11: Vision API Integration** - Connect to Claude/OpenAI Vision APIs
+- [ ] **Phase 11: Vision API Integration** - Connect to Claude/OpenAI Vision APIs (plans created)
 - [ ] **Phase 12: Prompt Insertion** - Deliver generated prompt to user
 
 ## Phase Details
@@ -119,7 +119,13 @@ Plans:
   3. Loading indicator is shown during API call (visual feedback for 2-10 sec latency)
   4. Clear error messages shown for API failures (rate limit, invalid key, network error, unsupported image)
   5. User sees generated prompt content before insertion
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Add VISION_API_CALL MessageType + payload interfaces (Wave 1)
+- [ ] 11-02-PLAN.md — Create vision-api.ts with provider detection + request builders (Wave 1)
+- [ ] 11-03-PLAN.md — Add VISION_API_CALL handler + open loading page (Wave 2)
+- [ ] 11-04-PLAN.md — Create LoadingApp UI with spinner + error handling (Wave 2)
 
 ### Phase 12: Prompt Insertion
 **Goal**: 生成的提示词能够正确送达用户
@@ -148,10 +154,10 @@ Plans:
 | 7. Dropdown Online Library UI | v1.1.0 | 5/5 | Complete | 2026-04-19 |
 | 8. Search & Collect Features | v1.2.0 | 0/5 | Ready for execution | - |
 | 9. Context Menu Foundation | v1.3.0 | 0/2 | Ready for execution | - |
-| 10. API Key Management | v1.3.0 | 3/3 | Complete    | 2026-04-28 |
-| 11. Vision API Integration | v1.3.0 | 0/4 | Not started | - |
+| 10. API Key Management | v1.3.0 | 3/3 | Complete | 2026-04-28 |
+| 11. Vision API Integration | v1.3.0 | 0/4 | Ready for execution | - |
 | 12. Prompt Insertion | v1.3.0 | 0/3 | Not started | - |
 
 ---
 
-*Roadmap updated: 2026-04-28 — Phase 10 plans created (10-01, 10-02, 10-03)*
+*Roadmap updated: 2026-04-28 — Phase 11 plans created (11-01, 11-02, 11-03, 11-04)*
