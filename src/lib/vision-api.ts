@@ -280,9 +280,37 @@ export function classifyApiError(error: unknown, retryCount = 0): VisionApiError
         action: 'close'
       }
     }
+
+    // Endpoint not found (404)
+    if (errorMessage.includes('404')) {
+      return {
+        type: 'network',
+        message: 'API 端点不存在，请检查 Base URL 配置',
+        action: 'reconfigure'
+      }
+    }
+
+    // Forbidden (403)
+    if (errorMessage.includes('403')) {
+      return {
+        type: 'invalid_key',
+        message: 'API 访问被拒绝，请检查 API Key 权限',
+        action: 'reconfigure'
+      }
+    }
+
+    // Server errors (500/502/503)
+    if (errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('503')) {
+      return {
+        type: 'network',
+        message: 'API 服务暂时不可用，请稍后重试',
+        action: retryCount < MAX_RETRY_COUNT ? 'retry' : 'close'
+      }
+    }
   }
 
-  // Generic error fallback
+  // Generic error fallback with logging
+  console.error('[Oh My Prompt] Unhandled API error:', error)
   return {
     type: 'network',
     message: '发生未知错误，请重试',
