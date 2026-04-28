@@ -10,7 +10,7 @@
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-04-16)
 - ✅ **v1.1.0 网络提示词数据源接入** — Phases 5-7 (shipped 2026-04-19)
 - 🚧 **v1.2.0 在线搜索功能** — Phase 8 (in progress)
-- 📋 **v1.3.0 Image to Prompt** — Phases 9-12 (planned)
+- ✅ **v1.3.0 Image to Prompt** — Phases 9-12 (complete 2026-04-28)
 
 ---
 
@@ -65,14 +65,16 @@ Plans:
 
 ---
 
-### 📋 v1.3.0 Image to Prompt (Planned)
+### ✅ v1.3.0 Image to Prompt (Complete 2026-04-28)
 
 **Milestone Goal:** 用户右键点击任意网站图片，AI分析生成提示词并直接插入Lovart输入框
 
-- [x] **Phase 9: Context Menu Foundation** - Add right-click menu integration for image-to-prompt (plans created)
-- [x] **Phase 10: API Key Management** - Secure API key storage and provider selection (plans created) (completed 2026-04-28)
-- [x] **Phase 11: Vision API Integration** - Connect to Claude/OpenAI Vision APIs (plans created) (completed 2026-04-28)
-- [ ] **Phase 12: Prompt Insertion** - Deliver generated prompt to user (plans created)
+- [x] **Phase 9: Context Menu Foundation** — completed 2026-04-28
+- [x] **Phase 10: API Key Management** — completed 2026-04-28
+- [x] **Phase 11: Vision API Integration** — completed 2026-04-28
+- [x] **Phase 12: Prompt Insertion** — completed 2026-04-28
+
+**Total:** 4 phases, 12 plans — 100% complete
 
 ## Phase Details
 
@@ -137,12 +139,12 @@ Plans:
   3. When user confirms on non-Lovart page, prompt is copied to clipboard with notification toast
   4. User can cancel the preview dialog to discard the generated prompt
 **UI hint**: yes
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 12-01-PLAN.md — Add message routing infrastructure (INSERT_PROMPT_TO_CS, SAVE_TEMPORARY_PROMPT) (Wave 1)
-- [ ] 12-02-PLAN.md — Add content script INSERT_PROMPT_TO_CS handler (Wave 2)
-- [ ] 12-03-PLAN.md — Implement LoadingApp prompt delivery flow (Lovart detection, clipboard, save, feedback) (Wave 2)
+- [x] 12-01-PLAN.md — Add message routing infrastructure (INSERT_PROMPT_TO_CS, SAVE_TEMPORARY_PROMPT) (Wave 1)
+- [x] 12-02-PLAN.md — Add content script INSERT_PROMPT_TO_CS handler (Wave 2)
+- [x] 12-03-PLAN.md — Implement LoadingApp prompt delivery flow (Lovart detection, clipboard, save, feedback) (Wave 2)
 
 ---
 
@@ -158,11 +160,11 @@ Plans:
 | 6. Network Cache Layer | v1.1.0 | 4/4 | Complete | 2026-04-19 |
 | 7. Dropdown Online Library UI | v1.1.0 | 5/5 | Complete | 2026-04-19 |
 | 8. Search & Collect Features | v1.2.0 | 0/5 | Ready for execution | - |
-| 9. Context Menu Foundation | v1.3.0 | 0/2 | Ready for execution | - |
+| 9. Context Menu Foundation | v1.3.0 | 2/2 | Complete | 2026-04-28 |
 | 10. API Key Management | v1.3.0 | 3/3 | Complete | 2026-04-28 |
 | 11. Vision API Integration | v1.3.0 | 4/4 | Complete | 2026-04-28 |
-| 12. Prompt Insertion | v1.3.0 | 0/3 | Ready for execution | - |
+| 12. Prompt Insertion | v1.3.0 | 3/3 | Complete | 2026-04-28 |
 
 ---
 
-*Roadmap updated: 2026-04-28 — Phase 12 plans created (12-01, 12-02, 12-03)*
+*Roadmap updated: 2026-04-28 — v1.3.0 milestone complete (Phases 9-12)*
