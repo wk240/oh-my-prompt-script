@@ -32,3 +32,6 @@ export const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif']
 
 // Captured image URL storage key (for Phase 9 context menu)
 export const CAPTURED_IMAGE_STORAGE_KEY = '_capturedImageUrl'
+
+// Vision API configuration storage key (for Phase 10)
+export const VISION_API_CONFIG_STORAGE_KEY = '_visionApiConfig'
