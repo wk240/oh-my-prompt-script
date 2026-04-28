@@ -60,22 +60,22 @@
 
 | REQ-ID | Phase | Plan |
 |--------|-------|------|
-| MENU-01 | — | — |
-| MENU-02 | — | — |
-| MENU-03 | — | — |
-| AUTH-01 | — | — |
-| AUTH-02 | — | — |
-| AUTH-03 | — | — |
-| AUTH-04 | — | — |
-| VISION-01 | — | — |
-| VISION-02 | — | — |
-| VISION-03 | — | — |
-| VISION-04 | — | — |
-| INSERT-01 | — | — |
-| INSERT-02 | — | — |
-| INSERT-03 | — | — |
+| MENU-01 | Phase 9 | TBD |
+| MENU-02 | Phase 9 | TBD |
+| MENU-03 | Phase 9 | TBD |
+| AUTH-01 | Phase 10 | TBD |
+| AUTH-02 | Phase 10 | TBD |
+| AUTH-03 | Phase 10 | TBD |
+| AUTH-04 | Phase 10 | TBD |
+| VISION-01 | Phase 11 | TBD |
+| VISION-02 | Phase 11 | TBD |
+| VISION-03 | Phase 11 | TBD |
+| VISION-04 | Phase 11 | TBD |
+| INSERT-01 | Phase 12 | TBD |
+| INSERT-02 | Phase 12 | TBD |
+| INSERT-03 | Phase 12 | TBD |
 
-*Traceability will be filled by roadmap creation*
+*Traceability updated: 2026-04-28 — Roadmap created*
 
 ---
 
