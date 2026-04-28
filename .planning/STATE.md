@@ -89,6 +89,12 @@ Human testing required for E2E flow verification:
 - Auto-close timing
 - Temporary category persistence
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260429-0f9 | Fix Vision API error handling | 2026-04-28 | 6d55c97 | [260429-0f9-fix-vision-api-error-handling-add-handle](./quick/260429-0f9-fix-vision-api-error-handling-add-handle/) |
+
 ## Deferred Items
 
 Items acknowledged and carried forward:
