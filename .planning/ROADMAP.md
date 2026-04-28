@@ -71,8 +71,8 @@ Plans:
 
 - [x] **Phase 9: Context Menu Foundation** - Add right-click menu integration for image-to-prompt (plans created)
 - [x] **Phase 10: API Key Management** - Secure API key storage and provider selection (plans created) (completed 2026-04-28)
-- [ ] **Phase 11: Vision API Integration** - Connect to Claude/OpenAI Vision APIs (plans created)
-- [ ] **Phase 12: Prompt Insertion** - Deliver generated prompt to user
+- [x] **Phase 11: Vision API Integration** - Connect to Claude/OpenAI Vision APIs (plans created) (completed 2026-04-28)
+- [ ] **Phase 12: Prompt Insertion** - Deliver generated prompt to user (plans created)
 
 ## Phase Details
 
@@ -119,13 +119,13 @@ Plans:
   3. Loading indicator is shown during API call (visual feedback for 2-10 sec latency)
   4. Clear error messages shown for API failures (rate limit, invalid key, network error, unsupported image)
   5. User sees generated prompt content before insertion
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 11-01-PLAN.md — Add VISION_API_CALL MessageType + payload interfaces (Wave 1)
-- [ ] 11-02-PLAN.md — Create vision-api.ts with provider detection + request builders (Wave 1)
-- [ ] 11-03-PLAN.md — Add VISION_API_CALL handler + open loading page (Wave 2)
-- [ ] 11-04-PLAN.md — Create LoadingApp UI with spinner + error handling (Wave 2)
+- [x] 11-01-PLAN.md — Add VISION_API_CALL MessageType + payload interfaces (Wave 1)
+- [x] 11-02-PLAN.md — Create vision-api.ts with provider detection + request builders (Wave 1)
+- [x] 11-03-PLAN.md — Add VISION_API_CALL handler + open loading page (Wave 2)
+- [x] 11-04-PLAN.md — Create LoadingApp UI with spinner + error handling (Wave 2)
 
 ### Phase 12: Prompt Insertion
 **Goal**: 生成的提示词能够正确送达用户
@@ -137,7 +137,12 @@ Plans:
   3. When user confirms on non-Lovart page, prompt is copied to clipboard with notification toast
   4. User can cancel the preview dialog to discard the generated prompt
 **UI hint**: yes
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Add message routing infrastructure (INSERT_PROMPT_TO_CS, SAVE_TEMPORARY_PROMPT) (Wave 1)
+- [ ] 12-02-PLAN.md — Add content script INSERT_PROMPT_TO_CS handler (Wave 2)
+- [ ] 12-03-PLAN.md — Implement LoadingApp prompt delivery flow (Lovart detection, clipboard, save, feedback) (Wave 2)
 
 ---
 
@@ -155,9 +160,9 @@ Plans:
 | 8. Search & Collect Features | v1.2.0 | 0/5 | Ready for execution | - |
 | 9. Context Menu Foundation | v1.3.0 | 0/2 | Ready for execution | - |
 | 10. API Key Management | v1.3.0 | 3/3 | Complete | 2026-04-28 |
-| 11. Vision API Integration | v1.3.0 | 0/4 | Ready for execution | - |
-| 12. Prompt Insertion | v1.3.0 | 0/3 | Not started | - |
+| 11. Vision API Integration | v1.3.0 | 4/4 | Complete | 2026-04-28 |
+| 12. Prompt Insertion | v1.3.0 | 0/3 | Ready for execution | - |
 
 ---
 
-*Roadmap updated: 2026-04-28 — Phase 11 plans created (11-01, 11-02, 11-03, 11-04)*
+*Roadmap updated: 2026-04-28 — Phase 12 plans created (12-01, 12-02, 12-03)*
