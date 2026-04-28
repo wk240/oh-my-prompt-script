@@ -1,86 +1,82 @@
-# Requirements: v1.2.0 在线搜索功能
+# Requirements — v1.3.0 Image to Prompt
 
-**Milestone:** v1.2.0
-**Created:** 2026-04-26
-**Status:** Active
+**Milestone:** v1.3.0
+**Created:** 2026-04-28
+**Status:** Scoped
 
 ---
 
-## v1 Requirements (This Milestone)
+## Context Menu Integration (MENU)
 
-### 网络浏览
+- [ ] **MENU-01**: User sees "转提示词" option when right-clicking any image on any website
+- [ ] **MENU-02**: Menu item only appears on image elements (not text, links, other elements)
+- [ ] **MENU-03**: Click captures image URL (`srcUrl`) for processing
 
-- [ ] **NET-01**: 用户可搜索网络提示词内容/标题
-- [ ] **NET-02**: 用户可预览网络提示词完整内容
-- [ ] **NET-03**: 用户可收藏网络提示词到本地存储（选择目标分类）
+---
 
-### 离线缓存
+## API Key Management (AUTH)
 
-- [ ] **NET-04**: 网络提示词自动缓存24小时，离线状态下可访问已缓存数据
+- [ ] **AUTH-01**: User can configure API key in popup settings page
+- [ ] **AUTH-02**: API key stored securely in chrome.storage.local (not sync, not exposed in logs)
+- [ ] **AUTH-03**: First-time use of "转提示词" triggers onboarding dialog to configure API key
+- [ ] **AUTH-04**: User can select Vision AI provider (Claude Vision or OpenAI GPT-4V)
 
-### 数据源架构
+---
 
-- [ ] **NET-05**: 提供可扩展的DataSourceProvider接口，便于接入更多数据源
-- [ ] **NET-06**: 优先接入Nano Banana数据源（900+图像生成提示词）
+## Vision API Integration (VISION)
+
+- [ ] **VISION-01**: Service worker calls Vision API with captured image URL
+- [ ] **VISION-02**: API returns prompt text suitable for Lovart image generation
+- [ ] **VISION-03**: Loading indicator shown during API call (visual feedback for 2-10 sec latency)
+- [ ] **VISION-04**: Clear error messages shown for API failures (rate limit, invalid key, network error, unsupported image)
+
+---
+
+## Prompt Insertion (INSERT)
+
+- [ ] **INSERT-01**: Generated prompt inserted into Lovart input field when user is on Lovart page
+- [ ] **INSERT-02**: When not on Lovart page, prompt copied to clipboard with notification toast
+- [ ] **INSERT-03**: User sees prompt preview before insertion (preview dialog with confirm/cancel)
 
 ---
 
 ## Future Requirements (Deferred)
 
-### 网络浏览增强
-
-- [ ] 分类浏览 — 按源分类导航网络提示词
-- [ ] 分页显示 — 大数据集分页加载（50条/页）
-- [ ] 一键插入 — 直接插入网络提示词，无需先收藏
-
-### 离线增强
-
-- [ ] 刷新数据 — 手动刷新按钮拉取最新数据
-- [ ] 同步状态 — UI显示上次同步时间戳
-- [ ] 离线检测 — 检测离线状态，显示相应提示信息
-
-### 数据源扩展
-
-- [ ] prompts.chat数据源 — 接入ChatGPT角色扮演提示词（Lovart相关性低，优先级低）
-- [ ] 自定义数据源 — 用户可配置自定义数据源URL
+(None identified — all scoped requirements included in this milestone)
 
 ---
 
 ## Out of Scope
 
-- 自动后台同步 — 用户手动触发，避免不必要的网络请求
-- 多人协作/分享 — 个人本地使用场景
-- 云端存储 — 无后端，纯客户端实现
-- 预览图片 — 外部图片URL在扩展上下文可能无法加载
-- prompts.chat数据源 — ChatGPT对话提示词不适用于Lovart图像生成场景
-- 账号/认证系统 — 无后端，纯客户端
+- **Free tier API calls** — User must provide own API key; no built-in free quota
+- **Local image upload** — Only right-click on existing web images; no drag-drop or file picker
+- **Multiple prompt templates** — Single output format; future may add style templates
+- **Usage analytics** — No tracking of API calls; future may add usage log viewer
+- **Batch processing** — Single image at a time; future may add multi-image queue
 
 ---
 
 ## Traceability
 
-| REQ-ID | Phase | Plan | Status |
-|--------|-------|------|--------|
-| NET-01 | Phase 8 | — | Pending |
-| NET-02 | Phase 7 | — | Pending |
-| NET-03 | Phase 8 | — | Pending |
-| NET-04 | Phase 6 | — | Pending |
-| NET-05 | Phase 5 | 05-01 | In Progress (interface defined) |
-| NET-06 | Phase 5 | — | Pending |
+| REQ-ID | Phase | Plan |
+|--------|-------|------|
+| MENU-01 | — | — |
+| MENU-02 | — | — |
+| MENU-03 | — | — |
+| AUTH-01 | — | — |
+| AUTH-02 | — | — |
+| AUTH-03 | — | — |
+| AUTH-04 | — | — |
+| VISION-01 | — | — |
+| VISION-02 | — | — |
+| VISION-03 | — | — |
+| VISION-04 | — | — |
+| INSERT-01 | — | — |
+| INSERT-02 | — | — |
+| INSERT-03 | — | — |
+
+*Traceability will be filled by roadmap creation*
 
 ---
 
-## Requirement Quality Notes
-
-- **NET-01**: 搜索范围包括标题和内容，支持简单子串匹配
-- **NET-02**: 预览显示完整提示词文本，包含来源信息
-- **NET-03**: 收藏时需选择目标本地分类，可新建分类
-- **NET-04**: 缓存存储在chrome.storage.local，TTL=24小时
-- **NET-05**: Provider接口包含fetch、parse、getCategories方法
-- **NET-06**: Nano Banana数据源URL: https://raw.githubusercontent.com/.../README.md
-
----
-
-*Requirements defined: 2026-04-19*
-*Roadmap created: 2026-04-19*
-*Ready for execution: yes*
+*Requirements defined: 2026-04-28*

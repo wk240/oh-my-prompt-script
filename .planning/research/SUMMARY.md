@@ -1,140 +1,105 @@
-# Project Research Summary — v1.2.0 在线搜索功能
+# Research Summary — v1.3.0 Image to Prompt
 
-**Project:** Lovart Prompt Injector
-**Milestone:** v1.2.0
-**Domain:** Chrome Extension (Manifest V3) / Network Data Integration
-**Researched:** 2026-04-19
-**Confidence:** HIGH
+**Milestone:** v1.3.0 Image to Prompt
+**Created:** 2026-04-28
 
 ---
 
-## Executive Summary
+## Stack Additions
 
-v1.2.0 milestone adds online search feature integration to Lovart Prompt Injector. Users will be able to search, browse, and collect prompts from prompts.chat API directly from the dropdown UI.
+| Component | Purpose | Notes |
+|-----------|---------|-------|
+| chrome.contextMenus API | Right-click menu integration | Built-in Chrome API, no external dependency |
+| Vision AI API | Claude Vision / GPT-4V | External API calls from service worker |
+| Image URL handling | Get image URL from context menu click | Native from `info.srcUrl` |
 
-Core architecture extensions: Provider abstraction pattern for data sources, Service Worker network handlers (CSP compliant), Network cache layer with 24h TTL, Dropdown UI "在线库" section with search/filter.
-
-Key risk: Large dataset performance (900+ prompts) — requires pagination, category filtering, and search optimization.
-
----
-
-## Key Findings
-
-### Stack Additions
-
-**No new dependencies required.** Chrome Extension MV3 supports native `fetch()` in Service Worker and Popup. Network requests route through Service Worker (CSP compliant).
-
-**Required permissions:**
-```json
-"host_permissions": [
-  "https://raw.githubusercontent.com/*"
-]
-```
-
-**Data source:** Nano Banana Prompts (Markdown in README.md, 900+ prompts, 16 categories, ~600KB file)
+**No new external libraries needed** — use native Chrome APIs and direct fetch to Vision AI endpoints.
 
 ---
 
-### Feature Analysis
+## Feature Categories
 
-**Nano Banana Prompts:**
-- Format: Markdown embedded in README.md (not separate JSON)
-- Categories: 17 categories (3D Miniatures, Portrait Photography, etc.)
-- Lovart relevance: ~80% directly applicable to image generation
-- Prompt formats: Plain text, structured JSON, template with placeholders
+### Table Stakes (Every implementation has)
+- Right-click menu item on images
+- Image URL capture from context menu
+- Vision API call for image analysis
+- Generated prompt text output
+- API key configuration
 
-**prompts.chat:**
-- Format: CSV with 157+ prompts
-- Relevance: LOW (ChatGPT role-playing, not image generation)
-- Recommendation: DEFER integration
+### Differentiators (Nice to have)
+- Multiple Vision AI providers (Claude, OpenAI)
+- First-use onboarding wizard
+- Usage history/logs
+- Custom prompt templates for output format
+- Rate limiting feedback
 
-**Table stakes features:**
-1. Browse by category (source categories)
-2. Search/filter across 900+ prompts
-3. Preview prompt before collecting
-4. Collect/favorite → save to local storage
-5. Offline cache (24h TTL)
-
-**Differentiators:**
-1. Multi-source browsing (extensible provider pattern)
-2. Smart category mapping (user-select on collect)
-3. Sync status indicator (last refresh time)
+### Anti-Features (Avoid)
+- Free tier API calls (unpredictable costs)
+- Storing images locally (storage limits)
+- Auto-insert without user action (Lovart may not be active)
 
 ---
 
-### Architecture Approach
+## Architecture Integration
 
-**New components:**
-- `DataSourceProvider` (abstract interface)
-- `NanoBananaProvider` (Markdown parser)
-- `NetworkCacheManager` (cache lifecycle)
-- `OnlineLibraryTab` (Dropdown UI section)
-- `NetworkPromptCard` (single prompt display)
+**New Components:**
+- `src/lib/vision-api.ts` — Vision API client (Claude/OpenAI)
+- `src/lib/api-key-manager.ts` — Secure API key storage
+- `src/background/context-menu-handler.ts` — Context menu registration + click handling
+- `src/popup/components/VisionSettings.tsx` — API key configuration UI
+- `src/content/first-use-dialog.tsx` — Onboarding dialog (Shadow DOM)
 
-**Message protocol extensions:**
-- `FETCH_NETWORK_PROMPTS`
-- `GET_NETWORK_CACHE`
-- `COLLECT_NETWORK_PROMPT`
+**Modified Components:**
+- `manifest.json` — Add `contextMenus` permission
+- `src/background/service-worker.ts` — Add context menu + Vision API handlers
+- `src/shared/messages.ts` — Add Vision-related message types
+- `src/popup/App.tsx` — Add Vision settings tab/section
 
-**Data flow:**
-User → Dropdown "在线库" → Service Worker fetch → Provider.parse → Cache → UI render → Collect → Local storage
-
----
-
-### Critical Pitfalls
-
-1. **CSP violation** — Content script cannot fetch directly → Route through Service Worker
-2. **Large dataset performance** — 900+ prompts → Pagination (50/page), category filter first
-3. **Markdown parsing changes** — Upstream README may change → Flexible regex, logging
-4. **Offline handling** — No data on first offline visit → Show offline message, detect `navigator.onLine`
-5. **Rate limiting** — GitHub raw files → User-triggered refresh, 24h cache, handle 403
+**Data Flow:**
+1. User right-clicks image → Context menu "转提示词" shown
+2. User clicks menu item → Service worker receives `srcUrl`
+3. Service worker checks API key → If missing, signal content script to show onboarding
+4. Service worker calls Vision API with image URL
+5. API returns prompt text → Service worker sends to content script
+6. Content script inserts text into Lovart input (if on Lovart page)
 
 ---
 
-## Implications for Roadmap
+## Pitfalls
 
-### Phase Structure (v1.2.0)
+### Security
+- **API key exposure:** Never log keys, use chrome.storage.local (not sync), clear on uninstall
+- **Image URL validation:** Some URLs may be blocked by CORS — need fallback to data URL
 
-| Phase | Name | Goal | LOC |
-|-------|------|------|-----|
-| 5 | Provider Abstraction & Nano Banana | Implement data source provider interface and Nano Banana parser | ~180 |
-| 6 | Service Worker Network Handlers | Add network fetch, cache, collect handlers to service worker | ~100 |
-| 7 | Network Cache Layer | Implement cache management with TTL, offline detection | ~150 |
-| 8 | Dropdown "在线库" UI | Add online library section with category filter, pagination | ~300 |
-| 9 | Search & Collect Features | Implement search/filter and collect-to-local functionality | ~200 |
+### UX
+- **Lovart not active:** User may click on non-Lovart page — need graceful handling (copy to clipboard?)
+- **API rate limits:** User may hit limits — show clear error message
+- **Latency:** Vision API takes 2-10 seconds — show loading indicator
 
-**Total:** 5 phases, ~930 LOC
-
-**Phase ordering rationale:**
-- Phase 5 before 6: Provider interface needed before handlers
-- Phase 6 before 7: Network handlers needed before cache layer
-- Phase 7 before 8: Cache needed for offline support in UI
-- Phase 8 before 9: UI needed before search/collect features
+### Technical
+- **CSP compliance:** Vision API calls must go through service worker (not content script)
+- **Image format:** Some images may not be accessible (auth required) — handle errors
+- **Prompt quality:** Different APIs give different results — user may want to switch
 
 ---
 
-## Confidence Assessment
+## Build Order Recommendation
 
-| Area | Confidence | Notes |
-|------|------------|-------|
-| Stack (Service Worker fetch) | HIGH | Standard Chrome Extension MV3 pattern |
-| Features (browse/search/collect) | HIGH | Common UX patterns, clear requirements |
-| Architecture (Provider pattern) | HIGH | Proven extensibility pattern |
-| Pitfalls (CSP, performance) | HIGH | Documented in Chrome Extension docs |
-
-**Overall confidence:** HIGH
-
----
-
-## Sources
-
-- Chrome Extension Manifest V3 CSP documentation
-- GitHub raw file access via curl
-- Nano Banana Prompts README analysis (actual content sampled)
-- prompts.chat CSV structure analysis (actual content sampled)
+1. **Phase 1: Context Menu Foundation**
+   - Add permission, register menu, capture image URL
+   
+2. **Phase 2: API Key Management**
+   - Storage schema, key manager, first-use onboarding
+   
+3. **Phase 3: Vision API Integration**
+   - Claude Vision client, OpenAI client, error handling
+   
+4. **Phase 4: Popup Settings UI**
+   - API key input, provider selection, usage display
+   
+5. **Phase 5: End-to-End Flow**
+   - Connect all pieces, loading indicator, error handling, testing
 
 ---
 
-*Research completed: 2026-04-19*
-*Ready for requirements: yes*
-*Ready for roadmap: yes*
+*Research completed: 2026-04-28*
