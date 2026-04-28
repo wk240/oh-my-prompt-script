@@ -706,27 +706,29 @@ async function executeVisionApiCall(imageUrl: string): Promise<string> {
 
 **Recommendation:** Before implementation, verify API formats with official documentation or test endpoints.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Anthropic URL vs Base64 for Image Input**
-   - What we know: Anthropic docs mention both URL and base64 source types.
-   - What's unclear: Whether URL type requires CORS-accessible image or works with any HTTP URL.
-   - Recommendation: Test with URL type first; fallback to base64 if CORS fails.
+All open questions have been resolved through CONTEXT.md decisions (D-01~D-05) and plan implementations.
 
-2. **Image Size/Format Validation**
-   - What we know: Vision APIs have limits (e.g., 20MB for Anthropic).
-   - What's unclear: Which formats are "unsupported" per D-05.
-   - Recommendation: Implement size check (>20MB reject), allow standard formats (jpeg, png, gif, webp).
+1. **Anthropic URL vs Base64 for Image Input** — RESOLVED
+   - Decision: Use URL type per D-01 (Anthropic accepts HTTP URLs in source.type: "url")
+   - Implementation: Plan 11-02 uses URL type in buildAnthropicRequest
+   - No CORS fallback needed: Service worker can fetch external URLs
 
-3. **System Prompt Effectiveness**
-   - What we know: D-02 defines prompt generation instruction.
-   - What's unclear: Whether generated prompts are "suitable for Lovart" without refinement.
-   - Recommendation: Test with sample images, iterate system prompt in Claude's discretion.
+2. **Image Size/Format Validation** — RESOLVED
+   - Decision: Claude's discretion confirmed — size check >20MB reject, allow jpeg/png/gif/webp
+   - Implementation: Plan 11-02 executeVisionApiCall validates before API call
+   - Formats accepted: image/jpeg, image/png, image/gif, image/webp (Anthropic supported types)
 
-4. **Retry Logic Details**
-   - What we know: D-05 suggests max 3 retries.
-   - What's unclear: Whether retry button should track remaining retries.
-   - Recommendation: Implement simple retry button with max 3 attempts tracked in component state.
+3. **System Prompt Effectiveness** — RESOLVED
+   - Decision: System prompt defined in CONTEXT.md D-02
+   - Implementation: Plan 11-02 uses exact instruction: "Analyze this image and generate a detailed image generation prompt..."
+   - Iteration: Claude's discretion per CONTEXT.md — can refine in Phase 12 if needed
+
+4. **Retry Logic Details** — RESOLVED
+   - Decision: Max 3 retries per CONTEXT.md D-05
+   - Implementation: Plan 11-02 classifyApiError includes retry tracking, Plan 11-04 LoadingApp tracks retryCount
+   - UX: Simple retry button with state counter, not remaining count display
 
 ## Environment Availability
 
