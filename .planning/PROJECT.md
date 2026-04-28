@@ -72,26 +72,27 @@ Tech stack: Vite, @crxjs/vite-plugin, React, Zustand, Shadow DOM.
 | 插入后保持下拉打开 | 支持连续插入多个提示词 | ✓ Good |
 
 ---
-*Last updated: 2026-04-26 after v1.2.0 milestone initialization*
+*Last updated: 2026-04-28 after v1.3.0 milestone initialization*
 
-## Current Milestone: v1.2.0 在线搜索功能
+## Current Milestone: v1.3.0 Image to Prompt
 
-**Goal:** 集成 prompts.chat API，用户可在线搜索、浏览、收藏网络提示词
-
-**Goal:** 实时接入GitHub开源Prompt数据源，用户可在线浏览、搜索、收藏网络提示词
+**Goal:** 用户右键点击任意网站图片，AI分析生成提示词并直接插入Lovart输入框
 
 **Target features:**
-- 下拉菜单增加"在线库"入口，实时浏览Nano Banana数据源
-- 支持在线搜索/分类筛选网络prompts
-- 用户选择收藏的prompt自动缓存到本地，离线可用
-- 预留数据源扩展接口架构（方便未来接入更多数据源）
-- 优先接入 Nano Banana (900+ 图像生成prompts)
+- 右键菜单集成 — Lovart图库图片 + 其他网站图片都增加"转提示词"按钮
+- 第三方视觉AI — 调用Claude Vision/GPT-4V等API分析图片
+- 用户可选AI类型 — 支持多种视觉AI API选择
+- 用户配置密钥 — 本地安全存储用户提供的API密钥
+- 首次使用引导 — 未配置API时弹出引导对话框配置密钥和选择AI
+- Popup设置页 — 管理密钥、AI选择、查看使用记录
+- 直接插入 — 生成的原始文本直接插入Lovart输入框
 
 **Key context:**
-- 实时调用GitHub raw文件或API获取数据
-- Chrome Extension CSP限制：需通过background service worker代理网络请求
-- 本地缓存已收藏prompts到chrome.storage.local
-- 数据源接口需要抽象设计，便于扩展
+- 图片来源：Lovart图库 + 任意网站图片（右键菜单通用）
+- 无Lovart原生API，需调用第三方视觉API
+- 用户自备API密钥，本地安全存储
+- 首次使用自动弹出API配置引导
+- 原始文本直接插入，无预览编辑步骤
 
 ## Evolution
 
