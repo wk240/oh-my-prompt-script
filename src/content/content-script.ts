@@ -4,8 +4,10 @@
  */
 
 import { MessageType } from '../shared/messages'
+import type { InsertResultPayload } from '../shared/types'
 import { InputDetector } from './input-detector'
 import { UIInjector } from './ui-injector'
+import { InsertHandler } from './insert-handler'
 import { usePromptStore } from '../lib/store'
 
 console.log('[Oh My Prompt] Content script loaded on:', window.location.href)
@@ -13,6 +15,7 @@ console.log('[Oh My Prompt] Content script loaded on:', window.location.href)
 // Initialize components
 const inputDetector = new InputDetector(handleInputDetected)
 const uiInjector = new UIInjector()
+const insertHandler = new InsertHandler()
 
 /**
  * Handle input element detection
@@ -75,6 +78,39 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     console.log('[Oh My Prompt] Sync failed, notifying UI to show backup reminder')
     uiInjector.notifySyncFailed()
     sendResponse({ success: true })
+  }
+
+  // Phase 12: Handle prompt insertion from service worker (INSERT-01)
+  if (message.type === MessageType.INSERT_PROMPT_TO_CS) {
+    console.log('[Oh My Prompt] Received INSERT_PROMPT_TO_CS')
+
+    const payload = message.payload as { prompt: string }
+    if (!payload || !payload.prompt) {
+      sendResponse({ success: false, error: 'No prompt provided' } as InsertResultPayload)
+      return true
+    }
+
+    // Find Lovart input element (D-11 fallback detection)
+    const inputElement = document.querySelector('[data-testid="agent-message-input"]') as HTMLElement ||
+                        document.querySelector('[data-lexical-editor="true"]') as HTMLElement
+
+    if (!inputElement) {
+      console.warn('[Oh My Prompt] Lovart input element not found')
+      sendResponse({ success: false, error: 'INPUT_NOT_FOUND' } as InsertResultPayload)
+      return true
+    }
+
+    // Insert prompt using InsertHandler (D-02)
+    const success = insertHandler.insertPrompt(inputElement, payload.prompt)
+
+    if (success) {
+      console.log('[Oh My Prompt] Prompt inserted successfully')
+      sendResponse({ success: true } as InsertResultPayload)
+    } else {
+      console.error('[Oh My Prompt] InsertHandler failed')
+      sendResponse({ success: false, error: 'INSERT_FAILED' } as InsertResultPayload)
+    }
+    return true
   }
 
   return true // Required for async sendResponse
