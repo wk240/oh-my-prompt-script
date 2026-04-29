@@ -800,12 +800,6 @@ export default function SidePanelApp() {
       {/* Sidebar */}
       <div className="side-panel-sidebar">
         <div className="sidebar-header">
-          <img
-            src={chrome.runtime.getURL('assets/icon-128.png')}
-            alt="Oh My Prompt"
-            className="sidebar-logo"
-          />
-          <span className="sidebar-title">Oh My Prompt</span>
           <span className="sidebar-version">v{chrome.runtime.getManifest().version}</span>
         </div>
 
@@ -913,7 +907,7 @@ export default function SidePanelApp() {
         {/* Header actions */}
         <div className="main-header">
           <div className="header-actions">
-            <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion}` : '检查更新'}>
+            <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion}` : '检查更新'} placement="bottom">
               <button
                 className="header-action-btn"
                 style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
@@ -922,7 +916,7 @@ export default function SidePanelApp() {
                 <ArrowUpCircle style={{ width: 14, height: 14 }} />
               </button>
             </Tooltip>
-            <Tooltip content="备份数据">
+            <Tooltip content="备份数据" placement="bottom">
               <button
                 className={`header-action-btn ${isRefreshing ? 'refreshing' : ''}`}
                 onClick={handleBackup}
@@ -931,12 +925,12 @@ export default function SidePanelApp() {
                 <RefreshCw style={{ width: 14, height: 14 }} />
               </button>
             </Tooltip>
-            <Tooltip content="导入">
+            <Tooltip content="导入" placement="bottom">
               <button className="header-action-btn" onClick={handleImport}>
                 <Upload style={{ width: 14, height: 14 }} />
               </button>
             </Tooltip>
-            <Tooltip content="导出">
+            <Tooltip content="导出" placement="bottom">
               <button className="header-action-btn" onClick={handleExport}>
                 <Download style={{ width: 14, height: 14 }} />
               </button>
@@ -945,14 +939,14 @@ export default function SidePanelApp() {
               className="header-language-btn"
               onClick={() => handleLanguageSwitch(resourceLanguage === 'zh' ? 'en' : 'zh')}
             >
-              {resourceLanguage === 'zh' ? '中文' : 'EN'}
+              {resourceLanguage === 'zh' ? '中' : 'EN'}
             </button>
-            <Tooltip content="设置">
+            <Tooltip content="设置" placement="bottom">
               <button className="header-action-btn" onClick={handleOpenSettings}>
                 <Settings style={{ width: 14, height: 14 }} />
               </button>
             </Tooltip>
-            <Tooltip content="官网">
+            <Tooltip content="官网" placement="bottom">
               <a
                 className="header-action-btn"
                 href="https://oh-my-prompt.com/"

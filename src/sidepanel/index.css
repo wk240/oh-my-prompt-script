@@ -113,21 +113,9 @@
   border-bottom: 1px solid #E5E5E5;
 }
 
-.sidebar-logo {
-  width: 24px;
-  height: 24px;
-}
-
-.sidebar-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #171717;
-}
-
 .sidebar-version {
   font-size: 10px;
   color: #64748B;
-  margin-left: auto;
 }
 
 .sidebar-categories {
@@ -335,6 +323,11 @@
 .header-language-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
   padding: 4px 8px;
   background: #ffffff;
   border: 1px solid #E5E5E5;

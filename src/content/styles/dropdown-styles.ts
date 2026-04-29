@@ -168,7 +168,11 @@ export const DROPDOWN_STYLES = `
   #${PORTAL_ID} .dropdown-language-btn {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 2px;
+    width: 36px;
+    min-width: 36px;
+    max-width: 36px;
     padding: 4px 8px;
     background: #ffffff;
     border: 1px solid #e5e5e5;

@@ -375,7 +375,7 @@ export function PromptPreviewModal({
             }}
           >
             <Languages style={{ width: 16, height: 16 }} />
-            {modalLanguage === 'zh' ? 'English' : '中文'}
+            {modalLanguage === 'zh' ? 'EN' : '中'}
           </button>
         </div>
         {/* Footer */}
