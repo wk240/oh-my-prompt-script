@@ -43,6 +43,8 @@ interface DropdownContainerProps {
   selectedPromptId: string | null
   onClose?: () => void
   isLoading?: boolean
+  savedScrollPosition?: number  // Scroll position to restore when opening
+  onScrollPositionChange?: (position: number) => void  // Notify parent of scroll position changes
 }
 
 interface DropdownPosition {
@@ -314,6 +316,8 @@ export function DropdownContainer({
   selectedPromptId,
   onClose: _onClose,
   isLoading = false,
+  savedScrollPosition = 0,
+  onScrollPositionChange,
 }: DropdownContainerProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -784,10 +788,17 @@ export function DropdownContainer({
 
   // Infinite scroll handler - load more when scrolling near bottom
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    if (!isResourceLibrary) return
-
     const target = e.currentTarget
     const scrollTop = target.scrollTop
+
+    // Notify parent of scroll position change for persistence
+    if (onScrollPositionChange) {
+      onScrollPositionChange(scrollTop)
+    }
+
+    // Load more for resource library when near bottom
+    if (!isResourceLibrary) return
+
     const scrollHeight = target.scrollHeight
     const clientHeight = target.clientHeight
 
@@ -798,7 +809,19 @@ export function DropdownContainer({
     if (isNearBottom && loadedCount < filteredResourcePrompts.length) {
       setLoadedCount(prev => Math.min(prev + 50, filteredResourcePrompts.length))
     }
-  }, [isResourceLibrary, loadedCount, filteredResourcePrompts.length])
+  }, [isResourceLibrary, loadedCount, filteredResourcePrompts.length, onScrollPositionChange])
+
+  // Restore scroll position when dropdown opens
+  useEffect(() => {
+    if (isOpen && scrollContainerRef.current && savedScrollPosition > 0) {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = savedScrollPosition
+        }
+      })
+    }
+  }, [isOpen, savedScrollPosition])
 
   // Handle drag end for prompt reorder (supports global sorting in 'all' category)
   const handleDragEnd = async (event: DragEndEvent) => {
