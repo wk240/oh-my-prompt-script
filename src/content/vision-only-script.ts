@@ -81,14 +81,14 @@ function startInputDetection(): void {
     console.log(LOG_PREFIX, 'Universal input detected:', currentInputElement)
   }
 
-  // Periodic check every 2 seconds
+  // Periodic check every 1 second (reduced from 2s for faster detection)
   inputCheckInterval = setInterval(() => {
     const input = findInputElement()
     if (input && input !== currentInputElement) {
       currentInputElement = input
       console.log(LOG_PREFIX, 'Input element updated:', input)
     }
-  }, 2000)
+  }, 1000)
 
   // Also observe DOM changes
   const observer = new MutationObserver(() => {

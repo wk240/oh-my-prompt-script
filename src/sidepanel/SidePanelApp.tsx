@@ -576,8 +576,30 @@ export default function SidePanelApp() {
     return url.startsWith('chrome://') || url.startsWith('edge://') || url.startsWith('about://') || url.startsWith('chrome-extension://')
   }, [])
 
+  // Helper function to inject content script dynamically (for pages loaded before extension was enabled)
+  const injectContentScript = useCallback(async (tabId: number, url: string): Promise<boolean> => {
+    try {
+      // Determine which content script to inject based on URL
+      const isLovart = url.includes('lovart.ai')
+      const scriptFile = isLovart ? 'src/content/content-script.ts' : 'src/content/vision-only-script.ts'
+
+      console.log('[Oh My Prompt] SidePanel: Injecting content script', scriptFile, 'into tab', tabId)
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: [scriptFile]
+      })
+      // Wait for script to initialize
+      await new Promise(resolve => setTimeout(resolve, 500))
+      console.log('[Oh My Prompt] SidePanel: Content script injected successfully')
+      return true
+    } catch (error) {
+      console.error('[Oh My Prompt] SidePanel: Failed to inject content script:', error)
+      return false
+    }
+  }, [])
+
   // Helper function to check input availability on a tab with status updates
-  const checkInputOnTab = useCallback(async (tabId: number, retries: number, onRetry?: (attempt: number) => void): Promise<boolean> => {
+  const checkInputOnTab = useCallback(async (tabId: number, retries: number, tabUrl?: string, onRetry?: (attempt: number) => void): Promise<boolean> => {
     console.log('[Oh My Prompt] SidePanel: Starting checkInput on tab', tabId, 'with', retries, 'retries')
     for (let i = 0; i < retries; i++) {
       try {
@@ -597,16 +619,36 @@ export default function SidePanelApp() {
         }
       } catch (error) {
         console.log(`[Oh My Prompt] SidePanel: Message failed, retry ${i + 1}/${retries}`, error)
+        // If connection error and we have URL, try injecting content script on first failure
+        if (i === 0 && tabUrl && !isSpecialPage(tabUrl)) {
+          const injected = await injectContentScript(tabId, tabUrl)
+          if (injected) {
+            // Try again immediately after injection
+            try {
+              const response = await chrome.tabs.sendMessage(tabId, {
+                type: MessageType.CHECK_INPUT_AVAILABILITY
+              })
+              if (response?.success && response.data?.hasInput) {
+                console.log('[Oh My Prompt] SidePanel: Input available after injection!')
+                return true
+              }
+            } catch {
+              // Continue with normal retry loop
+            }
+          }
+        }
       }
     }
     return false
-  }, [])
+  }, [isSpecialPage, injectContentScript])
 
   // Check input availability for current active tab
   // Unified handling - works on any page with input
   const checkInputAvailability = useCallback(async () => {
     console.log('[Oh My Prompt] SidePanel: Starting input availability check')
     setInputStatus('checking')
+    // Reset currentTabId to ensure we don't use stale tab reference
+    setCurrentTabId(null)
 
     // First check active tab, then fallback to other tabs in the same window
     chrome.tabs.query({ active: true, currentWindow: true }, async (activeTabs) => {
@@ -615,15 +657,19 @@ export default function SidePanelApp() {
 
       // If active tab is valid and not special page, check input availability
       if (activeTab?.id && activeTab?.url && !isSpecialPage(activeTab.url)) {
-        setCurrentTabId(activeTab.id)
-        const hasInput = await checkInputOnTab(activeTab.id, 3)
-        setInputStatus(hasInput ? 'available' : 'unavailable')
-        console.log('[Oh My Prompt] SidePanel: Input check result:', hasInput)
-        return
+        const hasInput = await checkInputOnTab(activeTab.id, 3, activeTab.url)
+        if (hasInput) {
+          setCurrentTabId(activeTab.id)
+          setInputStatus('available')
+          console.log('[Oh My Prompt] SidePanel: Input available on tab', activeTab.id)
+          return
+        }
+        // Input not found on active tab, continue to search other tabs
+        console.log('[Oh My Prompt] SidePanel: Input not found on active tab, searching other tabs')
       }
 
-      // Active tab is special page or invalid, find another tab in the same window
-      console.log('[Oh My Prompt] SidePanel: Active tab is special page or invalid, searching for other tabs')
+      // Active tab is special page, invalid, or has no input - find another tab in the same window
+      console.log('[Oh My Prompt] SidePanel: Searching for other tabs with input')
       chrome.tabs.query({ currentWindow: true }, async (allTabs) => {
         // Find first non-special page tab (excluding active tab which we already checked)
         const candidateTabs = allTabs.filter(t =>
@@ -633,10 +679,10 @@ export default function SidePanelApp() {
         console.log('[Oh My Prompt] SidePanel: Found', candidateTabs.length, 'candidate tabs')
         for (const tab of candidateTabs) {
           if (tab.id && tab.url) {
-            setCurrentTabId(tab.id)
-            const hasInput = await checkInputOnTab(tab.id, 2) // Fewer retries for fallback tabs
+            const hasInput = await checkInputOnTab(tab.id, 2, tab.url) // Fewer retries for fallback tabs
             if (hasInput) {
               console.log('[Oh My Prompt] SidePanel: Found tab with input:', tab.id, tab.url)
+              setCurrentTabId(tab.id)
               setInputStatus('available')
               return
             }
@@ -808,6 +854,19 @@ export default function SidePanelApp() {
     if (inputStatus === 'available' && currentTabId) {
       // Send to content script for insertion
       try {
+        // Verify tab still exists before sending
+        const tab = await chrome.tabs.get(currentTabId)
+        if (!tab || !tab.url || isSpecialPage(tab.url)) {
+          console.log('[Oh My Prompt] SidePanel: Tab no longer valid, triggering re-check')
+          setInputStatus('unavailable')
+          setCurrentTabId(null)
+          checkInputAvailability()
+          await navigator.clipboard.writeText(prompt.content)
+          setToastMessage('已复制到剪贴板（页面已切换）')
+          setTimeout(hideToast, 2000)
+          return
+        }
+
         const response = await chrome.tabs.sendMessage(currentTabId, {
           type: MessageType.INSERT_PROMPT_TO_CS,
           payload: { prompt: prompt.content }
@@ -824,8 +883,12 @@ export default function SidePanelApp() {
           setToastMessage(response?.error || '插入失败')
           setTimeout(hideToast, 2000)
         }
-      } catch {
-        // Connection failed - copy to clipboard as fallback
+      } catch (error) {
+        console.log('[Oh My Prompt] SidePanel: Message failed, triggering re-check:', error)
+        // Connection failed - trigger re-check and copy to clipboard as fallback
+        setInputStatus('unavailable')
+        setCurrentTabId(null)
+        checkInputAvailability()
         try {
           await navigator.clipboard.writeText(prompt.content)
           setToastMessage('已复制到剪贴板')
@@ -838,7 +901,7 @@ export default function SidePanelApp() {
     }
     setSelectedPromptId(prompt.id)
     setTimeout(() => setSelectedPromptId(null), 2000)
-  }, [inputStatus, currentTabId, setToastMessage, hideToast])
+  }, [inputStatus, currentTabId, setToastMessage, hideToast, isSpecialPage, checkInputAvailability])
 
   // Handle resource prompt injection
   const handleInjectResource = useCallback(async (resourcePrompt: ResourcePrompt) => {
@@ -849,6 +912,19 @@ export default function SidePanelApp() {
       : resourcePrompt.content
 
     try {
+      // Verify tab still exists before sending
+      const tab = await chrome.tabs.get(currentTabId)
+      if (!tab || !tab.url || isSpecialPage(tab.url)) {
+        console.log('[Oh My Prompt] SidePanel: Tab no longer valid, triggering re-check')
+        setInputStatus('unavailable')
+        setCurrentTabId(null)
+        checkInputAvailability()
+        await navigator.clipboard.writeText(promptToInject)
+        setToastMessage('已复制到剪贴板（页面已切换）')
+        setTimeout(hideToast, 2000)
+        return
+      }
+
       const response = await chrome.tabs.sendMessage(currentTabId, {
         type: MessageType.INSERT_PROMPT_TO_CS,
         payload: { prompt: promptToInject }
@@ -861,8 +937,12 @@ export default function SidePanelApp() {
         setToastMessage('已复制到剪贴板')
         setTimeout(hideToast, 2000)
       }
-    } catch {
-      // Fallback to clipboard
+    } catch (error) {
+      console.log('[Oh My Prompt] SidePanel: Message failed, triggering re-check:', error)
+      // Fallback to clipboard and trigger re-check
+      setInputStatus('unavailable')
+      setCurrentTabId(null)
+      checkInputAvailability()
       try {
         await navigator.clipboard.writeText(promptToInject)
         setToastMessage('已复制到剪贴板')
@@ -872,7 +952,7 @@ export default function SidePanelApp() {
         setTimeout(hideToast, 2000)
       }
     }
-  }, [inputStatus, currentTabId, resourceLanguage, setToastMessage, hideToast])
+  }, [inputStatus, currentTabId, resourceLanguage, isSpecialPage, checkInputAvailability, setToastMessage, hideToast])
 
   // Check if resource prompt is collected
   const isPromptCollected = useCallback((resourcePrompt: ResourcePrompt): boolean => {
