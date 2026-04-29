@@ -19,6 +19,7 @@ interface PromptPreviewModalProps {
   globalLanguage?: 'zh' | 'en' // Global preference for initial state
   onEdit?: () => void              // NEW: for user prompts
   isUserPrompt?: boolean           // NEW: flag to distinguish type
+  width?: string                   // Modal width (default: 560px, sidepanel uses 340px)
 }
 
 /**
@@ -58,6 +59,7 @@ export function PromptPreviewModal({
   globalLanguage = 'zh',
   onEdit,          // NEW: for user prompts
   isUserPrompt = false, // NEW: flag to distinguish type
+  width = '560px', // Default width for content script, sidepanel passes '340px'
 }: PromptPreviewModalProps) {
   // Hover preview state
   const [showPreview, setShowPreview] = useState(false)
@@ -230,7 +232,7 @@ export function PromptPreviewModal({
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: '560px',
+          width: width,
           maxHeight: '640px',
           background: '#ffffff',
           borderRadius: '12px',

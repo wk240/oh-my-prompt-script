@@ -46,6 +46,10 @@ export default defineConfig({
           if (id.includes('zustand')) {
             return 'vendor-zustand'
           }
+          // Extract resource library JSON data (5MB+) - separate from code
+          if (id.includes('resource-library/categories') || id.includes('resource-library/index.json')) {
+            return 'resource-library'
+          }
         }
       }
     }

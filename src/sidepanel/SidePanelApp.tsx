@@ -580,11 +580,26 @@ export default function SidePanelApp() {
   // Helper function to inject content script dynamically (for pages loaded before extension was enabled)
   const injectContentScript = useCallback(async (tabId: number, url: string): Promise<boolean> => {
     try {
+      // Get correct script path from manifest.json (compiled .js files, not source .ts)
+      const manifest = chrome.runtime.getManifest()
+      const contentScripts = manifest.content_scripts || []
+
       // Determine which content script to inject based on URL
       const isLovart = url.includes('lovart.ai')
-      const scriptFile = isLovart ? 'src/content/content-script.ts' : 'src/content/vision-only-script.ts'
+      const targetScript = contentScripts.find(script =>
+        isLovart
+          ? script.matches?.some(m => m.includes('lovart.ai'))
+          : script.matches?.includes('<all_urls>')
+      )
 
-      console.log('[Oh My Prompt] SidePanel: Injecting content script', scriptFile, 'into tab', tabId)
+      if (!targetScript?.js?.[0]) {
+        console.error('[Oh My Prompt] SidePanel: No matching content script found in manifest')
+        return false
+      }
+
+      const scriptFile = targetScript.js[0]
+      console.log('[Oh My Prompt] SidePanel: Injecting', scriptFile, 'into tab', tabId)
+
       await chrome.scripting.executeScript({
         target: { tabId },
         files: [scriptFile]
@@ -1569,6 +1584,7 @@ export default function SidePanelApp() {
               }
             }}
             globalLanguage={resourceLanguage}
+            width="340px"
           />
         )}
         <UpdateGuideModal
