@@ -3,7 +3,7 @@
  * Matches platform, initializes components, and handles lifecycle events
  */
 
-import { matchPlatform } from '../platforms/registry'
+import { matchPlatform, registerPlatform } from '../platforms/registry'
 import { Detector } from './detector'
 import { Injector } from './injector'
 import { createDefaultInserter } from '../platforms/base/default-strategies'
@@ -11,6 +11,10 @@ import { MessageType } from '../../shared/messages'
 import type { InsertResultPayload } from '../../shared/types'
 import { usePromptStore } from '../../lib/store'
 import { VisionModalManager } from '../vision-modal-manager'
+import { lovartConfig } from '../platforms/lovart/config'
+
+// Register platform configurations
+registerPlatform(lovartConfig)
 
 const LOG_PREFIX = '[Oh My Prompt]'
 
