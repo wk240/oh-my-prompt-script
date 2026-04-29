@@ -420,9 +420,25 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
           onMouseDown={handleMouseDown}
           style={{ cursor: isMinimized ? 'default' : 'grab' }}
         >
-          <h1 className="modal-title">图片转提示词</h1>
+          {isMinimized ? (
+            <span className="minimized-status">
+              {state === 'loading' && '分析中...'}
+              {state === 'success' && '分析完成'}
+              {state === 'error' && '出错了'}
+            </span>
+          ) : (
+            <h1 className="modal-title">图片转提示词</h1>
+          )}
           <div className="modal-header-actions">
-            {!isMinimized && (
+            {isMinimized ? (
+              <button
+                className="modal-action-btn"
+                onClick={handleExpand}
+                aria-label="放大"
+              >
+                <Maximize2 />
+              </button>
+            ) : (
               <button
                 className="modal-action-btn"
                 onClick={handleMinimize}
@@ -436,24 +452,6 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
             </button>
           </div>
         </div>
-
-        {/* Minimized state - compact bar */}
-        {isMinimized && (
-          <div className="minimized-content">
-            <span className="minimized-status">
-              {state === 'loading' && '分析中...'}
-              {state === 'success' && '分析完成'}
-              {state === 'error' && '出错了'}
-            </span>
-            <button
-              className="modal-action-btn expand-btn"
-              onClick={handleExpand}
-              aria-label="放大"
-            >
-              <Maximize2 />
-            </button>
-          </div>
-        )}
 
         {/* Content - only show when not minimized */}
         {!isMinimized && (
