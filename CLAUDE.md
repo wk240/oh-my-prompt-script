@@ -7,14 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Oh My Prompt**
 
-一个Chrome浏览器插件，用于在Lovart AI设计/绘图平台的输入框中一键插入预设的提示词模板。用户通过输入框旁的下拉菜单选择提示词，提示词按用途分类管理，支持内置编辑和数据导入导出。
+一个Chrome浏览器插件，用于在AI设计/绘图平台的输入框中一键插入预设的提示词模板。支持多平台（Lovart、ChatGPT、Claude.ai、Gemini等），用户通过输入框旁的下拉菜单选择提示词，提示词按用途分类管理，支持内置编辑和数据导入导出。
 
 **Core Value:** 一键插入预设提示词，提升创作效率。
 
 ### Constraints
 
 - **Tech stack:** Chrome Extension (Manifest V3) — 现代Chrome插件标准
-- **平台依赖:** 仅在 lovart.ai 页面激活，需适配目标平台的 Lexical 编辑器输入框
+- **平台支持:** 多平台架构，当前支持 Lovart、ChatGPT、Claude.ai、Gemini、LibLib、即梦
 - **数据存储:** chrome.storage.local 本地存储，容量有限制
 - **浏览器支持:** Chrome/Edge/Brave等Chromium系浏览器
 <!-- GSD:project-end -->
@@ -72,12 +72,35 @@ After running `npm run dev`, load the extension from `dist/` folder in Chrome vi
 
 ```
 src/
-├── content/           # Runs on Lovart pages (Shadow DOM isolated)
-│   ├── content-script.ts    # Entry point, coordinates components
-│   ├── input-detector.ts    # MutationObserver for Lovart input
-│   ├── ui-injector.tsx      # Shadow DOM container + React mount
-│   ├── insert-handler.ts    # Prompt text insertion
-│   └── components/          # Dropdown UI React components
+├── content/           # Runs on supported platforms (Shadow DOM isolated)
+│   ├── core/               # Core modules (shared across platforms)
+│   │   ├── coordinator.ts  # Entry point, platform matching
+│   │   ├── detector.ts     # Config-driven input detection
+│   │   └── injector.tsx    # Config-driven UI injection
+│   │
+│   ├── platforms/          # Platform configs and strategies
+│   │   ├── registry.ts     # URL → Platform matching
+│   │   ├── base/           # Types and default strategies
+│   │   │   ├── types.ts           # PlatformConfig, UrlPattern, etc.
+│   │   │   ├── strategy-interface.ts  # InsertStrategy, DetectStrategy
+│   │   │   └── default-strategies.ts  # DefaultInserter
+│   │   ├── lovart/         # Lovart (Lexical editor)
+│   │   │   ├── config.ts
+│   │   │   └── strategies.ts
+│   │   ├── chatgpt/        # ChatGPT
+│   │   ├── claude-ai/      # Claude.ai (ProseMirror)
+│   │   ├── gemini/         # Gemini
+│   │   ├── liblib/         # LibLib (国内)
+│   │   ├── jimeng/         # 即梦 (国内)
+│   │   └── ...             # More platforms
+│   │
+│   ├── components/         # Dropdown UI React components
+│   │   ├── DropdownApp.tsx # Main dropdown with InsertStrategy prop
+│   │   ├── TriggerButton.tsx
+│   │   └── ...
+│   │
+│   ├── styles/             # Shadow DOM styles
+│   └── vision-modal-manager.tsx  # Vision modal for image-to-prompt
 │
 ├── background/        # Service worker (no DOM access)
 │   └── service-worker.ts    # Message routing, storage ops
@@ -124,14 +147,40 @@ src/
 2. **Message Types:** See `src/shared/messages.ts` for full MessageType enum (25 types including `PING`, `GET_STORAGE`, `SET_STORAGE`, `INSERT_PROMPT`, `BACKUP_TO_FOLDER`, `SAVE_IMAGE`, `READ_IMAGE`, `DELETE_IMAGE`, `GET_FOLDER_HANDLE`, `SAVE_FOLDER_HANDLE`, `GET_SYNC_STATUS`, `SET_UNSYNCED_FLAG`, `SYNC_FAILED`, `OPEN_BACKUP_PAGE`, `REFRESH_DATA`, `CHECK_UPDATE`, `GET_UPDATE_STATUS`, `CLEAR_UPDATE_STATUS`, `OPEN_EXTENSIONS`, `EXPORT_DATA`, `DISMISS_BACKUP_WARNING`, `RESTORE_PERMISSION`, `SET_SETTINGS_ONLY`)
 3. **Zustand Sync:** Popup store calls `saveToStorage()` after each CRUD operation, which triggers auto-sync if enabled
 
-### Lovart Platform Integration
+### Platform Configuration
 
-Content script detects Lovart's Lexical editor input element:
-- Primary selector: `[data-testid="agent-message-input"]`
-- Alternative: `[data-lexical-editor="true"]`
-- UI injection target: `[data-testid="agent-input-bottom-more-button"]`
+Each platform requires a `config.ts` in `src/content/platforms/{platform}/` with:
 
-Prompt insertion uses `execCommand('insertText')` for React/Lexical compatibility, followed by input/change event dispatch.
+```typescript
+export const platformConfig: PlatformConfig = {
+  id: 'platform-id',
+  name: 'Platform Name',
+  urlPatterns: [{ type: 'domain', value: 'platform.com' }],
+  inputDetection: {
+    selectors: ['input-selector-1', 'input-selector-2'],
+    debounceMs: 100,  // optional
+  },
+  uiInjection: {
+    anchorSelector: '.anchor-element',
+    position: 'before' | 'after' | 'prepend' | 'append',
+  },
+  strategies: { inserter: new CustomInserter() },  // optional
+}
+```
+
+- `urlPatterns`: URL matching rules (domain, pathname, full, regex)
+- `inputDetection.selectors`: Input element selectors in priority order
+- `uiInjection`: Anchor selector + position for button placement
+
+Complex platforms can override strategies (e.g., Lexical/ProseMirror editors). Most use `DefaultInserter`.
+
+To add a new platform:
+1. Create `src/content/platforms/{platform}/config.ts`
+2. Import and `registerPlatform()` in `coordinator.ts`
+
+### Manifest Configuration
+
+Content script uses `<all_urls>` match pattern. The coordinator matches platform internally and exits early on non-supported pages. This enables universal Vision modal functionality while keeping platform-specific prompt insertion.
 
 ### Local Folder Sync
 
