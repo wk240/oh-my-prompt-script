@@ -1,190 +1,120 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from './components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from './components/ui/dialog'
-import { Check, X, Trash2 } from 'lucide-react'
+import { X, Bot, Database, Upload, Download, ChevronRight } from 'lucide-react'
 import { MessageType } from '../shared/messages'
-import type { VisionApiConfig } from '../shared/types'
-
-/**
- * Request host permission for API endpoint
- * Must be called in user-interaction context (popup/settings page)
- */
-async function requestApiHostPermission(baseUrl: string): Promise<boolean> {
-  try {
-    const url = new URL(baseUrl)
-    const origin = url.origin + '/*'
-
-    // Check if already granted
-    const hasPermission = await chrome.permissions.contains({ origins: [origin] })
-    if (hasPermission) {
-      console.log('[Oh My Prompt] API host permission already granted:', origin)
-      return true
-    }
-
-    // Request permission - shows Chrome's permission dialog
-    console.log('[Oh My Prompt] Requesting API host permission:', origin)
-    const granted = await chrome.permissions.request({ origins: [origin] })
-    console.log('[Oh My Prompt] Permission result:', granted ? 'granted' : 'denied')
-    return granted
-  } catch (error) {
-    console.error('[Oh My Prompt] Permission request error:', error)
-    return false
-  }
-}
+import type { StorageSchema } from '../shared/types'
+import { readImportFile, mergeImportData } from '../lib/import-export'
 
 function SettingsApp() {
-  const [config, setConfig] = useState<VisionApiConfig | null>(null)
-  const [baseUrl, setBaseUrl] = useState('')
-  const [apiKey, setApiKey] = useState('')
-  const [modelName, setModelName] = useState('')
-  const [apiFormat, setApiFormat] = useState<'openai' | 'anthropic'>('openai')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-
-  // Load config on mount
-  useEffect(() => {
-    loadConfig()
-  }, [])
-
-  const loadConfig = async () => {
-    setLoading(true)
-    try {
-      const response = await chrome.runtime.sendMessage({ type: MessageType.GET_API_CONFIG })
-      if (response.success && response.data) {
-        setConfig(response.data)
-        setBaseUrl(response.data.baseUrl)
-        setApiKey(response.data.apiKey)
-        setModelName(response.data.modelName)
-        setApiFormat(response.data.apiFormat || 'openai')
-      } else {
-        setConfig(null)
-        setBaseUrl('')
-        setApiKey('')
-        setModelName('')
-        setApiFormat('openai')
-      }
-      setError(null)
-    } catch (err) {
-      setError('获取配置失败')
-      // SECURITY: Log error only, never apiKey (AUTH-02, T-10-02)
-      console.error('[Oh My Prompt] GET_API_CONFIG error:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const validateInputs = (): string | null => {
-    const trimmedUrl = baseUrl.trim()
-    const trimmedKey = apiKey.trim()
-    const trimmedModel = modelName.trim()
-
-    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
-      return 'API Base URL 必须以 http:// 或 https:// 开头'
-    }
-    if (!trimmedKey) {
-      return 'API Key 不能为空'
-    }
-    if (!trimmedModel) {
-      return 'Model Name 不能为空'
-    }
-    return null
-  }
-
-  const handleSave = async () => {
-    // Clear previous messages
-    setError(null)
-    setSuccess(null)
-
-    // Validate inputs
-    const validationError = validateInputs()
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-
-    const trimmedUrl = baseUrl.trim()
-
-    // Request host permission BEFORE saving config
-    const permissionGranted = await requestApiHostPermission(trimmedUrl)
-    if (!permissionGranted) {
-      setError('API域名访问权限未授予，请点击"允许"以使用该API')
-      return
-    }
-
-    setLoading(true)
-    try {
-      const payload: VisionApiConfig = {
-        baseUrl: trimmedUrl,
-        apiKey: apiKey.trim(),
-        modelName: modelName.trim(),
-        apiFormat: apiFormat
-      }
-
-      // SECURITY: Log baseUrl, modelName, apiFormat only, never apiKey (AUTH-02, T-10-02)
-      console.log('[Oh My Prompt] SET_API_CONFIG: baseUrl=', payload.baseUrl, 'modelName=', payload.modelName, 'apiFormat=', payload.apiFormat)
-
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.SET_API_CONFIG,
-        payload
-      })
-
-      if (response.success) {
-        setSuccess('配置已保存，API域名权限已授予')
-        await loadConfig()
-      } else {
-        setError(response.error || '保存配置失败，请重试')
-      }
-    } catch (err) {
-      setError('保存配置失败，请重试')
-      // SECURITY: Log error only, never apiKey
-      console.error('[Oh My Prompt] SET_API_CONFIG error:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDeleteClick = () => {
-    setDeleteDialogOpen(true)
-  }
-
-  const handleDeleteConfirm = async () => {
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
-
-    try {
-      const response = await chrome.runtime.sendMessage({ type: MessageType.DELETE_API_CONFIG })
-
-      if (response.success) {
-        setSuccess('配置已删除')
-        setConfig(null)
-        setBaseUrl('')
-        setApiKey('')
-        setModelName('')
-        setApiFormat('openai')
-        setDeleteDialogOpen(false)
-      } else {
-        setError(response.error || '删除配置失败')
-      }
-    } catch (err) {
-      setError('删除配置失败')
-      console.error('[Oh My Prompt] DELETE_API_CONFIG error:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleClose = () => {
     window.close()
+  }
+
+  // Open API config page
+  const handleOpenApiConfig = () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/api-config.html') })
+    window.close()
+  }
+
+  // Open backup page
+  const handleOpenBackup = () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/backup.html') })
+    window.close()
+  }
+
+  // Export data
+  const handleExport = async () => {
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Get current data from storage
+      const response = await chrome.runtime.sendMessage({ type: MessageType.GET_STORAGE })
+      if (response?.success && response.data) {
+        const data: StorageSchema = response.data
+        const exportResponse = await chrome.runtime.sendMessage({
+          type: MessageType.EXPORT_DATA,
+          payload: data
+        })
+        if (exportResponse?.success) {
+          setSuccess('导出成功')
+        } else {
+          setError(exportResponse?.error || '导出失败')
+        }
+      } else {
+        setError('获取数据失败')
+      }
+    } catch {
+      setError('导出失败')
+    } finally {
+      setLoading(false)
+      setTimeout(() => {
+        setSuccess(null)
+        setError(null)
+      }, 2000)
+    }
+  }
+
+  // Import data
+  const handleImport = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+
+      setLoading(true)
+      setError(null)
+      setSuccess(null)
+
+      const result = await readImportFile(file)
+
+      if (result.valid && result.data) {
+        // Get current data
+        const response = await chrome.runtime.sendMessage({ type: MessageType.GET_STORAGE })
+        if (response?.success && response.data) {
+          const currentData = response.data.userData
+          const merged = mergeImportData(
+            { prompts: currentData.prompts, categories: currentData.categories },
+            result.data.userData
+          )
+
+          // Save merged data
+          const saveResponse = await chrome.runtime.sendMessage({
+            type: MessageType.SET_STORAGE,
+            payload: {
+              version: chrome.runtime.getManifest().version,
+              userData: { prompts: merged.prompts, categories: merged.categories }
+            }
+          })
+
+          if (saveResponse?.success) {
+            setSuccess(`导入成功：新增 ${merged.addedCount} 条`)
+          } else {
+            setError('保存数据失败')
+          }
+        } else {
+          setError('获取当前数据失败')
+        }
+      } else {
+        setError(result.error || '导入失败')
+      }
+
+      setLoading(false)
+      setTimeout(() => {
+        setSuccess(null)
+        setError(null)
+      }, 2000)
+    }
+
+    input.click()
   }
 
   return (
@@ -192,14 +122,7 @@ function SettingsApp() {
       <div className="w-[480px] max-w-[90vw] bg-white rounded-xl shadow-lg border border-gray-200">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          <div>
-            <h1 className="text-base font-semibold text-gray-900">API 配置</h1>
-            {!config && (
-              <p className="text-sm text-gray-500 mt-1">
-                配置 Vision AI API 密钥以启用图片转提示词功能
-              </p>
-            )}
-          </div>
+          <h1 className="text-base font-semibold text-gray-900">设置中心</h1>
           <button
             onClick={handleClose}
             className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500"
@@ -211,135 +134,78 @@ function SettingsApp() {
 
         {/* Content */}
         <div className="p-4 space-y-3">
-          {/* Status indicator if configured */}
-          {config && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">状态</span>
-              <span className="text-sm flex items-center gap-1 text-green-600">
-                <Check style={{ width: 14, height: 14 }} />
-                已配置
-              </span>
+          {/* Navigation items */}
+          <button
+            onClick={handleOpenApiConfig}
+            className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 flex items-center justify-center rounded-md bg-purple-100 text-purple-600">
+                <Bot style={{ width: 16, height: 16 }} />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-900">API 配置</div>
+                <div className="text-xs text-gray-500">配置 Vision AI API 密钥</div>
+              </div>
             </div>
-          )}
+            <ChevronRight style={{ width: 16, height: 16, color: '#9ca3af' }} />
+          </button>
 
-          {/* API Base URL */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
-              API Base URL
-            </label>
-            <input
-              type="text"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
-              className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              disabled={loading}
-            />
-          </div>
+          <button
+            onClick={handleOpenBackup}
+            className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 flex items-center justify-center rounded-md bg-blue-100 text-blue-600">
+                <Database style={{ width: 16, height: 16 }} />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-900">本地备份</div>
+                <div className="text-xs text-gray-500">选择文件夹自动同步</div>
+              </div>
+            </div>
+            <ChevronRight style={{ width: 16, height: 16, color: '#9ca3af' }} />
+          </button>
 
-          {/* API Key */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
-              API Key
-            </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              disabled={loading}
-            />
-          </div>
+          {/* Divider */}
+          <div className="border-t border-gray-200 my-4"></div>
 
-          {/* Model Name */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
-              Model Name
-            </label>
-            <input
-              type="text"
-              value={modelName}
-              onChange={(e) => setModelName(e.target.value)}
-              placeholder="gpt-4-vision-preview"
-              className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          {/* Import/Export buttons */}
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={handleImport}
               disabled={loading}
-            />
-          </div>
-
-          {/* API Format */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
-              API 格式
-            </label>
-            <select
-              value={apiFormat}
-              onChange={(e) => setApiFormat(e.target.value as 'openai' | 'anthropic')}
-              className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-white"
-              disabled={loading}
+              className="flex-1"
             >
-              <option value="openai">OpenAI 格式 (大多数第三方 API)</option>
-              <option value="anthropic">Anthropic 格式 (Claude API)</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              选择 API 的请求格式。大多数第三方 API 使用 OpenAI 格式。
-            </p>
-          </div>
-
-          {/* Error message */}
-          {error && (
-            <p className="text-sm text-red-500" role="alert">
-              {error}
-            </p>
-          )}
-
-          {/* Success message */}
-          {success && (
-            <p className="text-sm text-green-600">
-              {success}
-            </p>
-          )}
-
-          {/* Buttons */}
-          <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} disabled={loading}>
-              <Check style={{ width: 16, height: 16 }} />
-              {loading ? '保存中...' : '保存配置'}
+              <Upload style={{ width: 16, height: 16 }} />
+              {loading ? '导入中...' : '导入数据'}
             </Button>
-            {(config || baseUrl || apiKey || modelName) && (
-              <Button variant="outline" onClick={handleDeleteClick} disabled={loading}>
-                <Trash2 style={{ width: 16, height: 16 }} />
-                {loading ? '删除中...' : '删除配置'}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              disabled={loading}
+              className="flex-1"
+            >
+              <Download style={{ width: 16, height: 16 }} />
+              {loading ? '导出中...' : '导出数据'}
+            </Button>
           </div>
+
+          {/* Messages */}
+          {error && (
+            <p className="text-sm text-red-500">{error}</p>
+          )}
+          {success && (
+            <p className="text-sm text-green-600">{success}</p>
+          )}
 
           {/* Hint */}
           <p className="text-xs text-gray-500 pt-2">
-            提示：API 密钥仅存储在本地，不会同步到其他设备
+            提示：所有数据仅存储在本地，不会同步到云端
           </p>
         </div>
       </div>
-
-      {/* Delete confirmation dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
-            <DialogDescription>
-              此操作将删除您的 API 配置，是否继续？
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              取消
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={loading}>
-              {loading ? '删除中...' : '确认删除'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

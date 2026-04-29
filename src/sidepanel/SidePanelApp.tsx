@@ -4,9 +4,9 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react'
-import type { Prompt, Category, StorageSchema, ResourcePrompt, UpdateStatus } from '../shared/types'
+import type { Prompt, Category, ResourcePrompt, UpdateStatus } from '../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '../shared/utils'
-import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle, Plus, Pencil, Trash2, Download, Upload, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2 } from 'lucide-react'
+import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2 } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -14,7 +14,6 @@ import { usePromptStore } from '../lib/store'
 import { getResourcePrompts, getResourceCategories } from '../lib/resource-library'
 import { MessageType } from '../shared/messages'
 import { STORAGE_KEY } from '../shared/constants'
-import { readImportFile, mergeImportData } from '../lib/import-export'
 import { Tooltip } from '../content/components/Tooltip'
 import { ToastNotification } from './components/ToastNotification'
 import { queueImageLoad } from '../lib/sync/image-loader-queue'
@@ -757,7 +756,6 @@ export default function SidePanelApp() {
 
   // Update status
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Resource library data
   const [resourcePrompts, setResourcePrompts] = useState<ResourcePrompt[]>([])
@@ -1198,64 +1196,6 @@ export default function SidePanelApp() {
     setTimeout(hideToast, 2000)
   }, [editingStates.deletingPrompt, clearEditingItem, closeModal, setToastMessage, hideToast])
 
-  // Export handler
-  const handleExport = useCallback(async () => {
-    const version = chrome.runtime.getManifest().version
-    const data: StorageSchema = {
-      version,
-      userData: { prompts, categories },
-      settings: { showBuiltin: true, syncEnabled: false }
-    }
-    try {
-      const response = await chrome.runtime.sendMessage({ type: MessageType.EXPORT_DATA, payload: data })
-      if (response?.success) {
-        setToastMessage('导出成功')
-      } else {
-        setToastMessage(response?.error || '导出失败')
-      }
-      setTimeout(hideToast, 2000)
-    } catch {
-      setToastMessage('导出失败')
-      setTimeout(hideToast, 2000)
-    }
-  }, [prompts, categories, setToastMessage, hideToast])
-
-  // Import handler
-  const handleImport = useCallback(() => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.json'
-
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file) return
-
-      const result = await readImportFile(file)
-
-      if (result.valid && result.data) {
-        const merged = mergeImportData(
-          { prompts, categories },
-          result.data.userData
-        )
-
-        usePromptStore.setState({
-          prompts: merged.prompts,
-          categories: merged.categories,
-          selectedCategoryId: 'all'
-        })
-        await usePromptStore.getState().saveToStorage()
-
-        setToastMessage(`导入成功：新增 ${merged.addedCount} 条`)
-        setTimeout(hideToast, 2000)
-      } else {
-        setToastMessage(result.error || '导入失败')
-        setTimeout(hideToast, 2000)
-      }
-    }
-
-    input.click()
-  }, [prompts, categories, setToastMessage, hideToast])
-
   // Language switch
   const handleLanguageSwitch = useCallback((lang: 'zh' | 'en') => {
     setResourceLanguage(lang)
@@ -1263,13 +1203,6 @@ export default function SidePanelApp() {
       type: MessageType.SET_SETTINGS_ONLY,
       payload: { settings: { resourceLanguage: lang } }
     })
-  }, [])
-
-  // Backup handler
-  const handleBackup = useCallback(async () => {
-    setIsRefreshing(true)
-    await chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
-    setIsRefreshing(false)
   }, [])
 
   // Check update
@@ -1310,25 +1243,6 @@ export default function SidePanelApp() {
               onClick={updateStatus?.hasUpdate ? () => openModal('isUpdateGuide') : handleCheckUpdate}
             >
               <ArrowUpCircle style={{ width: 14, height: 14 }} />
-            </button>
-          </Tooltip>
-          <Tooltip content="备份数据" placement="bottom">
-            <button
-              className={`header-action-btn ${isRefreshing ? 'refreshing' : ''}`}
-              onClick={handleBackup}
-              disabled={isRefreshing}
-            >
-              <RefreshCw style={{ width: 14, height: 14 }} />
-            </button>
-          </Tooltip>
-          <Tooltip content="导入" placement="bottom">
-            <button className="header-action-btn" onClick={handleImport}>
-              <Upload style={{ width: 14, height: 14 }} />
-            </button>
-          </Tooltip>
-          <Tooltip content="导出" placement="bottom">
-            <button className="header-action-btn" onClick={handleExport}>
-              <Download style={{ width: 14, height: 14 }} />
             </button>
           </Tooltip>
           <button
