@@ -396,19 +396,41 @@ export default function SidePanelApp() {
           return
         }
 
+        // Check if URL is a valid page for content scripts
+        // chrome://, edge://, about: pages cannot have content scripts
+        if (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+          setIsOnLovart(false)
+          return
+        }
+
         // For other pages, query content script for input availability
-        try {
-          const response = await chrome.tabs.sendMessage(tab.id, {
-            type: MessageType.CHECK_INPUT_AVAILABILITY
-          })
-          if (response?.success && response.data?.hasInput) {
-            setIsOnLovart(true)
-            console.log('[Oh My Prompt] Input available on non-Lovart page')
-          } else {
-            setIsOnLovart(false)
+        // Retry up to 3 times with delays (content script may still be loading)
+        const checkInput = async (retries: number): Promise<boolean> => {
+          for (let i = 0; i < retries; i++) {
+            try {
+              // Add delay for subsequent retries
+              if (i > 0) {
+                await new Promise(resolve => setTimeout(resolve, 500))
+              }
+              const response = await chrome.tabs.sendMessage(tab.id!, {
+                type: MessageType.CHECK_INPUT_AVAILABILITY
+              })
+              if (response?.success && response.data?.hasInput) {
+                return true
+              }
+            } catch {
+              // Content script not ready yet, retry
+              console.log(`[Oh My Prompt] Content script not ready, retry ${i + 1}/${retries}`)
+            }
           }
-        } catch {
-          // Content script may not be loaded or no input found
+          return false
+        }
+
+        const hasInput = await checkInput(3)
+        if (hasInput) {
+          setIsOnLovart(true)
+          console.log('[Oh My Prompt] Input available on non-Lovart page')
+        } else {
           setIsOnLovart(false)
         }
       }
@@ -505,13 +527,25 @@ export default function SidePanelApp() {
         if (response?.success) {
           setToastMessage('已插入提示词')
           setTimeout(hideToast, 2000)
+        } else if (response?.error === 'INPUT_NOT_FOUND') {
+          // Input not found - copy to clipboard as fallback
+          await navigator.clipboard.writeText(prompt.content)
+          setToastMessage('已复制到剪贴板（无输入框）')
+          setTimeout(hideToast, 2000)
         } else {
           setToastMessage(response?.error || '插入失败')
           setTimeout(hideToast, 2000)
         }
       } catch {
-        setToastMessage('无法连接到页面')
-        setTimeout(hideToast, 2000)
+        // Connection failed - copy to clipboard as fallback
+        try {
+          await navigator.clipboard.writeText(prompt.content)
+          setToastMessage('已复制到剪贴板')
+          setTimeout(hideToast, 2000)
+        } catch {
+          setToastMessage('无法连接到页面')
+          setTimeout(hideToast, 2000)
+        }
       }
     }
     setSelectedPromptId(prompt.id)
@@ -534,10 +568,21 @@ export default function SidePanelApp() {
       if (response?.success) {
         setToastMessage('已注入提示词')
         setTimeout(hideToast, 2000)
+      } else if (response?.error === 'INPUT_NOT_FOUND') {
+        await navigator.clipboard.writeText(promptToInject)
+        setToastMessage('已复制到剪贴板')
+        setTimeout(hideToast, 2000)
       }
     } catch {
-      setToastMessage('无法连接到页面')
-      setTimeout(hideToast, 2000)
+      // Fallback to clipboard
+      try {
+        await navigator.clipboard.writeText(promptToInject)
+        setToastMessage('已复制到剪贴板')
+        setTimeout(hideToast, 2000)
+      } catch {
+        setToastMessage('无法连接到页面')
+        setTimeout(hideToast, 2000)
+      }
     }
   }, [isOnLovart, currentTabId, resourceLanguage, setToastMessage, hideToast])
 
