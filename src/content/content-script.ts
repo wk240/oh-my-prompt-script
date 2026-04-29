@@ -81,6 +81,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse({ success: true })
   }
 
+  // Handle input availability check from sidepanel
+  if (message.type === MessageType.CHECK_INPUT_AVAILABILITY) {
+    const inputElement = document.querySelector('[data-testid="agent-message-input"]') as HTMLElement ||
+                        document.querySelector('[data-lexical-editor="true"]') as HTMLElement
+    const hasInput = inputElement !== null
+    console.log('[Oh My Prompt] CHECK_INPUT_AVAILABILITY response:', hasInput)
+    sendResponse({ success: true, data: { hasInput } })
+    return true
+  }
+
   // Phase 12: Handle prompt insertion from service worker (INSERT-01)
   if (message.type === MessageType.INSERT_PROMPT_TO_CS) {
     console.log('[Oh My Prompt] Received INSERT_PROMPT_TO_CS')
@@ -138,4 +148,16 @@ window.addEventListener('pagehide', () => {
   inputDetector.stop()
   uiInjector.remove()
   console.log('[Oh My Prompt] Cleanup complete')
+})
+
+/**
+ * Handle bfcache restoration - re-initialize when page is restored from cache
+ * The persisted property indicates the page was loaded from bfcache
+ */
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    console.log('[Oh My Prompt] Page restored from bfcache, re-initializing...')
+    // Re-start input detection after bfcache restoration
+    inputDetector.start()
+  }
 })

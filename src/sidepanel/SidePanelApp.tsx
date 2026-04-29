@@ -369,9 +369,12 @@ export default function SidePanelApp() {
       if (activeTab?.id && activeTab?.url) {
         const isLovart = activeTab.url.includes('lovart.ai') || activeTab.url.startsWith('file://')
         if (isLovart) {
-          console.log('[Oh My Prompt] SidePanel: Lovart page detected, enabling injection')
+          console.log('[Oh My Prompt] SidePanel: Lovart page detected, checking input availability')
           setCurrentTabId(activeTab.id)
-          setIsOnLovart(true)
+          // Still need to check if input element exists (home page doesn't have input)
+          const hasInput = await checkInputOnTab(activeTab.id, 3)
+          setIsOnLovart(hasInput)
+          console.log('[Oh My Prompt] SidePanel: Input check result:', hasInput)
           return
         }
 
@@ -399,8 +402,14 @@ export default function SidePanelApp() {
             if (isLovart) {
               console.log('[Oh My Prompt] SidePanel: Found Lovart tab:', tab.id, tab.url)
               setCurrentTabId(tab.id)
-              setIsOnLovart(true)
-              return
+              // Check if input element exists (home page doesn't have input)
+              const hasInput = await checkInputOnTab(tab.id, 2)
+              if (hasInput) {
+                setIsOnLovart(true)
+                console.log('[Oh My Prompt] SidePanel: Lovart tab has input:', tab.id)
+                return
+              }
+              continue // Try next tab if no input
             }
 
             setCurrentTabId(tab.id)

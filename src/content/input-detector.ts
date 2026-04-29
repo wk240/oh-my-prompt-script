@@ -46,6 +46,12 @@ export class InputDetector {
    * Start observing the DOM for Lovart input element
    */
   start(): void {
+    // Clean up any existing observers first (important for bfcache restoration)
+    this.stop()
+
+    // Reset input element to force fresh detection (important for bfcache restoration)
+    this.inputElement = null
+
     // Initial detection attempt
     this.tryDetect()
 
