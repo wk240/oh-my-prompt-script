@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { Prompt, Category, StorageSchema } from '../../shared/types'
 import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '../../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '../../shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle, Plus, Pencil, Trash2, Download, Upload, ExternalLink, AlertTriangle } from 'lucide-react'
+import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle, Plus, Pencil, Trash2, Download, Upload, ExternalLink, AlertTriangle, X, Minimize2, Maximize2 } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -318,10 +318,19 @@ export function DropdownContainer({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const updateButtonRef = useRef<HTMLButtonElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0, isStickyTop: false, isStickyLeft: false })
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
   const [localPrompts, setLocalPrompts] = useState<Prompt[]>([])
   const [localCategories, setLocalCategories] = useState<Category[]>([])
+
+  // Drag state - track custom position when user drags
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
+  const [dragStartPosition, setDragStartPosition] = useState<{ x: number; y: number } | null>(null)
+
+  // Minimize state - collapsed panel with only header visible
+  const [isMinimized, setIsMinimized] = useState(false)
 
   // Resource library state (loaded from local JSON)
   const [isResourceLibrary, setIsResourceLibrary] = useState(false)
@@ -1021,28 +1030,53 @@ export function DropdownContainer({
     }
   }, [dontShowBackupWarning])
 
-  // Close dropdown when clicking outside
-  // IMPORTANT: Portal container contains dropdown + modals/dialogs - all should skip detection
+  // Drag handlers - allow user to move dropdown by dragging header
+  const handlePanelDragStart = useCallback((e: React.MouseEvent) => {
+    // Only start drag from header area, not from action buttons
+    if ((e.target as HTMLElement).closest('.dropdown-header-actions')) return
+
+    const rect = dropdownRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    setIsDragging(true)
+    setDragStartPosition({ x: rect.left, y: rect.top })
+    setDragOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+  }, [])
+
+  const handlePanelDragMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !dragOffset) return
+
+    const newX = e.clientX - dragOffset.x
+    const newY = e.clientY - dragOffset.y
+
+    // Keep within viewport bounds
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const dropdownWidth = isMinimized ? 300 : 640
+    const dropdownHeight = isMinimized ? 48 : 600
+
+    const boundedX = Math.max(0, Math.min(newX, viewportWidth - dropdownWidth))
+    const boundedY = Math.max(0, Math.min(newY, viewportHeight - dropdownHeight))
+
+    setDragStartPosition({ x: boundedX, y: boundedY })
+  }, [isDragging, dragOffset, isMinimized])
+
+  const handlePanelDragEnd = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // Mouse move and up listeners for drag
   useEffect(() => {
-    if (!isOpen) return
+    if (!isDragging) return
 
-    const handleClickOutside = (e: MouseEvent) => {
-      // Skip if click is inside portal container (dropdown + modals/dialogs all render there)
-      const portalContainer = document.getElementById(PORTAL_ID)
-      if (portalContainer && portalContainer.contains(e.target as Node)) {
-        return
-      }
+    document.addEventListener('mousemove', handlePanelDragMove)
+    document.addEventListener('mouseup', handlePanelDragEnd)
 
-      const hostElement = document.querySelector('[data-testid="oh-my-prompt-trigger"]')
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-          hostElement && !hostElement.contains(e.target as Node)) {
-        onClose?.()
-      }
+    return () => {
+      document.removeEventListener('mousemove', handlePanelDragMove)
+      document.removeEventListener('mouseup', handlePanelDragEnd)
     }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen, onClose])
+  }, [isDragging, handlePanelDragMove, handlePanelDragEnd])
 
   if (!isOpen) {
     // When dropdown is closed, only render backup reminder banner if needed
@@ -1096,14 +1130,28 @@ export function DropdownContainer({
     )
   }
 
+  // Calculate dropdown style - use drag position if user has dragged, otherwise use initial position
   const dropdownStyle: React.CSSProperties = {
-    top: position.top,
-    transform: position.isStickyTop ? 'none' : 'translateY(-100%)',
-    // 左侧超出时用 left: 0，否则右对齐触发按钮
-    ...(position.isStickyLeft
-      ? { left: position.left }
-      : { right: position.right }
+    // If user has dragged, use their custom position
+    ...(dragStartPosition
+      ? {
+          top: dragStartPosition.y,
+          left: dragStartPosition.x,
+          right: 'auto' as const,
+          transform: 'none',
+        }
+      : {
+          top: position.top,
+          transform: position.isStickyTop ? 'none' : 'translateY(-100%)',
+          ...(position.isStickyLeft
+            ? { left: position.left }
+            : { right: position.right }
+          ),
+        }
     ),
+    cursor: isDragging ? 'grabbing' : 'default',
+    width: isMinimized ? 300 : 640,
+    maxHeight: isMinimized ? 48 : 600,
   }
 
   // Get category icon
@@ -1118,8 +1166,10 @@ export function DropdownContainer({
         className="dropdown-container"
         style={dropdownStyle}
       >
-      <div className="dropdown-sidebar">
-        <div className="sidebar-categories">
+      {/* Sidebar - hidden when minimized */}
+      {!isMinimized && (
+        <div className="dropdown-sidebar">
+          <div className="sidebar-categories">
           {isResourceLibrary ? (
             <>
               {/* Back to local categories */}
@@ -1226,146 +1276,189 @@ export function DropdownContainer({
           )}
         </div>
       </div>
+      )}
 
       <div className="dropdown-main">
-        <div className="dropdown-header">
-          <span className="dropdown-header-title">
+        <div
+          ref={headerRef}
+          className={`dropdown-header ${isDragging ? 'dragging' : ''}`}
+          onMouseDown={handlePanelDragStart}
+        >
+          <span className="dropdown-header-title" style={{ cursor: 'grab' }}>
             <img className="dropdown-header-logo" src={chrome.runtime.getURL('assets/icon-128.png')} alt="Oh My Prompt" />
             Oh My Prompt
             <span className="version-badge">v{chrome.runtime.getManifest().version}</span>
           </span>
           <div className="dropdown-header-actions">
-            <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion} 可用` : '检查更新'} placement="bottom">
-              <button
-                ref={updateButtonRef}
-                className={`dropdown-action-btn${modalStates.showLatestTip ? ' has-tip' : ''}`}
-                style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
-                onClick={updateStatus?.hasUpdate ? () => openModal('isUpdateGuide') : handleCheckUpdate}
-                aria-label={updateStatus?.hasUpdate ? '查看更新引导' : '检查更新'}
-              >
-                <ArrowUpCircle style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
-            <Tooltip content="备份数据" placement="bottom">
-              <button
-                className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
-                onClick={handleRefreshClick}
-                aria-label="备份数据"
-                disabled={isRefreshing}
-              >
-                <RefreshCw style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
-            <Tooltip content="导入" placement="bottom">
+            {!isMinimized && (
+              <>
+                <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion} 可用` : '检查更新'} placement="bottom">
+                  <button
+                    ref={updateButtonRef}
+                    className={`dropdown-action-btn${modalStates.showLatestTip ? ' has-tip' : ''}`}
+                    style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
+                    onClick={updateStatus?.hasUpdate ? () => openModal('isUpdateGuide') : handleCheckUpdate}
+                    aria-label={updateStatus?.hasUpdate ? '查看更新引导' : '检查更新'}
+                  >
+                    <ArrowUpCircle style={{ width: 14, height: 14 }} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="备份数据" placement="bottom">
+                  <button
+                    className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
+                    onClick={handleRefreshClick}
+                    aria-label="备份数据"
+                    disabled={isRefreshing}
+                  >
+                    <RefreshCw style={{ width: 14, height: 14 }} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="导入" placement="bottom">
+                  <button
+                    className="dropdown-action-btn"
+                    onClick={handleImport}
+                    aria-label="导入"
+                  >
+                    <Upload style={{ width: 14, height: 14 }} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="导出" placement="bottom">
+                  <button
+                    className="dropdown-action-btn"
+                    onClick={handleExport}
+                    aria-label="导出"
+                  >
+                    <Download style={{ width: 14, height: 14 }} />
+                  </button>
+                </Tooltip>
+                {/* Language toggle - works for both local prompts and resource library */}
+                <button
+                  className="dropdown-language-btn"
+                  onClick={() => handleLanguageSwitch(resourceLanguage === 'zh' ? 'en' : 'zh')}
+                  aria-label={resourceLanguage === 'zh' ? '切换到英文' : '切换到中文'}
+                >
+                  {resourceLanguage === 'zh' ? '中文' : 'EN'}
+                </button>
+                <Tooltip content="访问官网" placement="bottom">
+                  <a
+                    className="dropdown-action-btn"
+                    href="https://oh-my-prompt.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="访问官网"
+                  >
+                    <ExternalLink style={{ width: 14, height: 14 }} />
+                  </a>
+                </Tooltip>
+              </>
+            )}
+            {/* Minimize and Close buttons */}
+            <Tooltip content={isMinimized ? '展开' : '收起'} placement="bottom">
               <button
                 className="dropdown-action-btn"
-                onClick={handleImport}
-                aria-label="导入"
+                onClick={() => setIsMinimized(!isMinimized)}
+                aria-label={isMinimized ? '展开' : '收起'}
               >
-                <Upload style={{ width: 14, height: 14 }} />
+                {isMinimized ? <Maximize2 style={{ width: 14, height: 14 }} /> : <Minimize2 style={{ width: 14, height: 14 }} />}
               </button>
             </Tooltip>
-            <Tooltip content="导出" placement="bottom">
+            <Tooltip content="关闭" placement="bottom">
               <button
                 className="dropdown-action-btn"
-                onClick={handleExport}
-                aria-label="导出"
+                onClick={onClose}
+                aria-label="关闭"
               >
-                <Download style={{ width: 14, height: 14 }} />
+                <X style={{ width: 14, height: 14 }} />
               </button>
-            </Tooltip>
-            {/* Language toggle - works for both local prompts and resource library */}
-            <button
-              className="dropdown-language-btn"
-              onClick={() => handleLanguageSwitch(resourceLanguage === 'zh' ? 'en' : 'zh')}
-              aria-label={resourceLanguage === 'zh' ? '切换到英文' : '切换到中文'}
-            >
-              {resourceLanguage === 'zh' ? '中文' : 'EN'}
-            </button>
-            <Tooltip content="访问官网" placement="bottom">
-              <a
-                className="dropdown-action-btn"
-                href="https://oh-my-prompt.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="访问官网"
-              >
-                <ExternalLink style={{ width: 14, height: 14 }} />
-              </a>
             </Tooltip>
           </div>
         </div>
 
-        {/* Update notification banner */}
-        {updateStatus?.hasUpdate && (
-          <div className="update-banner">
-            <ArrowUpCircle style={{ width: 14, height: 14, color: '#856404' }} />
-            <span className="update-banner-text">新版本 {updateStatus.latestVersion} 可用</span>
-            <span
-              className="update-banner-link"
-              onClick={() => openModal('isUpdateGuide')}
-            >
-              查看更新引导
-            </span>
-            <span className="update-banner-close" onClick={handleDismissUpdate}>×</span>
+        {/* Minimized state - only show header */}
+        {isMinimized && (
+          <div className="dropdown-minimized-hint" style={{
+            padding: '8px 16px',
+            fontSize: '11px',
+            color: '#64748B',
+            textAlign: 'center',
+          }}>
+            点击展开按钮恢复面板
           </div>
         )}
 
-        {/* Backup reminder banner - shows after sorting changes */}
-        {modalStates.showBackupReminder && (
-          <div className="backup-reminder-banner">
-            <RefreshCw style={{ width: 14, height: 14, color: '#1e40af' }} />
-            <span className="backup-reminder-text">本次改动尚未备份</span>
-            <span
-              className="backup-reminder-link"
-              onClick={() => {
-                closeModal('showBackupReminder')
-                handleRefreshClick()
-              }}
-            >
-              立即备份
-            </span>
-            <span className="backup-reminder-close" onClick={() => closeModal('showBackupReminder')}>×</span>
-          </div>
-        )}
+        {/* Content area - hidden when minimized */}
+        {!isMinimized && (
+          <>
+            {/* Update notification banner */}
+            {updateStatus?.hasUpdate && (
+              <div className="update-banner">
+                <ArrowUpCircle style={{ width: 14, height: 14, color: '#856404' }} />
+                <span className="update-banner-text">新版本 {updateStatus.latestVersion} 可用</span>
+                <span
+                  className="update-banner-link"
+                  onClick={() => openModal('isUpdateGuide')}
+                >
+                  查看更新引导
+                </span>
+                <span className="update-banner-close" onClick={handleDismissUpdate}>×</span>
+              </div>
+            )}
 
-        {/* First-time backup warning banner - shows on first open if no backup */}
-        {modalStates.showFirstBackupWarning && (
-          <div className="first-backup-warning-banner">
-            <div className="first-backup-warning-header">
-              <AlertTriangle className="first-backup-warning-icon" />
-              <span className="first-backup-warning-title">数据安全提醒</span>
-            </div>
-            <div className="first-backup-warning-text">
-              当前有 {backupWarningPromptCount} 个提示词，尚未设置备份。浏览器扩展卸载后数据将无法恢复。
-            </div>
-            <div className="first-backup-warning-actions">
-              <button
-                className="first-backup-warning-btn"
-                onClick={handleBackupWarningSelectFolder}
-              >
-                设置备份
-              </button>
-              <span
-                className="first-backup-warning-skip"
-                onClick={handleBackupWarningSkip}
-              >
-                稍后
-              </span>
-              <label className="first-backup-warning-checkbox">
-                <input
-                  type="checkbox"
-                  checked={dontShowBackupWarning}
-                  onChange={(e) => setDontShowBackupWarning(e.target.checked)}
-                  style={{ width: 12, height: 12 }}
-                />
-                不再提醒
-              </label>
-            </div>
-          </div>
-        )}
+            {/* Backup reminder banner - shows after sorting changes */}
+            {modalStates.showBackupReminder && (
+              <div className="backup-reminder-banner">
+                <RefreshCw style={{ width: 14, height: 14, color: '#1e40af' }} />
+                <span className="backup-reminder-text">本次改动尚未备份</span>
+                <span
+                  className="backup-reminder-link"
+                  onClick={() => {
+                    closeModal('showBackupReminder')
+                    handleRefreshClick()
+                  }}
+                >
+                  立即备份
+                </span>
+                <span className="backup-reminder-close" onClick={() => closeModal('showBackupReminder')}>×</span>
+              </div>
+            )}
 
-        <div className="dropdown-content" ref={scrollContainerRef} onScroll={handleScroll}>
+            {/* First-time backup warning banner - shows on first open if no backup */}
+            {modalStates.showFirstBackupWarning && (
+              <div className="first-backup-warning-banner">
+                <div className="first-backup-warning-header">
+                  <AlertTriangle className="first-backup-warning-icon" />
+                  <span className="first-backup-warning-title">数据安全提醒</span>
+                </div>
+                <div className="first-backup-warning-text">
+                  当前有 {backupWarningPromptCount} 个提示词，尚未设置备份。浏览器扩展卸载后数据将无法恢复。
+                </div>
+                <div className="first-backup-warning-actions">
+                  <button
+                    className="first-backup-warning-btn"
+                    onClick={handleBackupWarningSelectFolder}
+                  >
+                    设置备份
+                  </button>
+                  <span
+                    className="first-backup-warning-skip"
+                    onClick={handleBackupWarningSkip}
+                  >
+                    稍后
+                  </span>
+                  <label className="first-backup-warning-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={dontShowBackupWarning}
+                      onChange={(e) => setDontShowBackupWarning(e.target.checked)}
+                      style={{ width: 12, height: 12 }}
+                    />
+                    不再提醒
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div className="dropdown-content" ref={scrollContainerRef} onScroll={handleScroll}>
           {isLoading ? (
             <div className="empty-state">
               <div className="empty-message">加载中...</div>
@@ -1440,14 +1533,16 @@ export function DropdownContainer({
           )}
         </div>
         {/* FAB add prompt button */}
-        {!isResourceLibrary && (
-          <button
-            className="fab-add-prompt"
-            onClick={() => openModal('isPromptAdd')}
-            aria-label="添加提示词"
-          >
-            <Plus style={{ width: 18, height: 18 }} />
-          </button>
+            {!isResourceLibrary && (
+              <button
+                className="fab-add-prompt"
+                onClick={() => openModal('isPromptAdd')}
+                aria-label="添加提示词"
+              >
+                <Plus style={{ width: 18, height: 18 }} />
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -100,6 +100,13 @@ export const DROPDOWN_STYLES = `
     align-items: center;
     padding: 12px 16px;
     border-bottom: 1px solid #E5E5E5;
+    cursor: grab;
+    user-select: none;
+  }
+
+  #${PORTAL_ID} .dropdown-header.dragging {
+    cursor: grabbing;
+    opacity: 0.9;
   }
 
   #${PORTAL_ID} .dropdown-header-title {
@@ -109,6 +116,7 @@ export const DROPDOWN_STYLES = `
     font-size: 12px;
     font-weight: 600;
     color: #171717;
+    cursor: grab;
   }
 
   #${PORTAL_ID} .dropdown-header-logo {
