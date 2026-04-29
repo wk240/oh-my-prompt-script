@@ -1299,13 +1299,67 @@ export default function SidePanelApp() {
   
   return (
     <div className="side-panel-container">
-      {/* Sidebar */}
-      <div className="side-panel-sidebar">
-        <div className="sidebar-header">
-          <span className="sidebar-version">v{chrome.runtime.getManifest().version}</span>
+      {/* Top header - spans full width */}
+      <div className="top-header">
+        <span className="top-header-version">v{chrome.runtime.getManifest().version}</span>
+        <div className="top-header-actions">
+          <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion}` : '检查更新'} placement="bottom">
+            <button
+              className="header-action-btn"
+              style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
+              onClick={updateStatus?.hasUpdate ? () => openModal('isUpdateGuide') : handleCheckUpdate}
+            >
+              <ArrowUpCircle style={{ width: 14, height: 14 }} />
+            </button>
+          </Tooltip>
+          <Tooltip content="备份数据" placement="bottom">
+            <button
+              className={`header-action-btn ${isRefreshing ? 'refreshing' : ''}`}
+              onClick={handleBackup}
+              disabled={isRefreshing}
+            >
+              <RefreshCw style={{ width: 14, height: 14 }} />
+            </button>
+          </Tooltip>
+          <Tooltip content="导入" placement="bottom">
+            <button className="header-action-btn" onClick={handleImport}>
+              <Upload style={{ width: 14, height: 14 }} />
+            </button>
+          </Tooltip>
+          <Tooltip content="导出" placement="bottom">
+            <button className="header-action-btn" onClick={handleExport}>
+              <Download style={{ width: 14, height: 14 }} />
+            </button>
+          </Tooltip>
+          <button
+            className="header-language-btn"
+            onClick={() => handleLanguageSwitch(resourceLanguage === 'zh' ? 'en' : 'zh')}
+          >
+            {resourceLanguage === 'zh' ? '中' : 'EN'}
+          </button>
+          <Tooltip content="设置" placement="bottom">
+            <button className="header-action-btn" onClick={handleOpenSettings}>
+              <Settings style={{ width: 14, height: 14 }} />
+            </button>
+          </Tooltip>
+          <Tooltip content="官网" placement="bottom">
+            <a
+              className="header-action-btn"
+              href="https://oh-my-prompt.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink style={{ width: 14, height: 14 }} />
+            </a>
+          </Tooltip>
         </div>
+      </div>
 
-        <div className="sidebar-categories scrollbar-thin">
+      {/* Content row - sidebar + main */}
+      <div className="side-panel-content-row">
+        {/* Sidebar */}
+        <div className="side-panel-sidebar">
+          <div className="sidebar-categories scrollbar-thin">
           {isResourceLibrary ? (
             <>
               <button
@@ -1406,61 +1460,6 @@ export default function SidePanelApp() {
 
       {/* Main content */}
       <div className="side-panel-main">
-        {/* Header actions */}
-        <div className="main-header">
-          <div className="header-actions">
-            <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion}` : '检查更新'} placement="bottom">
-              <button
-                className="header-action-btn"
-                style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
-                onClick={updateStatus?.hasUpdate ? () => openModal('isUpdateGuide') : handleCheckUpdate}
-              >
-                <ArrowUpCircle style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
-            <Tooltip content="备份数据" placement="bottom">
-              <button
-                className={`header-action-btn ${isRefreshing ? 'refreshing' : ''}`}
-                onClick={handleBackup}
-                disabled={isRefreshing}
-              >
-                <RefreshCw style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
-            <Tooltip content="导入" placement="bottom">
-              <button className="header-action-btn" onClick={handleImport}>
-                <Upload style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
-            <Tooltip content="导出" placement="bottom">
-              <button className="header-action-btn" onClick={handleExport}>
-                <Download style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
-            <button
-              className="header-language-btn"
-              onClick={() => handleLanguageSwitch(resourceLanguage === 'zh' ? 'en' : 'zh')}
-            >
-              {resourceLanguage === 'zh' ? '中' : 'EN'}
-            </button>
-            <Tooltip content="设置" placement="bottom">
-              <button className="header-action-btn" onClick={handleOpenSettings}>
-                <Settings style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
-            <Tooltip content="官网" placement="bottom">
-              <a
-                className="header-action-btn"
-                href="https://oh-my-prompt.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink style={{ width: 14, height: 14 }} />
-              </a>
-            </Tooltip>
-          </div>
-        </div>
-
         {/* Input availability status banner */}
         {inputStatus === 'checking' && (
           <div className="input-status-banner checking">
@@ -1562,6 +1561,7 @@ export default function SidePanelApp() {
             <Plus style={{ width: 18, height: 18 }} />
           </button>
         )}
+      </div>
       </div>
 
       {/* Modals */}
