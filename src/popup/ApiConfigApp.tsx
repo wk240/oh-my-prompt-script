@@ -193,10 +193,10 @@ function ApiConfigApp() {
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-200">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">API 配置</h1>
+            <h1 className="text-base font-semibold text-gray-900">视觉AI配置</h1>
             {!config && (
               <p className="text-sm text-gray-500 mt-1">
-                配置 Vision AI API 密钥以启用图片转提示词功能
+                配置API密钥后，可上传图片自动生成提示词
               </p>
             )}
           </div>
@@ -208,6 +208,20 @@ function ApiConfigApp() {
             <X style={{ width: 16, height: 16 }} />
           </button>
         </div>
+
+        {/* What is Vision AI? */}
+        {!config && (
+          <div className="px-4 pt-3 pb-2">
+            <div className="bg-blue-50 rounded-lg p-3 text-sm text-gray-600">
+              <p className="font-medium text-gray-700 mb-1">💡 什么是视觉AI？</p>
+              <p>
+                视觉AI能「看懂」图片内容，自动分析图片中的风格、元素、配色等，
+                并生成对应的提示词描述。配置后，你在创作时上传参考图片，
+                系统会自动生成匹配的提示词，无需手动描述。
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="p-4 space-y-3">
@@ -244,7 +258,7 @@ function ApiConfigApp() {
           {/* API Base URL */}
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1">
-              API Base URL
+              API地址
             </label>
             <input
               type="text"
@@ -254,12 +268,15 @@ function ApiConfigApp() {
               className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               disabled={loading}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              接口的服务地址，如阿里云百炼、OpenAI等
+            </p>
           </div>
 
           {/* API Key */}
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1">
-              API Key
+              API密钥
             </label>
             <input
               type="password"
@@ -269,21 +286,27 @@ function ApiConfigApp() {
               className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               disabled={loading}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              在服务商后台获取的密钥，仅本地存储
+            </p>
           </div>
 
           {/* Model Name */}
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1">
-              Model Name
+              模型名称
             </label>
             <input
               type="text"
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
-              placeholder="gpt-4-vision-preview"
+              placeholder="gpt-4o 或 qwen-vl-max"
               className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               disabled={loading}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              支持图片理解的模型，如 gpt-4o、qwen-vl-max
+            </p>
           </div>
 
           {/* Error message */}
@@ -315,9 +338,10 @@ function ApiConfigApp() {
           </div>
 
           {/* Hint */}
-          <p className="text-xs text-gray-500 pt-2">
-            提示：API 密钥仅存储在本地，不会同步到其他设备
-          </p>
+          <div className="text-xs text-gray-500 pt-2 space-y-1">
+            <p>💡 推荐服务商：阿里云百炼（国内）、OpenAI（国外）</p>
+            <p>🔒 所有配置仅存储在本地，不会上传到云端</p>
+          </div>
         </div>
       </div>
 
