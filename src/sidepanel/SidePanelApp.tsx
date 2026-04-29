@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react'
 import type { Prompt, Category, StorageSchema, ResourcePrompt, UpdateStatus } from '../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '../shared/utils'
-import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle, Plus, Pencil, Trash2, Download, Upload, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings } from 'lucide-react'
+import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle, Plus, Pencil, Trash2, Download, Upload, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2 } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -143,7 +143,7 @@ function SortablePromptItem({
   showDragHandle,
   onEdit,
   onDelete,
-  isOnLovart,
+  canInject,
 }: {
   prompt: Prompt
   isSelected: boolean
@@ -151,7 +151,7 @@ function SortablePromptItem({
   showDragHandle: boolean
   onEdit: (prompt: Prompt) => void
   onDelete: (prompt: Prompt) => void
-  isOnLovart: boolean
+  canInject: boolean
 }) {
   const {
     attributes,
@@ -339,7 +339,7 @@ function SortablePromptItem({
           <span className="prompt-item-preview">{truncateText(prompt.description || prompt.content, 40)}</span>
         </Tooltip>
       </div>
-      {isOnLovart && <ArrowUpRight className="prompt-item-arrow" />}
+      {canInject && <ArrowUpRight className="prompt-item-arrow" />}
       <div className="prompt-action-buttons">
         <button
           className="prompt-action-btn"
@@ -369,7 +369,7 @@ function SidePanelNetworkCard({
   onCollect,
   isCollected,
   language,
-  isOnLovart,
+  canInject,
 }: {
   prompt: ResourcePrompt
   onClick: () => void
@@ -377,7 +377,7 @@ function SidePanelNetworkCard({
   onCollect?: () => void
   isCollected?: boolean
   language: 'zh' | 'en'
-  isOnLovart: boolean
+  canInject: boolean
 }) {
   const displayName = language === 'en' && prompt.nameEn ? prompt.nameEn : prompt.name
 
@@ -534,7 +534,7 @@ function SidePanelNetworkCard({
             <Bookmark style={{ width: 12, height: 12, fill: isCollected ? 'currentColor' : 'none' }} />
           </button>
         </Tooltip>
-        {isOnLovart && (
+        {canInject && (
           <Tooltip content="注入">
             <button
               onClick={(e) => { e.stopPropagation(); onInject?.() }}
@@ -567,7 +567,8 @@ export default function SidePanelApp() {
   const [loadedCount, setLoadedCount] = useState(50)
 
   // Input availability detection (universal - works on any page with input)
-  const [isOnLovart, setIsOnLovart] = useState(false)
+  type InputStatus = 'checking' | 'available' | 'unavailable'
+  const [inputStatus, setInputStatus] = useState<InputStatus>('checking')
   const [currentTabId, setCurrentTabId] = useState<number | null>(null)
 
   // Helper function to check if a URL is a special page (no content script)
@@ -575,13 +576,14 @@ export default function SidePanelApp() {
     return url.startsWith('chrome://') || url.startsWith('edge://') || url.startsWith('about://') || url.startsWith('chrome-extension://')
   }, [])
 
-  // Helper function to check input availability on a tab
-  const checkInputOnTab = useCallback(async (tabId: number, retries: number): Promise<boolean> => {
+  // Helper function to check input availability on a tab with status updates
+  const checkInputOnTab = useCallback(async (tabId: number, retries: number, onRetry?: (attempt: number) => void): Promise<boolean> => {
     console.log('[Oh My Prompt] SidePanel: Starting checkInput on tab', tabId, 'with', retries, 'retries')
     for (let i = 0; i < retries; i++) {
       try {
         if (i > 0) {
           console.log('[Oh My Prompt] SidePanel: Waiting 500ms before retry', i + 1)
+          onRetry?.(i + 1)
           await new Promise(resolve => setTimeout(resolve, 500))
         }
         console.log('[Oh My Prompt] SidePanel: Sending CHECK_INPUT_AVAILABILITY to tab', tabId)
@@ -601,38 +603,27 @@ export default function SidePanelApp() {
   }, [])
 
   // Check input availability for current active tab
+  // Unified handling - works on any page with input
   const checkInputAvailability = useCallback(async () => {
     console.log('[Oh My Prompt] SidePanel: Starting input availability check')
+    setInputStatus('checking')
 
     // First check active tab, then fallback to other tabs in the same window
     chrome.tabs.query({ active: true, currentWindow: true }, async (activeTabs) => {
       const activeTab = activeTabs[0]
       console.log('[Oh My Prompt] SidePanel: Active tab:', activeTab?.id, activeTab?.url)
 
-      // If active tab is valid and not special page, use it
-      if (activeTab?.id && activeTab?.url) {
-        const isLovart = activeTab.url.includes('lovart.ai') || activeTab.url.startsWith('file://')
-        if (isLovart) {
-          console.log('[Oh My Prompt] SidePanel: Lovart page detected, checking input availability')
-          setCurrentTabId(activeTab.id)
-          // Still need to check if input element exists (home page doesn't have input)
-          const hasInput = await checkInputOnTab(activeTab.id, 3)
-          setIsOnLovart(hasInput)
-          console.log('[Oh My Prompt] SidePanel: Input check result:', hasInput)
-          return
-        }
-
-        if (!isSpecialPage(activeTab.url)) {
-          setCurrentTabId(activeTab.id)
-          const hasInput = await checkInputOnTab(activeTab.id, 3)
-          setIsOnLovart(hasInput)
-          console.log('[Oh My Prompt] SidePanel: Input check result:', hasInput)
-          return
-        }
+      // If active tab is valid and not special page, check input availability
+      if (activeTab?.id && activeTab?.url && !isSpecialPage(activeTab.url)) {
+        setCurrentTabId(activeTab.id)
+        const hasInput = await checkInputOnTab(activeTab.id, 3)
+        setInputStatus(hasInput ? 'available' : 'unavailable')
+        console.log('[Oh My Prompt] SidePanel: Input check result:', hasInput)
+        return
       }
 
-      // Active tab is special page, find another tab in the same window
-      console.log('[Oh My Prompt] SidePanel: Active tab is special page, searching for other tabs')
+      // Active tab is special page or invalid, find another tab in the same window
+      console.log('[Oh My Prompt] SidePanel: Active tab is special page or invalid, searching for other tabs')
       chrome.tabs.query({ currentWindow: true }, async (allTabs) => {
         // Find first non-special page tab (excluding active tab which we already checked)
         const candidateTabs = allTabs.filter(t =>
@@ -642,25 +633,11 @@ export default function SidePanelApp() {
         console.log('[Oh My Prompt] SidePanel: Found', candidateTabs.length, 'candidate tabs')
         for (const tab of candidateTabs) {
           if (tab.id && tab.url) {
-            const isLovart = tab.url.includes('lovart.ai') || tab.url.startsWith('file://')
-            if (isLovart) {
-              console.log('[Oh My Prompt] SidePanel: Found Lovart tab:', tab.id, tab.url)
-              setCurrentTabId(tab.id)
-              // Check if input element exists (home page doesn't have input)
-              const hasInput = await checkInputOnTab(tab.id, 2)
-              if (hasInput) {
-                setIsOnLovart(true)
-                console.log('[Oh My Prompt] SidePanel: Lovart tab has input:', tab.id)
-                return
-              }
-              continue // Try next tab if no input
-            }
-
             setCurrentTabId(tab.id)
             const hasInput = await checkInputOnTab(tab.id, 2) // Fewer retries for fallback tabs
             if (hasInput) {
               console.log('[Oh My Prompt] SidePanel: Found tab with input:', tab.id, tab.url)
-              setIsOnLovart(true)
+              setInputStatus('available')
               return
             }
           }
@@ -668,7 +645,7 @@ export default function SidePanelApp() {
 
         // No suitable tab found
         console.log('[Oh My Prompt] SidePanel: No tab with input found in window')
-        setIsOnLovart(false)
+        setInputStatus('unavailable')
         setCurrentTabId(null)
       })
     })
@@ -828,7 +805,7 @@ export default function SidePanelApp() {
 
   // Handle prompt insertion
   const handleSelectPrompt = useCallback(async (prompt: Prompt) => {
-    if (isOnLovart && currentTabId) {
+    if (inputStatus === 'available' && currentTabId) {
       // Send to content script for insertion
       try {
         const response = await chrome.tabs.sendMessage(currentTabId, {
@@ -861,11 +838,11 @@ export default function SidePanelApp() {
     }
     setSelectedPromptId(prompt.id)
     setTimeout(() => setSelectedPromptId(null), 2000)
-  }, [isOnLovart, currentTabId, setToastMessage, hideToast])
+  }, [inputStatus, currentTabId, setToastMessage, hideToast])
 
   // Handle resource prompt injection
   const handleInjectResource = useCallback(async (resourcePrompt: ResourcePrompt) => {
-    if (!isOnLovart || !currentTabId) return
+    if (inputStatus !== 'available' || !currentTabId) return
 
     const promptToInject = resourceLanguage === 'en' && resourcePrompt.contentEn
       ? resourcePrompt.contentEn
@@ -895,7 +872,7 @@ export default function SidePanelApp() {
         setTimeout(hideToast, 2000)
       }
     }
-  }, [isOnLovart, currentTabId, resourceLanguage, setToastMessage, hideToast])
+  }, [inputStatus, currentTabId, resourceLanguage, setToastMessage, hideToast])
 
   // Check if resource prompt is collected
   const isPromptCollected = useCallback((resourcePrompt: ResourcePrompt): boolean => {
@@ -1361,8 +1338,14 @@ export default function SidePanelApp() {
         </div>
 
         {/* Input availability status banner */}
-        {!isOnLovart && (
-          <div className="lovart-status-banner">
+        {inputStatus === 'checking' && (
+          <div className="input-status-banner checking">
+            <Loader2 style={{ width: 14, height: 14, color: '#6b7280' }} className="spin-animation" />
+            <span className="banner-text">正在检测页面...</span>
+          </div>
+        )}
+        {inputStatus === 'unavailable' && (
+          <div className="input-status-banner unavailable">
             <AlertTriangle style={{ width: 14, height: 14, color: '#ea580c' }} />
             <span className="banner-text">无法连接到页面，请关闭并重新打开扩展</span>
           </div>
@@ -1405,7 +1388,7 @@ export default function SidePanelApp() {
                     onInject={() => handleInjectResource(prompt)}
                     onCollect={() => handleQuickCollect(prompt)}
                     isCollected={isPromptCollected(prompt)}
-                    isOnLovart={isOnLovart}
+                    canInject={inputStatus === 'available'}
                   />
                 ))}
               </div>
@@ -1437,7 +1420,7 @@ export default function SidePanelApp() {
                       setEditingItem('deletingPrompt', p)
                       openModal('isPromptDelete')
                     }}
-                    isOnLovart={isOnLovart}
+                    canInject={inputStatus === 'available'}
                   />
                 ))}
               </SortableContext>

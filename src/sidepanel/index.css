@@ -343,14 +343,43 @@
 }
 
 /* Banners */
-.lovart-status-banner {
+.input-status-banner {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.input-status-banner.checking {
+  background: #f3f4f6;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.input-status-banner.checking .banner-text {
+  color: #6b7280;
+}
+
+.input-status-banner.unavailable {
   background: #fff7ed;
   border-bottom: 2px solid #f97316;
-  flex-shrink: 0;
+}
+
+.input-status-banner.unavailable .banner-text {
+  color: #9a3412;
+}
+
+.spin-animation {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .banner-text {
