@@ -1,9 +1,11 @@
 /**
  * PromptEditModal - Modal for adding/editing prompts
  * Uses BaseModal structure with inline styles
+ * Image hover preview: shows full image instantly when hovering on preview thumbnail
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Upload, Link, Image as ImageIcon, AlertCircle } from 'lucide-react'
 import { BaseModal } from './BaseModal'
 import type { Prompt, Category } from '../../shared/types'
@@ -16,6 +18,14 @@ import {
 } from '../../lib/sync/image-sync'
 import type { ImageSaveResult } from '../../lib/sync/image-sync'
 import { MAX_IMAGE_SIZE, ALLOWED_IMAGE_EXTENSIONS } from '../../shared/constants'
+
+// Preview offset from mouse cursor
+const PREVIEW_OFFSET = 16
+const PREVIEW_MAX_WIDTH = 720
+const PREVIEW_MAX_HEIGHT = 480
+
+// Fallback placeholder SVG
+const FALLBACK_IMAGE_SVG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480"%3E%3Crect fill="%23f0f0f0" width="720" height="480"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="14" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E'
 
 interface PromptEditModalProps {
   isOpen: boolean
@@ -78,6 +88,10 @@ export function PromptEditModal({
   const [showFolderWarning, setShowFolderWarning] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Hover preview state
+  const [showImagePreview, setShowImagePreview] = useState(false)
+  const [imagePreviewMousePos, setImagePreviewMousePos] = useState({ x: 0, y: 0 })
+
   // Cleanup blob URLs to prevent memory leaks
   useEffect(() => {
     return () => {
@@ -86,6 +100,13 @@ export function PromptEditModal({
       }
     }
   }, [imagePreviewUrl])
+
+  // Reset hover preview state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setShowImagePreview(false)
+    }
+  }, [isOpen])
 
   // Reset state when modal opens
   useEffect(() => {
@@ -254,6 +275,21 @@ export function PromptEditModal({
     [handleFileUpload]
   )
 
+  // Handle image thumbnail hover preview
+  const handleImageThumbnailMouseEnter = () => {
+    if (imagePreviewUrl) {
+      setShowImagePreview(true)
+    }
+  }
+
+  const handleImageThumbnailMouseMove = (e: React.MouseEvent) => {
+    setImagePreviewMousePos({ x: e.clientX, y: e.clientY })
+  }
+
+  const handleImageThumbnailMouseLeave = () => {
+    setShowImagePreview(false)
+  }
+
   const handleConfirm = () => {
     const trimmedName = name.trim()
     const trimmedContent = content.trim()
@@ -272,8 +308,54 @@ export function PromptEditModal({
 
   const isValid = name.trim() && content.trim() && categoryId
 
+  // Preview element - rendered via portal to document.body
+  // Auto-stick to top if preview would exceed viewport top boundary
+  const previewHeight = PREVIEW_MAX_HEIGHT + 32 + 16 // max height + padding + extra
+  const previewTopPosition = imagePreviewMousePos.y - PREVIEW_OFFSET - previewHeight
+  const shouldStickToTop = previewTopPosition < 0
+
+  const previewElement = showImagePreview && imagePreviewUrl ? (
+    <div
+      style={{
+        position: 'fixed',
+        left: imagePreviewMousePos.x - PREVIEW_OFFSET,
+        top: shouldStickToTop ? PREVIEW_OFFSET : imagePreviewMousePos.y - PREVIEW_OFFSET,
+        transform: shouldStickToTop ? 'translateX(-100%)' : 'translate(-100%, -100%)',
+        zIndex: 2147483647,
+        background: '#ffffff',
+        borderRadius: '12px',
+        boxShadow: '0 12px 48px rgba(0,0,0,0.25)',
+        padding: '16px',
+        maxWidth: `${PREVIEW_MAX_WIDTH + 32}px`,
+        maxHeight: `${PREVIEW_MAX_HEIGHT + 32}px`,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      }}
+    >
+      <img
+        src={imagePreviewUrl}
+        alt="Image preview"
+        style={{
+          maxWidth: `${PREVIEW_MAX_WIDTH}px`,
+          maxHeight: `${PREVIEW_MAX_HEIGHT}px`,
+          width: 'auto',
+          height: 'auto',
+          borderRadius: '8px',
+          display: 'block',
+          objectFit: 'contain',
+        }}
+        onError={(e) => {
+          e.currentTarget.src = FALLBACK_IMAGE_SVG
+        }}
+      />
+    </div>
+  ) : null
+
   return (
-    <BaseModal
+    <>
+      {/* Preview rendered via portal to document.body */}
+      {previewElement && createPortal(previewElement, document.body)}
+      <BaseModal
       isOpen={isOpen}
       onClose={onClose}
       title={mode === 'add' ? '添加提示词' : '编辑提示词'}
@@ -429,6 +511,9 @@ export function PromptEditModal({
             {imagePreviewUrl ? (
               <>
                 <div
+                  onMouseEnter={handleImageThumbnailMouseEnter}
+                  onMouseMove={handleImageThumbnailMouseMove}
+                  onMouseLeave={handleImageThumbnailMouseLeave}
                   style={{
                     width: 80,
                     height: 60,
@@ -436,6 +521,7 @@ export function PromptEditModal({
                     overflow: 'hidden',
                     background: '#f0f0f0',
                     flexShrink: 0,
+                    cursor: 'pointer',
                   }}
                 >
                   <img
@@ -660,5 +746,6 @@ export function PromptEditModal({
         </div>
       </div>
     </BaseModal>
+    </>
   )
 }

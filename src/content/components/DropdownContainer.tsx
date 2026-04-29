@@ -577,70 +577,45 @@ export function DropdownContainer({
       return
     }
 
-    // Check folder configured for image download
-    const folderConfigured = await isFolderConfigured()
+    // Generate prompt ID upfront for image save
+    const promptId = crypto.randomUUID()
     let localImage: string | undefined = undefined
 
-    // Auto-download image if folder configured and prompt has preview image
-    if (folderConfigured && resourcePrompt.previewImage) {
-      try {
-        const downloadResult = await downloadImageFromUrl(resourcePrompt.previewImage)
-        if (downloadResult.success && downloadResult.blob) {
-          // Store the blob temporarily
-          const imageBlob = downloadResult.blob
-
-          // Create prompt first to get ID
-          const tempPrompt: Omit<Prompt, 'id'> = {
-            name: resourcePrompt.name,
-            content: resourcePrompt.content,
-            categoryId: targetCategoryId,
-            description: resourcePrompt.description,
-            order: 0,
-            remoteImageUrl: resourcePrompt.previewImage,
-          }
-
-          // Add prompt and get the created prompt with ID
-          await usePromptStore.getState().addPrompt(tempPrompt)
-
-          // Get the newly created prompt ID from store
-          const newPrompt = usePromptStore.getState().prompts.find(p =>
-            p.content === resourcePrompt.content && p.categoryId === targetCategoryId
-          )
-
-          if (newPrompt) {
-            // Save image with the prompt ID
-            const imageResult = await saveImage(newPrompt.id, imageBlob)
+    // Auto-download and save image if folder configured and prompt has preview image
+    if (resourcePrompt.previewImage) {
+      const folderConfigured = await isFolderConfigured()
+      if (folderConfigured) {
+        try {
+          const downloadResult = await downloadImageFromUrl(resourcePrompt.previewImage)
+          if (downloadResult.success && downloadResult.blob) {
+            const imageResult = await saveImage(promptId, downloadResult.blob)
             if (imageResult.success && imageResult.relativePath) {
-              // Update prompt with localImage path
-              usePromptStore.getState().updatePrompt(newPrompt.id, {
-                localImage: imageResult.relativePath
-              })
               localImage = imageResult.relativePath
             }
           }
+        } catch (error) {
+          console.warn('[Oh My Prompt] Failed to download/save resource image:', error)
+          // Continue without image - user can add later
         }
-      } catch (error) {
-        console.warn('[Oh My Prompt] Failed to download resource image:', error)
-        // Continue without image - user can add later
+      } else {
+        // Folder not configured - show toast but continue
+        showToast('图片未保存，请先配置备份文件夹')
       }
-    } else if (!folderConfigured && resourcePrompt.previewImage) {
-      // Folder not configured - show toast
-      showToast('图片未保存，请先配置备份文件夹')
     }
 
-    // If image download failed or no image, create prompt without image
-    if (!localImage) {
-      const localPrompt: Omit<Prompt, 'id'> = {
-        name: resourcePrompt.name,
-        content: resourcePrompt.content,
-        categoryId: targetCategoryId,
-        description: resourcePrompt.description,
-        order: 0,
-        remoteImageUrl: resourcePrompt.previewImage,
-      }
-
-      await usePromptStore.getState().addPrompt(localPrompt)
+    // Create prompt (single creation with all fields)
+    const newPrompt: Prompt = {
+      id: promptId,
+      name: resourcePrompt.name,
+      content: resourcePrompt.content,
+      categoryId: targetCategoryId,
+      description: resourcePrompt.description,
+      order: 0,
+      remoteImageUrl: resourcePrompt.previewImage,
+      localImage,
     }
+
+    usePromptStore.getState().addPrompt(newPrompt)
 
     const categoryName = usePromptStore.getState().categories.find(c => c.id === targetCategoryId)?.name || '未知分类'
 

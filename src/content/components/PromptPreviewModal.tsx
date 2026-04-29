@@ -2,11 +2,11 @@
  * PromptPreviewModal - Modal overlay for full prompt content display
  * Portal-rendered modal with escape/overlay close
  * Footer: left 1/3 collect button, right 2/3 inject button
- * Image hover preview: shows full image after 500ms delay
+ * Image hover preview: instant display (no delay, same as thumbnail behavior)
  */
 
 import { createPortal } from 'react-dom'
-import { useEffect, useCallback, useState, useRef } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { X, Bookmark, ArrowUpRight, Languages, Pencil } from 'lucide-react'
 import type { ResourcePrompt, Prompt } from '../../shared/types'
 
@@ -31,8 +31,7 @@ function isResourcePrompt(prompt: ResourcePrompt | Prompt): prompt is ResourcePr
 
 const PORTAL_ID = 'oh-my-prompt-dropdown-portal'
 
-// Hover preview delay and dimensions (1.5x larger for better visibility)
-const HOVER_PREVIEW_DELAY = 500
+// Hover preview: instant display (no delay, same as thumbnail behavior)
 const PREVIEW_OFFSET = 16
 const PREVIEW_MAX_WIDTH = 720
 const PREVIEW_MAX_HEIGHT = 480
@@ -63,7 +62,6 @@ export function PromptPreviewModal({
   // Hover preview state
   const [showPreview, setShowPreview] = useState(false)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Image URL state for user prompts (async loading)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
@@ -126,11 +124,9 @@ export function PromptPreviewModal({
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
-  // Cleanup timer on close
+  // Reset preview state when modal closes
   useEffect(() => {
-    if (!isOpen && hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current)
-      hoverTimerRef.current = null
+    if (!isOpen) {
       setShowPreview(false)
     }
   }, [isOpen])
@@ -147,12 +143,10 @@ export function PromptPreviewModal({
     onClose()
   }, [onInject, onClose, modalLanguage])
 
-  // Handle image mouse enter - start 500ms timer
+  // Handle image mouse enter - show preview immediately (same as thumbnail behavior)
   const handleImageMouseEnter = () => {
     if (imageUrl) {
-      hoverTimerRef.current = setTimeout(() => {
-        setShowPreview(true)
-      }, HOVER_PREVIEW_DELAY)
+      setShowPreview(true)
     }
   }
 
@@ -161,12 +155,8 @@ export function PromptPreviewModal({
     setMousePos({ x: e.clientX, y: e.clientY })
   }
 
-  // Handle image mouse leave - cancel timer and hide preview
+  // Handle image mouse leave - hide preview
   const handleImageMouseLeave = () => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current)
-      hoverTimerRef.current = null
-    }
     setShowPreview(false)
   }
 
