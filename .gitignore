@@ -4,7 +4,7 @@ dist/
 dist.zip
 oh-my-prompt-v*.zip
 tests/
-assets/.DS_Store
-.gitignore
-.DS_Store
+**/.DS_Store
 .worktrees/
+playwright-report
+test-results

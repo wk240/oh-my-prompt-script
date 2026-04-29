@@ -120,22 +120,21 @@ export class VisionModalManager {
         box-sizing: border-box;
       }
 
-      /* Overlay - semi-transparent backdrop */
+      /* Overlay - no backdrop (transparent), just positioning container */
       .modal-overlay {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        background: transparent;
+        pointer-events: none;
         z-index: 2147483647; /* Maximum z-index */
       }
 
-      /* Modal card - centered floating box */
+      /* Modal card - floating box with fixed positioning */
       .modal-card {
+        position: fixed;
         width: 480px;
         max-width: 90vw;
         max-height: 90vh;
@@ -145,6 +144,14 @@ export class VisionModalManager {
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        pointer-events: auto;
+      }
+
+      /* Modal card minimized state */
+      .modal-card.minimized {
+        width: auto;
+        max-width: 200px;
+        max-height: none;
       }
 
       /* Modal header */
@@ -152,37 +159,67 @@ export class VisionModalManager {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 16px;
+        padding: 12px 16px;
         border-bottom: 1px solid #E5E5E5;
+        cursor: grab;
+        user-select: none;
       }
 
       .modal-title {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 600;
         color: #171717;
       }
 
-      .modal-close {
-        width: 32px;
-        height: 32px;
+      .modal-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .modal-action-btn {
+        width: 24px;
+        height: 24px;
+        padding: 0;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
         background: transparent;
         border: none;
-        border-radius: 6px;
+        border-radius: 4px;
         cursor: pointer;
         transition: background 0.15s ease;
       }
 
-      .modal-close:hover {
+      .modal-action-btn:hover {
         background: #f8f8f8;
       }
 
-      .modal-close svg {
-        width: 16px;
-        height: 16px;
+      .modal-action-btn svg {
+        width: 14px;
+        height: 14px;
         color: #64748B;
+      }
+
+      /* Minimized content */
+      .minimized-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 16px;
+        gap: 12px;
+      }
+
+      .minimized-status {
+        font-size: 13px;
+        color: #64748B;
+        flex: 1;
+      }
+
+      .expand-btn {
+        flex-shrink: 0;
       }
 
       /* Modal content */
@@ -263,14 +300,14 @@ export class VisionModalManager {
       }
 
       .btn-primary {
-        background: #1890ff;
-        border: 1px solid #1890ff;
+        background: #171717;
+        border: 1px solid #171717;
         color: #ffffff;
       }
 
       .btn-primary:hover {
-        background: #40a9ff;
-        border-color: #40a9ff;
+        background: rgba(23, 23, 23, 0.9);
+        border-color: rgba(23, 23, 23, 0.9);
       }
 
       .btn-outline {
@@ -373,7 +410,7 @@ export class VisionModalManager {
 
       .config-input:focus {
         outline: none;
-        border-color: #1890ff;
+        border-color: #171717;
       }
 
       .config-input::placeholder {
@@ -402,21 +439,29 @@ export class VisionModalManager {
         background: #ccc;
       }
 
-      /* Tab buttons - 3-Tab layout */
+      /* Tab buttons - bottom footer layout */
+      .modal-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border-top: 1px solid #E5E5E5;
+        gap: 12px;
+      }
+
       .tab-buttons {
         display: flex;
         gap: 4px;
         background: #f0f0f0;
         padding: 4px;
-        border-radius: 8px;
+        border-radius: 6px;
       }
 
       .tab-btn {
-        flex: 1;
-        padding: 8px 16px;
+        padding: 6px 12px;
         border: none;
-        border-radius: 6px;
-        font-size: 14px;
+        border-radius: 4px;
+        font-size: 13px;
         font-weight: 500;
         color: #64748B;
         background: transparent;
@@ -431,7 +476,7 @@ export class VisionModalManager {
       .tab-btn.active {
         background: #ffffff;
         color: #171717;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
       }
 
       /* Tab content container */
@@ -474,10 +519,10 @@ export class VisionModalManager {
 
       .style-tag {
         padding: 4px 10px;
-        background: #e8f4fd;
+        background: #f0f0f0;
         border-radius: 12px;
         font-size: 12px;
-        color: #1890ff;
+        color: #171717;
         font-weight: 500;
       }
 

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Loader2, Check, X, RefreshCw, Settings } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Loader2, Check, X, RefreshCw, Settings, Minimize2, Maximize2, Copy } from 'lucide-react'
 import { MessageType } from '@/shared/messages'
 import type { VisionApiErrorPayload, VisionApiResultData, InsertPromptPayload, SaveTemporaryPromptPayload } from '@/shared/types'
 
@@ -72,6 +72,13 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
   const [isLovartPage, setIsLovartPage] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>('zh')
   const [languagePreference, setLanguagePreference] = useState<'zh' | 'en'>('zh')
+
+  // Draggable & minimizable state
+  const [isMinimized, setIsMinimized] = useState(false)
+  const [position, setPosition] = useState({ x: window.innerWidth - 500, y: 20 }) // Position from left/top
+  const [isDragging, setIsDragging] = useState(false)
+  const dragOffset = useRef({ x: 0, y: 0 })
+  const modalRef = useRef<HTMLDivElement>(null)
 
   /**
    * Check if current page is Lovart and get language preference
@@ -258,11 +265,6 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
 
     setFeedbackMessage(feedback)
     setState('feedback')
-
-    // Step 4: Auto-close after 1 second
-    setTimeout(() => {
-      onClose()
-    }, 1000)
   }
 
   /**
@@ -277,6 +279,42 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
+
+  /**
+   * Drag handlers - mouse down on header starts drag
+   */
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (isMinimized) return
+    e.preventDefault()
+    setIsDragging(true)
+    dragOffset.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    }
+  }, [position, isMinimized])
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setPosition({
+        x: e.clientX - dragOffset.current.x,
+        y: e.clientY - dragOffset.current.y
+      })
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging])
 
   /**
    * Render JSON prompt as key-value list
@@ -337,155 +375,185 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
   }
 
   return (
-    <div className="modal-overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose()
-    }}>
-      <div className="modal-card">
-        {/* Header */}
-        <div className="modal-header">
+    <div className="modal-overlay">
+      <div
+        ref={modalRef}
+        className={`modal-card ${isMinimized ? 'minimized' : ''}`}
+        style={{
+          position: 'fixed',
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          cursor: isDragging ? 'grabbing' : 'default',
+          userSelect: isDragging ? 'none' : 'auto'
+        }}
+      >
+        {/* Header - draggable when not minimized */}
+        <div
+          className="modal-header"
+          onMouseDown={handleMouseDown}
+          style={{ cursor: isMinimized ? 'default' : 'grab' }}
+        >
           <h1 className="modal-title">图片转提示词</h1>
-          <button className="modal-close" onClick={onClose} aria-label="关闭">
-            <X />
-          </button>
+          <div className="modal-header-actions">
+            {!isMinimized && (
+              <button
+                className="modal-action-btn"
+                onClick={() => setIsMinimized(true)}
+                aria-label="缩小"
+              >
+                <Minimize2 />
+              </button>
+            )}
+            <button className="modal-action-btn" onClick={onClose} aria-label="关闭">
+              <X />
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="modal-content">
-          {/* Loading state */}
-          {state === 'loading' && (
-            <div className="loading-view">
-              <Loader2 className="loading-spinner" />
-              <p className="loading-text">正在分析图片...</p>
-            </div>
-          )}
+        {/* Minimized state - compact bar */}
+        {isMinimized && (
+          <div className="minimized-content">
+            <span className="minimized-status">
+              {state === 'loading' && '分析中...'}
+              {state === 'success' && '分析完成'}
+              {state === 'error' && '出错了'}
+            </span>
+            <button
+              className="modal-action-btn expand-btn"
+              onClick={() => setIsMinimized(false)}
+              aria-label="放大"
+            >
+              <Maximize2 />
+            </button>
+          </div>
+        )}
 
-          {/* Success state - 3-Tab layout */}
-          {state === 'success' && fullData && (
-            <div className="success-view">
-              {/* Tab buttons */}
-              <div className="tab-buttons">
-                <button
-                  className={`tab-btn ${activeTab === 'zh' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('zh')}
-                >
-                  中文
-                </button>
-                <button
-                  className={`tab-btn ${activeTab === 'en' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('en')}
-                >
-                  英文
-                </button>
-                <button
-                  className={`tab-btn ${activeTab === 'json' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('json')}
-                >
-                  JSON
-                </button>
+        {/* Content - only show when not minimized */}
+        {!isMinimized && (
+          <div className="modal-content">
+            {/* Loading state */}
+            {state === 'loading' && (
+              <div className="loading-view">
+                <Loader2 className="loading-spinner" />
+                <p className="loading-text">正在分析图片...</p>
               </div>
+            )}
 
-              {/* Tab content */}
-              <div className="tab-content">
-                {/* Chinese tab */}
-                {activeTab === 'zh' && (
-                  <div className="prompt-tab">
-                    <div className="prompt-preview">{fullData.zh.prompt}</div>
-                    {fullData.zh.analysis && (
-                      <div className="analysis-section">
-                        <p className="analysis-label">分析说明:</p>
-                        <p className="analysis-text">{fullData.zh.analysis}</p>
-                      </div>
-                    )}
-                    {renderStyleTags(fullData.zh_style_tags)}
-                  </div>
-                )}
+            {/* Success state - 3-Tab layout */}
+            {state === 'success' && fullData && (
+              <div className="success-view">
+                {/* Tab content */}
+                <div className="tab-content">
+                  {/* Chinese tab */}
+                  {activeTab === 'zh' && (
+                    <div className="prompt-tab">
+                      <div className="prompt-preview">{fullData.zh.prompt}</div>
+                      {fullData.zh.analysis && (
+                        <div className="analysis-section">
+                          <p className="analysis-label">分析说明:</p>
+                          <p className="analysis-text">{fullData.zh.analysis}</p>
+                        </div>
+                      )}
+                      {renderStyleTags(fullData.zh_style_tags)}
+                    </div>
+                  )}
 
-                {/* English tab */}
-                {activeTab === 'en' && (
-                  <div className="prompt-tab">
-                    <div className="prompt-preview">{fullData.en.prompt}</div>
-                    {fullData.en.analysis && (
-                      <div className="analysis-section">
-                        <p className="analysis-label">Analysis:</p>
-                        <p className="analysis-text">{fullData.en.analysis}</p>
-                      </div>
-                    )}
-                    {renderStyleTags(fullData.en_style_tags)}
-                  </div>
-                )}
+                  {/* English tab */}
+                  {activeTab === 'en' && (
+                    <div className="prompt-tab">
+                      <div className="prompt-preview">{fullData.en.prompt}</div>
+                      {fullData.en.analysis && (
+                        <div className="analysis-section">
+                          <p className="analysis-label">Analysis:</p>
+                          <p className="analysis-text">{fullData.en.analysis}</p>
+                        </div>
+                      )}
+                      {renderStyleTags(fullData.en_style_tags)}
+                    </div>
+                  )}
 
-                {/* JSON tab */}
-                {activeTab === 'json' && (
-                  <div className="json-tab">
-                    {renderJsonPrompt()}
+                  {/* JSON tab */}
+                  {activeTab === 'json' && (
+                    <div className="json-tab">
+                      {renderJsonPrompt()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom footer - tabs left, action button right */}
+                <div className="modal-footer">
+                  <div className="tab-buttons">
+                    <button
+                      className={`tab-btn ${activeTab === 'zh' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('zh')}
+                    >
+                      中文
+                    </button>
+                    <button
+                      className={`tab-btn ${activeTab === 'en' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('en')}
+                    >
+                      英文
+                    </button>
+                    <button
+                      className={`tab-btn ${activeTab === 'json' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('json')}
+                    >
+                      JSON
+                    </button>
                   </div>
-                )}
+                  <button className="btn btn-primary" onClick={handleConfirm}>
+                    <Copy />
+                    复制并暂存
+                  </button>
+                </div>
               </div>
+            )}
 
-              {/* Confidence indicator */}
-              <div className="confidence-section">
-                <span className={`confidence-label ${fullData.confidence < 0.7 ? 'low' : ''}`}>
-                  置信度: {Math.round(fullData.confidence * 100)}%
-                </span>
+            {/* Confirming state */}
+            {state === 'confirming' && (
+              <div className="loading-view">
+                <Loader2 className="loading-spinner" />
+                <p className="loading-text">正在处理...</p>
               </div>
+            )}
 
-              {/* Action buttons */}
-              <div className="action-buttons">
-                <button className="btn btn-primary" onClick={handleConfirm}>
+            {/* Feedback state */}
+            {state === 'feedback' && (
+              <div className="feedback-view">
+                <div className="feedback-success">
                   <Check />
-                  确认
-                </button>
-                <button className="btn btn-outline" onClick={onClose}>
-                  取消
-                </button>
+                  <p className="feedback-text">{feedbackMessage}</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Confirming state */}
-          {state === 'confirming' && (
-            <div className="loading-view">
-              <Loader2 className="loading-spinner" />
-              <p className="loading-text">正在处理...</p>
-            </div>
-          )}
-
-          {/* Feedback state */}
-          {state === 'feedback' && (
-            <div className="feedback-view">
-              <div className="feedback-success">
-                <Check />
-                <p className="feedback-text">{feedbackMessage}</p>
-              </div>
-              <p className="feedback-hint">弹窗将在1秒后自动关闭</p>
-            </div>
-          )}
-
-          {/* Error state */}
-          {state === 'error' && (
-            <div className="error-view">
-              <p className="error-message" role="alert">{errorMessage}</p>
-              <div className="action-buttons">
-                {errorAction === 'settings' && (
-                  <button className="btn btn-primary" onClick={handleOpenSettings}>
-                    <Settings />
-                    配置API
+            {/* Error state */}
+            {state === 'error' && (
+              <div className="error-view">
+                <p className="error-message" role="alert">{errorMessage}</p>
+                <div className="action-buttons">
+                  {errorAction === 'settings' && (
+                    <button className="btn btn-primary" onClick={handleOpenSettings}>
+                      <Settings />
+                      配置API
+                    </button>
+                  )}
+                  {errorAction === 'retry' && (
+                    <button className="btn btn-primary" onClick={handleRetry}>
+                      <RefreshCw />
+                      重试
+                    </button>
+                  )}
+                  <button className="btn btn-outline" onClick={onClose}>
+                    <X />
+                    关闭
                   </button>
-                )}
-                {errorAction === 'retry' && (
-                  <button className="btn btn-primary" onClick={handleRetry}>
-                    <RefreshCw />
-                    重试
-                  </button>
-                )}
-                <button className="btn btn-outline" onClick={onClose}>
-                  <X />
-                  关闭
-                </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

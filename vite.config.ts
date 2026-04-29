@@ -25,7 +25,8 @@ export default defineConfig({
       input: {
         backup: 'src/popup/backup.html',
         settings: 'src/popup/settings.html',
-        loading: 'src/popup/loading.html'
+        loading: 'src/popup/loading.html',
+        sidepanel: 'src/sidepanel/sidepanel.html'
       },
       output: {
         manualChunks(id) {

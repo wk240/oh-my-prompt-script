@@ -25,6 +25,18 @@ chrome.runtime.onInstalled.addListener(() => {
       console.log('[Oh My Prompt] Context menu created successfully')
     }
   })
+
+  // Set side panel to open on action click (Chrome 116+)
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+    .catch((error) => console.error('[Oh My Prompt] Side panel behavior error:', error))
+})
+
+// Open side panel when extension icon is clicked (fallback for older Chrome versions)
+chrome.action.onClicked.addListener((tab) => {
+  if (tab.id) {
+    chrome.sidePanel.open({ tabId: tab.id })
+      .catch((error) => console.error('[Oh My Prompt] Side panel open error:', error))
+  }
 })
 
 const storageManager = StorageManager.getInstance()
