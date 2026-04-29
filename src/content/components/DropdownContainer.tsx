@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { Prompt, Category, StorageSchema } from '../../shared/types'
 import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '../../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '../../shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle, Plus, Pencil, Trash2, Download, Upload, ExternalLink, AlertTriangle, X, Minimize2, Maximize2 } from 'lucide-react'
+import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, RefreshCw, ArrowUpCircle, Plus, Pencil, Trash2, Download, Upload, ExternalLink, AlertTriangle } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -312,7 +312,7 @@ export function DropdownContainer({
   onRefresh,
   isOpen,
   selectedPromptId,
-  onClose,
+  onClose: _onClose,
   isLoading = false,
 }: DropdownContainerProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -328,9 +328,6 @@ export function DropdownContainer({
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
   const [dragStartPosition, setDragStartPosition] = useState<{ x: number; y: number } | null>(null)
-
-  // Minimize state - collapsed panel with only header visible
-  const [isMinimized, setIsMinimized] = useState(false)
 
   // Resource library state (loaded from local JSON)
   const [isResourceLibrary, setIsResourceLibrary] = useState(false)
@@ -1034,14 +1031,14 @@ export function DropdownContainer({
     // Keep within viewport bounds
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
-    const dropdownWidth = isMinimized ? 300 : 640
-    const dropdownHeight = isMinimized ? 48 : 600
+    const dropdownWidth = 640
+    const dropdownHeight = 600
 
     const boundedX = Math.max(0, Math.min(newX, viewportWidth - dropdownWidth))
     const boundedY = Math.max(0, Math.min(newY, viewportHeight - dropdownHeight))
 
     setDragStartPosition({ x: boundedX, y: boundedY })
-  }, [isDragging, dragOffset, isMinimized])
+  }, [isDragging, dragOffset])
 
   const handlePanelDragEnd = useCallback(() => {
     setIsDragging(false)
@@ -1132,8 +1129,8 @@ export function DropdownContainer({
         }
     ),
     cursor: isDragging ? 'grabbing' : 'default',
-    width: isMinimized ? 300 : 640,
-    maxHeight: isMinimized ? 48 : 600,
+    width: 640,
+    maxHeight: 600,
   }
 
   // Get category icon
@@ -1148,10 +1145,8 @@ export function DropdownContainer({
         className="dropdown-container"
         style={dropdownStyle}
       >
-      {/* Sidebar - hidden when minimized */}
-      {!isMinimized && (
-        <div className="dropdown-sidebar">
-          <div className="sidebar-categories">
+      <div className="dropdown-sidebar">
+        <div className="sidebar-categories">
           {isResourceLibrary ? (
             <>
               {/* Back to local categories */}
@@ -1258,7 +1253,6 @@ export function DropdownContainer({
           )}
         </div>
       </div>
-      )}
 
       <div className="dropdown-main">
         <div
@@ -1272,105 +1266,69 @@ export function DropdownContainer({
             <span className="version-badge">v{chrome.runtime.getManifest().version}</span>
           </span>
           <div className="dropdown-header-actions">
-            {!isMinimized && (
-              <>
-                <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion} 可用` : '检查更新'} placement="bottom">
-                  <button
-                    ref={updateButtonRef}
-                    className={`dropdown-action-btn${modalStates.showLatestTip ? ' has-tip' : ''}`}
-                    style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
-                    onClick={updateStatus?.hasUpdate ? () => openModal('isUpdateGuide') : handleCheckUpdate}
-                    aria-label={updateStatus?.hasUpdate ? '查看更新引导' : '检查更新'}
-                  >
-                    <ArrowUpCircle style={{ width: 14, height: 14 }} />
-                  </button>
-                </Tooltip>
-                <Tooltip content="备份数据" placement="bottom">
-                  <button
-                    className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
-                    onClick={handleRefreshClick}
-                    aria-label="备份数据"
-                    disabled={isRefreshing}
-                  >
-                    <RefreshCw style={{ width: 14, height: 14 }} />
-                  </button>
-                </Tooltip>
-                <Tooltip content="导入" placement="bottom">
-                  <button
-                    className="dropdown-action-btn"
-                    onClick={handleImport}
-                    aria-label="导入"
-                  >
-                    <Upload style={{ width: 14, height: 14 }} />
-                  </button>
-                </Tooltip>
-                <Tooltip content="导出" placement="bottom">
-                  <button
-                    className="dropdown-action-btn"
-                    onClick={handleExport}
-                    aria-label="导出"
-                  >
-                    <Download style={{ width: 14, height: 14 }} />
-                  </button>
-                </Tooltip>
-                {/* Language toggle - works for both local prompts and resource library */}
-                <button
-                  className="dropdown-language-btn"
-                  onClick={() => handleLanguageSwitch(resourceLanguage === 'zh' ? 'en' : 'zh')}
-                  aria-label={resourceLanguage === 'zh' ? '切换到英文' : '切换到中文'}
-                >
-                  {resourceLanguage === 'zh' ? '中' : 'EN'}
-                </button>
-                <Tooltip content="访问官网" placement="bottom">
-                  <a
-                    className="dropdown-action-btn"
-                    href="https://oh-my-prompt.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="访问官网"
-                  >
-                    <ExternalLink style={{ width: 14, height: 14 }} />
-                  </a>
-                </Tooltip>
-              </>
-            )}
-            {/* Minimize and Close buttons */}
-            <Tooltip content={isMinimized ? '展开' : '收起'} placement="bottom">
+            <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion} 可用` : '检查更新'} placement="bottom">
               <button
-                className="dropdown-action-btn"
-                onClick={() => setIsMinimized(!isMinimized)}
-                aria-label={isMinimized ? '展开' : '收起'}
+                ref={updateButtonRef}
+                className={`dropdown-action-btn${modalStates.showLatestTip ? ' has-tip' : ''}`}
+                style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
+                onClick={updateStatus?.hasUpdate ? () => openModal('isUpdateGuide') : handleCheckUpdate}
+                aria-label={updateStatus?.hasUpdate ? '查看更新引导' : '检查更新'}
               >
-                {isMinimized ? <Maximize2 style={{ width: 14, height: 14 }} /> : <Minimize2 style={{ width: 14, height: 14 }} />}
+                <ArrowUpCircle style={{ width: 14, height: 14 }} />
               </button>
             </Tooltip>
-            <Tooltip content="关闭" placement="bottom">
+            <Tooltip content="备份数据" placement="bottom">
+              <button
+                className={`dropdown-action-btn ${isRefreshing ? 'refreshing' : ''}`}
+                onClick={handleRefreshClick}
+                aria-label="备份数据"
+                disabled={isRefreshing}
+              >
+                <RefreshCw style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+            <Tooltip content="导入" placement="bottom">
               <button
                 className="dropdown-action-btn"
-                onClick={onClose}
-                aria-label="关闭"
+                onClick={handleImport}
+                aria-label="导入"
               >
-                <X style={{ width: 14, height: 14 }} />
+                <Upload style={{ width: 14, height: 14 }} />
               </button>
+            </Tooltip>
+            <Tooltip content="导出" placement="bottom">
+              <button
+                className="dropdown-action-btn"
+                onClick={handleExport}
+                aria-label="导出"
+              >
+                <Download style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+            {/* Language toggle - works for both local prompts and resource library */}
+            <button
+              className="dropdown-language-btn"
+              onClick={() => handleLanguageSwitch(resourceLanguage === 'zh' ? 'en' : 'zh')}
+              aria-label={resourceLanguage === 'zh' ? '切换到英文' : '切换到中文'}
+            >
+              {resourceLanguage === 'zh' ? '中' : 'EN'}
+            </button>
+            <Tooltip content="访问官网" placement="bottom">
+              <a
+                className="dropdown-action-btn"
+                href="https://oh-my-prompt.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="访问官网"
+              >
+                <ExternalLink style={{ width: 14, height: 14 }} />
+              </a>
             </Tooltip>
           </div>
         </div>
 
-        {/* Minimized state - only show header */}
-        {isMinimized && (
-          <div className="dropdown-minimized-hint" style={{
-            padding: '8px 16px',
-            fontSize: '11px',
-            color: '#64748B',
-            textAlign: 'center',
-          }}>
-            点击展开按钮恢复面板
-          </div>
-        )}
-
-        {/* Content area - hidden when minimized */}
-        {!isMinimized && (
-          <>
+        {/* Content area */}
+        <>
             {/* Update notification banner */}
             {updateStatus?.hasUpdate && (
               <div className="update-banner">
@@ -1525,9 +1483,8 @@ export function DropdownContainer({
               </button>
             )}
           </>
-        )}
+        </div>
       </div>
-    </div>
     {/* Prompt preview modal with collect */}
     {editingStates.resourcePrompt && (
       <Suspense fallback={null}>
