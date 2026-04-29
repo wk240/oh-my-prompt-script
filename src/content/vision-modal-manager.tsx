@@ -136,8 +136,9 @@ export class VisionModalManager {
       .modal-card {
         position: fixed;
         width: 480px;
+        height: 700px;
         max-width: 90vw;
-        max-height: 90vh;
+        max-height: 700px;
         background: #ffffff;
         border-radius: 12px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);

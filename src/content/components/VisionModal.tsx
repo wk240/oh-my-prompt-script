@@ -76,9 +76,14 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
   // Draggable & minimizable state
   const [isMinimized, setIsMinimized] = useState(false)
   const [position, setPosition] = useState({ x: window.innerWidth - 500, y: 20 }) // Position from left/top
+  const [expandedPosition, setExpandedPosition] = useState({ x: window.innerWidth - 500, y: 20 }) // Store position when expanded
   const [isDragging, setIsDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
   const modalRef = useRef<HTMLDivElement>(null)
+
+  // Modal dimensions
+  const EXPANDED_WIDTH = 480
+  const MINIMIZED_WIDTH = 200
 
   /**
    * Check if current page is Lovart and get language preference
@@ -268,6 +273,28 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
   }
 
   /**
+   * Handle minimize - adjust position to keep right edge fixed
+   */
+  const handleMinimize = useCallback(() => {
+    // Store current expanded position
+    setExpandedPosition(position)
+    // Calculate new position: shift left by (expandedWidth - minimizedWidth)
+    // This keeps the right edge at the same position
+    const newLeft = position.x + (EXPANDED_WIDTH - MINIMIZED_WIDTH)
+    setPosition({ x: newLeft, y: position.y })
+    setIsMinimized(true)
+  }, [position])
+
+  /**
+   * Handle expand - restore to original expanded position
+   */
+  const handleExpand = useCallback(() => {
+    setIsMinimized(false)
+    // Restore to stored expanded position
+    setPosition(expandedPosition)
+  }, [expandedPosition])
+
+  /**
    * Handle ESC key
    */
   useEffect(() => {
@@ -398,7 +425,7 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
             {!isMinimized && (
               <button
                 className="modal-action-btn"
-                onClick={() => setIsMinimized(true)}
+                onClick={handleMinimize}
                 aria-label="缩小"
               >
                 <Minimize2 />
@@ -420,7 +447,7 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
             </span>
             <button
               className="modal-action-btn expand-btn"
-              onClick={() => setIsMinimized(false)}
+              onClick={handleExpand}
               aria-label="放大"
             >
               <Maximize2 />
