@@ -1255,7 +1255,7 @@ export function DropdownContainer({
                   className="backup-reminder-link"
                   onClick={() => {
                     closeModal('showBackupReminder')
-                    chrome.runtime.sendMessage({ type: MessageType.OPEN_SETTINGS_PAGE })
+                    chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
                   }}
                 >
                   设置备份

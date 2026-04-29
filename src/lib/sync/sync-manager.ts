@@ -15,21 +15,26 @@ export interface SyncStatus {
   permissionStatus?: 'granted' | 'prompt' | 'denied' // Permission state for restore UI
 }
 
+export interface SyncErrorInfo {
+  type: 'permission_lost' | 'folder_lost' | 'write_failed' | 'unknown'
+  message: string
+}
+
 /**
  * Trigger sync after data change
  * Called by store.saveToStorage()
- * Returns true if sync succeeded, false if failed or skipped (user should be reminded)
+ * Returns sync result with error details if failed
  */
-export async function triggerSync(userData: UserData): Promise<boolean> {
+export async function triggerSync(userData: UserData): Promise<{ success: boolean; error?: SyncErrorInfo }> {
   const storageManager = StorageManager.getInstance()
   const settings = await storageManager.getSettings()
 
-  // If sync not enabled, mark as unsynced and return false to trigger reminder
+  // If sync not enabled, mark as unsynced and return
   if (!settings.syncEnabled) {
     if (userData.prompts.length > 0) {
       await storageManager.updateSettings({ hasUnsyncedChanges: true })
     }
-    return false // No backup configured - should remind user
+    return { success: false } // No backup configured
   }
 
   const handle = await getFolderHandle()
@@ -38,19 +43,57 @@ export async function triggerSync(userData: UserData): Promise<boolean> {
     // Folder handle lost - disable sync and mark as unsynced
     await storageManager.updateSettings({ syncEnabled: false, hasUnsyncedChanges: true })
     console.warn('[Oh My Prompt] Sync folder handle lost, disabled sync')
-    return false
+    return { success: false, error: { type: 'folder_lost', message: '文件夹信息已丢失，请重新选择' } }
+  }
+
+  // Check permission BEFORE attempting sync (critical fix)
+  const permission = await checkFolderPermission(handle, 'readwrite')
+  if (permission !== 'granted') {
+    // Permission lost - cannot restore in Service Worker context
+    // Mark as unsynced so UI can show permission restore prompt
+    await storageManager.updateSettings({
+      syncEnabled: false, // Disable auto-sync until permission restored
+      hasUnsyncedChanges: true
+    })
+    console.warn('[Oh My Prompt] Sync permission lost:', permission)
+    return {
+      success: false,
+      error: {
+        type: 'permission_lost',
+        message: permission === 'denied'
+          ? '文件夹权限被拒绝，请更换文件夹'
+          : '文件夹权限已失效，请在备份设置中恢复权限'
+      }
+    }
   }
 
   try {
     await syncToLocalFolder(userData, handle)
     await storageManager.updateSettings({ lastSyncTime: Date.now(), hasUnsyncedChanges: false })
     console.log('[Oh My Prompt] Auto-sync completed')
-    return true
+    return { success: true }
   } catch (error) {
     console.error('[Oh My Prompt] Auto-sync failed:', error)
-    // Mark as unsynced so UI can show reminder
-    await storageManager.updateSettings({ hasUnsyncedChanges: true })
-    return false
+
+    // Classify error type for better user feedback
+    let errorInfo: SyncErrorInfo
+    if (error instanceof Error) {
+      if (error.name === 'NotAllowedError' || error.message.includes('permission')) {
+        errorInfo = { type: 'permission_lost', message: '文件夹权限已失效，请恢复权限' }
+        await storageManager.updateSettings({ syncEnabled: false, hasUnsyncedChanges: true })
+      } else if (error.name === 'NotFoundError') {
+        errorInfo = { type: 'folder_lost', message: '文件夹已被删除或移动，请重新选择' }
+        await storageManager.updateSettings({ syncEnabled: false, hasUnsyncedChanges: true })
+      } else {
+        errorInfo = { type: 'write_failed', message: '写入文件失败，请检查磁盘空间' }
+        await storageManager.updateSettings({ hasUnsyncedChanges: true })
+      }
+    } else {
+      errorInfo = { type: 'unknown', message: '同步失败，请稍后重试' }
+      await storageManager.updateSettings({ hasUnsyncedChanges: true })
+    }
+
+    return { success: false, error: errorInfo }
   }
 }
 
@@ -61,28 +104,44 @@ export async function initialSync(): Promise<void> {
   const handle = await getFolderHandle()
   if (!handle) return
 
-  const storageManager = StorageManager.getInstance()
-  const storageData = await storageManager.getData()
-  const localData = await readFromLocalFolder(handle)
-
-  // Case: chrome.storage empty, local has data -> restore
-  if (localData && storageData.userData.prompts.length === 0) {
-    await storageManager.updateUserData(localData)
-    console.log('[Oh My Prompt] Restored from local folder backup')
+  // Check permission before proceeding
+  const permission = await checkFolderPermission(handle, 'readwrite')
+  if (permission !== 'granted') {
+    console.warn('[Oh My Prompt] Initial sync skipped - permission status:', permission)
+    // Mark as unsynced so user sees permission restore prompt in backup UI
+    const storageManager = StorageManager.getInstance()
+    await storageManager.updateSettings({
+      syncEnabled: false,
+      hasUnsyncedChanges: true
+    })
     return
   }
 
-  // Case: both have data -> sync chrome.storage to local
-  if (localData && storageData.userData.prompts.length > 0) {
-    const settings = await storageManager.getSettings()
-    if (settings.syncEnabled) {
-      try {
+  const storageManager = StorageManager.getInstance()
+  const storageData = await storageManager.getData()
+
+  try {
+    const localData = await readFromLocalFolder(handle)
+
+    // Case: chrome.storage empty, local has data -> restore
+    if (localData && storageData.userData.prompts.length === 0) {
+      await storageManager.updateUserData(localData)
+      console.log('[Oh My Prompt] Restored from local folder backup')
+      return
+    }
+
+    // Case: both have data -> sync chrome.storage to local
+    if (localData && storageData.userData.prompts.length > 0) {
+      const settings = await storageManager.getSettings()
+      if (settings.syncEnabled) {
         await syncToLocalFolder(storageData.userData, handle)
         await storageManager.updateSettings({ lastSyncTime: Date.now() })
-      } catch (error) {
-        console.error('[Oh My Prompt] Initial sync failed:', error)
       }
     }
+  } catch (error) {
+    console.error('[Oh My Prompt] Initial sync failed:', error)
+    // Mark as unsynced on failure
+    await storageManager.updateSettings({ hasUnsyncedChanges: true })
   }
 }
 
@@ -262,6 +321,16 @@ export async function manualSync(): Promise<{ success: boolean; createdNewBackup
     return { success: false, error: '文件夹权限已失效，请重新选择' }
   }
 
+  // Check permission before attempting sync
+  const permission = await checkFolderPermission(handle, 'readwrite')
+  if (permission !== 'granted') {
+    if (permission === 'denied') {
+      return { success: false, error: '文件夹权限被拒绝，请更换文件夹' }
+    }
+    // Permission is 'prompt' - need to restore via popup
+    return { success: false, error: '文件夹权限已失效，请在备份设置中恢复权限' }
+  }
+
   try {
     const storageManager = StorageManager.getInstance()
     const data = await storageManager.getData()
@@ -269,6 +338,9 @@ export async function manualSync(): Promise<{ success: boolean; createdNewBackup
     await storageManager.updateSettings({ lastSyncTime: Date.now(), hasUnsyncedChanges: false })
     return { success: true, createdNewBackup: result.createdNewBackup }
   } catch (error) {
+    if (error instanceof Error && error.name === 'NotFoundError') {
+      return { success: false, error: '文件夹已被删除或移动，请重新选择' }
+    }
     return { success: false, error: '同步失败，请检查文件夹权限' }
   }
 }

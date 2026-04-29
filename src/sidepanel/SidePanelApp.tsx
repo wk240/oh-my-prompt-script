@@ -742,6 +742,8 @@ export default function SidePanelApp() {
     isPromptDelete: false,
     isUpdateGuide: false,
     showLatestTip: false,
+    showBackupReminder: false,
+    showFirstBackupWarning: false,
     toastMessage: null as string | null,
   })
 
@@ -756,6 +758,10 @@ export default function SidePanelApp() {
 
   // Update status
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
+
+  // Backup warning data states
+  const [backupWarningPromptCount, setBackupWarningPromptCount] = useState(0)
+  const [dontShowBackupWarning, setDontShowBackupWarning] = useState(false)
 
   // Resource library data
   const [resourcePrompts, setResourcePrompts] = useState<ResourcePrompt[]>([])
@@ -820,6 +826,37 @@ export default function SidePanelApp() {
         setUpdateStatus(response.data)
       }
     })
+  }, [])
+
+  // Check for unsynced changes to show backup reminder
+  useEffect(() => {
+    chrome.runtime.sendMessage({ type: MessageType.GET_SYNC_STATUS }, (response) => {
+      if (response?.success && response.data) {
+        const syncStatus = response.data
+        if (syncStatus.hasUnsyncedChanges) {
+          openModal('showBackupReminder')
+        }
+        // Check for first-time backup warning
+        if (!syncStatus.hasFolder && !syncStatus.dismissedBackupWarning) {
+          const promptCount = prompts.length
+          if (promptCount > 0) {
+            setBackupWarningPromptCount(promptCount)
+            openModal('showFirstBackupWarning')
+          }
+        }
+      }
+    })
+  }, [prompts.length])
+
+  // Listen for sync failure events from service worker
+  useEffect(() => {
+    const handleSyncFailed = () => {
+      openModal('showBackupReminder')
+    }
+    window.addEventListener('oh-my-prompt-sync-failed', handleSyncFailed)
+    return () => {
+      window.removeEventListener('oh-my-prompt-sync-failed', handleSyncFailed)
+    }
   }, [])
 
   // Helper functions for modal state
@@ -1229,6 +1266,23 @@ export default function SidePanelApp() {
     chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/settings.html') })
   }, [])
 
+  // Handle first-time backup warning actions
+  const handleBackupWarningSelectFolder = useCallback(async () => {
+    closeModal('showFirstBackupWarning')
+    if (dontShowBackupWarning) {
+      chrome.runtime.sendMessage({ type: MessageType.DISMISS_BACKUP_WARNING })
+    }
+    // Open backup page for folder selection
+    chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
+  }, [dontShowBackupWarning])
+
+  const handleBackupWarningSkip = useCallback(() => {
+    closeModal('showFirstBackupWarning')
+    if (dontShowBackupWarning) {
+      chrome.runtime.sendMessage({ type: MessageType.DISMISS_BACKUP_WARNING })
+    }
+  }, [dontShowBackupWarning])
+
   
   return (
     <div className="side-panel-container">
@@ -1396,6 +1450,60 @@ export default function SidePanelApp() {
             <span className="banner-link" onClick={() => openModal('isUpdateGuide')}>
               查看更新引导
             </span>
+          </div>
+        )}
+
+        {/* Backup reminder banner - shows after unsynced changes */}
+        {modalStates.showBackupReminder && (
+          <div className="backup-reminder-banner">
+            <AlertTriangle style={{ width: 14, height: 14, color: '#1e40af' }} />
+            <span className="banner-text backup-reminder-text">本次改动尚未备份</span>
+            <span
+              className="banner-link backup-reminder-link"
+              onClick={() => {
+                closeModal('showBackupReminder')
+                chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
+              }}
+            >
+              设置备份
+            </span>
+            <span className="banner-close" onClick={() => closeModal('showBackupReminder')}>×</span>
+          </div>
+        )}
+
+        {/* First-time backup warning banner - shows on open if no backup configured */}
+        {modalStates.showFirstBackupWarning && (
+          <div className="first-backup-warning-banner">
+            <div className="first-backup-warning-header">
+              <AlertTriangle className="first-backup-warning-icon" />
+              <span className="first-backup-warning-title">数据安全提醒</span>
+            </div>
+            <div className="first-backup-warning-text">
+              当前有 {backupWarningPromptCount} 个提示词，尚未设置备份。浏览器扩展卸载后数据将无法恢复。
+            </div>
+            <div className="first-backup-warning-actions">
+              <button
+                className="first-backup-warning-btn"
+                onClick={handleBackupWarningSelectFolder}
+              >
+                设置备份
+              </button>
+              <span
+                className="first-backup-warning-skip"
+                onClick={handleBackupWarningSkip}
+              >
+                稍后
+              </span>
+              <label className="first-backup-warning-checkbox">
+                <input
+                  type="checkbox"
+                  checked={dontShowBackupWarning}
+                  onChange={(e) => setDontShowBackupWarning(e.target.checked)}
+                  style={{ width: 12, height: 12 }}
+                />
+                不再提醒
+              </label>
+            </div>
           </div>
         )}
 
