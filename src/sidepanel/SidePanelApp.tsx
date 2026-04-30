@@ -3,7 +3,7 @@
  * Reuses core functionality from DropdownContainer adapted for side panel context
  */
 
-import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react'
+import { useState, useEffect, useCallback, useMemo, Suspense, lazy, useRef } from 'react'
 import type { Prompt, Category, ResourcePrompt, UpdateStatus } from '../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '../shared/utils'
 import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2, Clock } from 'lucide-react'
@@ -787,6 +787,9 @@ export default function SidePanelApp() {
   const [backupWarningPromptCount, setBackupWarningPromptCount] = useState(0)
   const [dontShowBackupWarning, setDontShowBackupWarning] = useState(false)
 
+  // Ref for update button (to position "already latest" tip)
+  const updateButtonRef = useRef<HTMLButtonElement | null>(null)
+
   // Resource library data
   const [resourcePrompts, setResourcePrompts] = useState<ResourcePrompt[]>([])
   const rawResourcePrompts = useMemo(() => getResourcePrompts(), [])
@@ -1418,6 +1421,7 @@ export default function SidePanelApp() {
           )}
           <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion}` : '检查更新'} placement="bottom">
             <button
+              ref={updateButtonRef}
               className="header-action-btn"
               style={updateStatus?.hasUpdate ? { color: '#FF5722' } : {}}
               onClick={updateStatus?.hasUpdate ? () => openModal('isUpdateGuide') : handleCheckUpdate}
@@ -1878,6 +1882,27 @@ export default function SidePanelApp() {
           onConfirm={handleConfirmCollect}
         />
       </Suspense>
+
+      {/* "Already latest" tip - positioned near update button */}
+      {modalStates.showLatestTip && updateButtonRef.current && (
+        <div
+          style={{
+            position: 'fixed',
+            top: updateButtonRef.current.getBoundingClientRect().bottom + 4,
+            left: updateButtonRef.current.getBoundingClientRect().left + updateButtonRef.current.offsetWidth / 2,
+            transform: 'translateX(-50%)',
+            background: '#f0fdf4',
+            border: '1px solid #86efac',
+            borderRadius: '4px',
+            padding: '4px 8px',
+            whiteSpace: 'nowrap',
+            zIndex: 2147483647,
+            pointerEvents: 'none',
+          }}
+        >
+          <span style={{ fontSize: 11, color: '#16a34a' }}>已是最新版本</span>
+        </div>
+      )}
 
       {/* Toast notification */}
       {modalStates.toastMessage && (
