@@ -95,6 +95,7 @@ export class Injector {
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        vertical-align: middle;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         box-sizing: border-box;
       }
@@ -102,6 +103,7 @@ export class Injector {
       .trigger-button-wrapper {
         display: inline-flex;
         position: relative;
+        vertical-align: middle;
       }
 
       .trigger-button {

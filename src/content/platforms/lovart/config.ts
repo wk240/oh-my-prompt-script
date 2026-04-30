@@ -4,6 +4,7 @@
 
 import type { PlatformConfig } from '../base/types'
 import { LovartInserter } from './strategies'
+import { LovartButton } from './LovartButton'
 
 export const lovartConfig: PlatformConfig = {
   id: 'lovart',
@@ -25,6 +26,7 @@ export const lovartConfig: PlatformConfig = {
   uiInjection: {
     anchorSelector: '[data-testid="agent-input-bottom-more-button"]',
     position: 'before',
+    customButton: LovartButton,
   },
 
   strategies: {
