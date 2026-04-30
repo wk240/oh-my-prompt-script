@@ -278,37 +278,32 @@ export class ImageHoverButtonManager {
   }
 
   /**
-   * Handle document mouseout - hide button
+   * Handle document mouseout - check if mouse left image area
    */
   private handleMouseOut(e: MouseEvent): void {
-    // Check if mouse left the area containing the current image
     if (!this.currentImg) return
 
-    const target = e.target instanceof Element ? e.target : null
+    // Use mouse position to check if still over the image
+    // This is more reliable than event target hierarchy (handles Pinterest's sibling overlay)
+    const imgRect = this.currentImg.getBoundingClientRect()
+    const x = e.clientX
+    const y = e.clientY
+
+    // Check if mouse is still within image bounds (with small margin)
+    const margin = 20 // Allow some margin for smoother experience
+    if (x >= imgRect.left - margin && x <= imgRect.right + margin &&
+        y >= imgRect.top - margin && y <= imgRect.bottom + margin) {
+      // Mouse still near the image, don't hide
+      return
+    }
+
+    // Check if mouse moved to our button
     const relatedTarget = e.relatedTarget instanceof Element ? e.relatedTarget : null
-
-    // Check if mouse moved to our button (don't hide)
     if (relatedTarget && this.singletonButton?.contains(relatedTarget)) {
-      if (DEBUG_HOVER_BUTTON) {
-        console.log(LOG_PREFIX, 'Mouse moved to button, not hiding')
-      }
       return
     }
 
-    // Check if mouse left the current image or its container
-    // Only hide if truly leaving the image area
-    if (target && this.currentImg.contains(target)) {
-      // Mouse left from a child element of the image (shouldn't happen for img)
-      return
-    }
-
-    // Check if relatedTarget is still within an ancestor of the current image
-    // (e.g., moved from img to parent wrapper)
-    if (relatedTarget && relatedTarget.contains(this.currentImg)) {
-      return
-    }
-
-    // Delayed hide (allows mouse to reach button)
+    // Mouse left image area, schedule hide
     if (this.hideTimeout) clearTimeout(this.hideTimeout)
 
     this.hideTimeout = window.setTimeout(() => {
@@ -317,7 +312,7 @@ export class ImageHoverButtonManager {
     }, HIDE_DELAY)
 
     if (DEBUG_HOVER_BUTTON) {
-      console.log(LOG_PREFIX, 'Mouse left image, scheduling hide')
+      console.log(LOG_PREFIX, 'Mouse left image area, scheduling hide')
     }
   }
 
