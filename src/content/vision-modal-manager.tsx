@@ -283,6 +283,80 @@ export class VisionModalManager {
         color: #171717;
       }
 
+      /* Prompt section with header */
+      .prompt-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .prompt-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .prompt-header-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #171717;
+      }
+
+      .prompt-header-label-en {
+        font-size: 13px;
+        font-weight: 500;
+        color: #64748B;
+      }
+
+      .prompt-header-divider {
+        font-size: 13px;
+        color: #9CA3AF;
+      }
+
+      /* Prompt preview wrapper with copy button */
+      .prompt-preview-wrapper {
+        position: relative;
+      }
+
+      .prompt-copy-btn {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #E5E5E5;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      .prompt-copy-btn:hover {
+        background: #ffffff;
+        border-color: #d0d0d0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+      }
+
+      .prompt-copy-btn svg {
+        width: 14px;
+        height: 14px;
+        color: #64748B;
+      }
+
+      .prompt-copy-btn.copied {
+        background: #f0fdf4;
+        border-color: #22c55e;
+      }
+
+      .prompt-copy-btn.copied svg {
+        color: #22c55e;
+      }
+
       .prompt-preview {
         background: #f8f8f8;
         border: 1px solid #E5E5E5;
@@ -294,6 +368,14 @@ export class VisionModalManager {
         max-height: 200px;
         overflow-y: auto;
         line-height: 1.5;
+      }
+
+      /* Prompt title */
+      .prompt-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #171717;
+        margin-bottom: 8px;
       }
 
       /* Action buttons */
@@ -379,6 +461,23 @@ export class VisionModalManager {
       .feedback-hint {
         font-size: 12px;
         color: #64748B;
+      }
+
+      /* Close session button - text button in feedback view */
+      .close-session-btn {
+        padding: 0;
+        border: none;
+        background: transparent;
+        font-size: 13px;
+        color: #64748B;
+        cursor: pointer;
+        text-decoration: none;
+        transition: color 0.15s ease;
+        margin-top: 4px;
+      }
+
+      .close-session-btn:hover {
+        color: #171717;
       }
 
       /* Config view - API configuration form */
@@ -596,6 +695,43 @@ export class VisionModalManager {
 
       .confidence-label.low {
         color: #f59e0b;
+      }
+
+      /* Toggle groups for language + format switching */
+      .toggle-groups {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .toggle-group {
+        display: flex;
+        gap: 2px;
+        background: #f0f0f0;
+        padding: 3px;
+        border-radius: 6px;
+      }
+
+      .toggle-btn {
+        padding: 5px 10px;
+        border: none;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #64748B;
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .toggle-btn:hover {
+        color: #171717;
+      }
+
+      .toggle-btn.active {
+        background: #ffffff;
+        color: #171717;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
       }
     `
   }

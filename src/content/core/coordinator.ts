@@ -11,6 +11,7 @@ import { MessageType } from '../../shared/messages'
 import type { InsertResultPayload } from '../../shared/types'
 import { usePromptStore } from '../../lib/store'
 import { VisionModalManager } from '../vision-modal-manager'
+import { ImageHoverButtonManager } from '../image-hover-button-manager'
 import { lovartConfig } from '../platforms/lovart/config'
 import { chatgptConfig } from '../platforms/chatgpt/config'
 import { claudeAiConfig } from '../platforms/claude-ai/config'
@@ -34,6 +35,7 @@ const LOG_PREFIX = '[Oh My Prompt]'
 class Coordinator {
   private detector: Detector | null = null
   private injector: Injector | null = null
+  private hoverButtonManager: ImageHoverButtonManager | null = null
   private platform: ReturnType<typeof matchPlatform>
 
   constructor() {
@@ -55,6 +57,11 @@ class Coordinator {
 
     // Setup lifecycle handlers
     this.setupLifecycleHandlers()
+
+    // Start ImageHoverButtonManager on all pages (universal image hover button)
+    this.hoverButtonManager = ImageHoverButtonManager.getInstance()
+    this.hoverButtonManager.start()
+    console.log(LOG_PREFIX, 'ImageHoverButtonManager started')
 
     // Exit early if no platform matched - no UI injection needed
     if (!this.platform) {
@@ -240,6 +247,7 @@ class Coordinator {
   private cleanup(): void {
     this.detector?.stop()
     this.injector?.remove()
+    this.hoverButtonManager?.stop()
   }
 }
 

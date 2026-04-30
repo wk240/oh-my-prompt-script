@@ -11,8 +11,8 @@ import '../lib/migrations/v1.0' // Register migrations
 
 console.log('[Oh My Prompt] Service Worker started')
 
-// Phase 9: Create context menu on extension install (D-06)
-chrome.runtime.onInstalled.addListener(() => {
+// Create context menu on startup (survives service worker restarts)
+function createContextMenu(): void {
   chrome.contextMenus.create({
     id: 'convert-to-prompt',
     title: '用 OhMyPrompt 将此图片转为Prompt',
@@ -20,11 +20,26 @@ chrome.runtime.onInstalled.addListener(() => {
     targetUrlPatterns: ['http://*/*', 'https://*/*'] // D-03, D-07: Filter to http/https URLs only
   }, () => {
     if (chrome.runtime.lastError) {
-      console.error('[Oh My Prompt] Context menu creation error:', chrome.runtime.lastError)
+      // Chrome runtime.lastError has message property
+      const errorMsg = chrome.runtime.lastError.message
+      // Ignore duplicate/already exists errors on restart
+      if (errorMsg && (errorMsg.includes('already exists') || errorMsg.includes('duplicate'))) {
+        console.log('[Oh My Prompt] Context menu already exists (service worker restarted)')
+      } else {
+        console.error('[Oh My Prompt] Context menu creation error:', errorMsg || JSON.stringify(chrome.runtime.lastError))
+      }
     } else {
       console.log('[Oh My Prompt] Context menu created successfully')
     }
   })
+}
+
+// Create on startup
+createContextMenu()
+
+// Also create on install (for clean install)
+chrome.runtime.onInstalled.addListener(() => {
+  createContextMenu()
 
   // Set side panel to open on action click (Chrome 116+)
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
@@ -636,12 +651,15 @@ chrome.runtime.onMessage.addListener(
             const tempPrompts = prompts.filter(p => p.categoryId === tempCategory!.id)
             const maxOrder = tempPrompts.length > 0 ? Math.max(...tempPrompts.map(p => p.order)) : -1
 
-            // Add new prompt (D-06) - support bilingual content
+            // Add new prompt (D-06) - support bilingual content and description
             const newPrompt: Prompt = {
               id: crypto.randomUUID(),
               name: savePayload.name,
+              nameEn: savePayload.nameEn, // English name (optional)
               content: savePayload.content,
               contentEn: savePayload.contentEn, // English content (optional)
+              description: savePayload.description, // Chinese analysis (optional)
+              descriptionEn: savePayload.descriptionEn, // English analysis (optional)
               categoryId: tempCategory.id,
               order: maxOrder + 1,
               remoteImageUrl: savePayload.imageUrl // Optional source URL

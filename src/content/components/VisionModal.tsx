@@ -13,7 +13,8 @@ type VisionModalState =
   | 'confirming'   // Processing confirmation
   | 'feedback'     // Success feedback before auto-close
 
-type TabType = 'zh' | 'en' | 'json'
+type LanguageType = 'zh' | 'en'
+type FormatType = 'natural' | 'json'
 
 interface VisionModalProps {
   imageUrl: string
@@ -22,10 +23,14 @@ interface VisionModalProps {
 }
 
 /**
- * Generate prompt name from content
- * Uses first 30 chars + timestamp for uniqueness
+ * Generate prompt name from title or content
+ * Uses title if available, otherwise first 30 chars + timestamp
  */
-function generatePromptName(prompt: string): string {
+function generatePromptName(prompt: string, title?: string): string {
+  if (title) {
+    const timestamp = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    return `${title} (${timestamp})`
+  }
   const firstLine = prompt.split('\n')[0] || prompt
   const truncated = firstLine.substring(0, 30).trim()
   const timestamp = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
@@ -70,8 +75,8 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
   const [retryCount, setRetryCount] = useState(0)
   const [feedbackMessage, setFeedbackMessage] = useState<string>('')
   const [isLovartPage, setIsLovartPage] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabType>('zh')
-  const [languagePreference, setLanguagePreference] = useState<'zh' | 'en'>('zh')
+  const [language, setLanguage] = useState<LanguageType>('zh')
+  const [format, setFormat] = useState<FormatType>('natural')
 
   // Draggable & minimizable state
   const [isMinimized, setIsMinimized] = useState(false)
@@ -92,10 +97,9 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
     const lovartPattern = /^https?:\/\/(?:[^/]*\.)?lovart\.ai(?:\/|$)/
     setIsLovartPage(lovartPattern.test(window.location.href))
 
-    // Get stored language preference and set default tab
+    // Get stored language preference and set default
     const pref = getStoredLanguagePreference()
-    setLanguagePreference(pref)
-    setActiveTab(pref)
+    setLanguage(pref)
   }, [])
 
   /**
@@ -106,15 +110,23 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
   }, [])
 
   /**
-   * Get current prompt based on active tab
+   * Get current prompt based on language and format
    */
   const getCurrentPrompt = useCallback(() => {
     if (!fullData) return ''
-    if (activeTab === 'zh') return fullData.zh.prompt
-    if (activeTab === 'en') return fullData.en.prompt
-    // JSON tab - return formatted JSON as prompt
+    if (format === 'natural') {
+      return language === 'zh' ? fullData.zh.prompt : fullData.en.prompt
+    }
+    // JSON format - use zh_json or en_json if available, fallback to json_prompt
+    if (language === 'zh' && fullData.zh_json) {
+      return JSON.stringify(fullData.zh_json, null, 2)
+    }
+    if (language === 'en' && fullData.en_json) {
+      return JSON.stringify(fullData.en_json, null, 2)
+    }
+    // Fallback to legacy json_prompt
     return JSON.stringify(fullData.json_prompt, null, 2)
-  }, [fullData, activeTab])
+  }, [fullData, language, format])
 
   /**
    * Request Vision API call via service worker (uses host_permissions for CORS bypass)
@@ -145,15 +157,35 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
         const fullDataResult = response.data.fullData as VisionApiResultData | undefined
         if (fullDataResult) {
           setFullData(fullDataResult)
-          // Set default tab based on language preference
-          setActiveTab(languagePreference)
         } else {
           // Fallback: if fullData not available, create minimal structure
           const fallbackData: VisionApiResultData = {
-            zh: { prompt: response.data.prompt || '', analysis: '' },
-            en: { prompt: response.data.prompt || '', analysis: '' },
+            zh: { title: '', prompt: response.data.prompt || '', analysis: '' },
+            en: { title: '', prompt: response.data.prompt || '', analysis: '' },
             zh_style_tags: [],
             en_style_tags: [],
+            zh_json: {
+              主体: '',
+              动作姿态: '',
+              细节外观: '',
+              环境背景: '',
+              光影氛围: '',
+              风格镜头: '',
+              色彩: [],
+              材质: [],
+              宽高比: ''
+            },
+            en_json: {
+              subject: '',
+              action_pose: '',
+              details_appearance: '',
+              environment_background: '',
+              lighting_atmosphere: '',
+              style_camera: '',
+              colors: [],
+              materials: [],
+              aspect_ratio: ''
+            },
             json_prompt: {
               subject: '',
               action_pose: '',
@@ -182,7 +214,7 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
       setErrorAction('retry')
       setState('error')
     }
-  }, [imageUrl, languagePreference])
+  }, [imageUrl])
 
   /**
    * Handle retry
@@ -241,7 +273,25 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
     }
 
     // Step 2: Save to '临时' category with bilingual content and image
-    const promptName = generatePromptName(fullData.zh.prompt)
+    // Always save Chinese as primary content, English as contentEn (regardless of current selection)
+    const contentToSave = format === 'json'
+      ? (fullData.zh_json ? JSON.stringify(fullData.zh_json, null, 2) : JSON.stringify(fullData.json_prompt, null, 2))
+      : fullData.zh.prompt
+    const contentEnToSave = format === 'json'
+      ? (fullData.en_json ? JSON.stringify(fullData.en_json, null, 2) : JSON.stringify(fullData.json_prompt, null, 2))
+      : fullData.en.prompt
+
+    // Use title for name if available (generate both Chinese and English names)
+    const zhTitle = fullData.zh.title || undefined
+    const enTitle = fullData.en.title || undefined
+    const zhPromptContent = format === 'json'
+      ? (fullData.zh_json ? JSON.stringify(fullData.zh_json) : JSON.stringify(fullData.json_prompt))
+      : fullData.zh.prompt
+    const enPromptContent = format === 'json'
+      ? (fullData.en_json ? JSON.stringify(fullData.en_json) : JSON.stringify(fullData.json_prompt))
+      : fullData.en.prompt
+    const promptName = generatePromptName(zhPromptContent, zhTitle)
+    const promptNameEn = generatePromptName(enPromptContent, enTitle)
     let localImageSaved = false
 
     try {
@@ -249,8 +299,11 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
         type: MessageType.SAVE_TEMPORARY_PROMPT,
         payload: {
           name: promptName,
-          content: fullData.zh.prompt,
-          contentEn: fullData.en.prompt,
+          nameEn: promptNameEn,
+          content: contentToSave,
+          contentEn: contentEnToSave,
+          description: fullData.zh.analysis,
+          descriptionEn: fullData.en.analysis,
           imageUrl: imageUrl,
           styleTags: fullData.zh_style_tags
         } as SaveTemporaryPromptPayload
@@ -346,15 +399,26 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
   }, [isDragging])
 
   /**
-   * Render JSON prompt as key-value list
+   * Render JSON prompt as key-value list (supports bilingual JSON)
    */
   const renderJsonPrompt = () => {
     if (!fullData) return null
-    const jsonPrompt = fullData.json_prompt
-    const baselineKeys = [
-      'subject', 'action_pose', 'details_appearance', 'environment_background',
-      'lighting_atmosphere', 'style_camera', 'colors', 'materials', 'aspect_ratio'
-    ]
+
+    // Use zh_json or en_json based on language, fallback to json_prompt
+    const jsonPrompt = language === 'zh' && fullData.zh_json
+      ? fullData.zh_json
+      : language === 'en' && fullData.en_json
+        ? fullData.en_json
+        : fullData.json_prompt
+
+    // Chinese baseline keys
+    const zhBaselineKeys = ['主体', '动作姿态', '细节外观', '环境背景', '光影氛围', '风格镜头', '色彩', '材质', '宽高比']
+    // English baseline keys
+    const enBaselineKeys = ['subject', 'action_pose', 'details_appearance', 'environment_background', 'lighting_atmosphere', 'style_camera', 'colors', 'materials', 'aspect_ratio']
+
+    // Detect which baseline keys to use based on actual keys in jsonPrompt
+    const hasZhKeys = Object.keys(jsonPrompt).some(k => zhBaselineKeys.includes(k))
+    const baselineKeys = hasZhKeys ? zhBaselineKeys : enBaselineKeys
 
     return (
       <div className="json-details">
@@ -402,6 +466,23 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
       </div>
     )
   }
+
+  // Copy state for prompt copy button
+  const [isPromptCopied, setIsPromptCopied] = useState(false)
+
+  /**
+   * Copy current prompt to clipboard
+   */
+  const handleCopyPrompt = useCallback(async () => {
+    const currentPrompt = getCurrentPrompt()
+    if (!currentPrompt) return
+
+    const success = await copyToClipboard(currentPrompt)
+    if (success) {
+      setIsPromptCopied(true)
+      setTimeout(() => setIsPromptCopied(false), 1500)
+    }
+  }, [getCurrentPrompt])
 
   return (
     <div className="modal-overlay">
@@ -465,43 +546,88 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
               </div>
             )}
 
-            {/* Success state - 3-Tab layout (footer moved outside for fixed positioning) */}
+            {/* Success state - language + format toggle layout */}
             {state === 'success' && fullData && (
               <div className="success-view">
-                {/* Tab content */}
+                {/* Prompt section with header and copy button */}
+                <div className="prompt-section">
+                  <div className="prompt-header">
+                    <span className="prompt-header-label">提示词</span>
+                    <span className="prompt-header-divider">/</span>
+                    <span className="prompt-header-label-en">prompt</span>
+                  </div>
+                </div>
+                {/* Content based on format */}
                 <div className="tab-content">
-                  {/* Chinese tab */}
-                  {activeTab === 'zh' && (
+                  {/* Natural language format */}
+                  {format === 'natural' && (
                     <div className="prompt-tab">
-                      <div className="prompt-preview">{fullData.zh.prompt}</div>
-                      {fullData.zh.analysis && (
-                        <div className="analysis-section">
-                          <p className="analysis-label">分析说明:</p>
-                          <p className="analysis-text">{fullData.zh.analysis}</p>
-                        </div>
+                      {/* Chinese natural language */}
+                      {language === 'zh' && (
+                        <>
+                          {fullData.zh.title && (
+                            <div className="prompt-title">{fullData.zh.title}</div>
+                          )}
+                          <div className="prompt-preview-wrapper">
+                            <div className="prompt-preview">{fullData.zh.prompt}</div>
+                            <button
+                              className={`prompt-copy-btn ${isPromptCopied ? 'copied' : ''}`}
+                              onClick={handleCopyPrompt}
+                              aria-label="复制提示词"
+                            >
+                              {isPromptCopied ? <Check /> : <Copy />}
+                            </button>
+                          </div>
+                          {fullData.zh.analysis && (
+                            <div className="analysis-section">
+                              <p className="analysis-label">分析说明:</p>
+                              <p className="analysis-text">{fullData.zh.analysis}</p>
+                            </div>
+                          )}
+                          {renderStyleTags(fullData.zh_style_tags)}
+                        </>
                       )}
-                      {renderStyleTags(fullData.zh_style_tags)}
+                      {/* English natural language */}
+                      {language === 'en' && (
+                        <>
+                          {fullData.en.title && (
+                            <div className="prompt-title">{fullData.en.title}</div>
+                          )}
+                          <div className="prompt-preview-wrapper">
+                            <div className="prompt-preview">{fullData.en.prompt}</div>
+                            <button
+                              className={`prompt-copy-btn ${isPromptCopied ? 'copied' : ''}`}
+                              onClick={handleCopyPrompt}
+                              aria-label="Copy prompt"
+                            >
+                              {isPromptCopied ? <Check /> : <Copy />}
+                            </button>
+                          </div>
+                          {fullData.en.analysis && (
+                            <div className="analysis-section">
+                              <p className="analysis-label">Analysis:</p>
+                              <p className="analysis-text">{fullData.en.analysis}</p>
+                            </div>
+                          )}
+                          {renderStyleTags(fullData.en_style_tags)}
+                        </>
+                      )}
                     </div>
                   )}
 
-                  {/* English tab */}
-                  {activeTab === 'en' && (
-                    <div className="prompt-tab">
-                      <div className="prompt-preview">{fullData.en.prompt}</div>
-                      {fullData.en.analysis && (
-                        <div className="analysis-section">
-                          <p className="analysis-label">Analysis:</p>
-                          <p className="analysis-text">{fullData.en.analysis}</p>
-                        </div>
-                      )}
-                      {renderStyleTags(fullData.en_style_tags)}
-                    </div>
-                  )}
-
-                  {/* JSON tab */}
-                  {activeTab === 'json' && (
+                  {/* JSON format */}
+                  {format === 'json' && (
                     <div className="json-tab">
-                      {renderJsonPrompt()}
+                      <div className="prompt-preview-wrapper">
+                        {renderJsonPrompt()}
+                        <button
+                          className={`prompt-copy-btn ${isPromptCopied ? 'copied' : ''}`}
+                          onClick={handleCopyPrompt}
+                          aria-label="复制JSON"
+                        >
+                          {isPromptCopied ? <Check /> : <Copy />}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -523,6 +649,9 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
                   <Check />
                   <p className="feedback-text">{feedbackMessage}</p>
                 </div>
+                <button className="close-session-btn" onClick={onClose}>
+                  关闭本次会话
+                </button>
               </div>
             )}
 
@@ -556,29 +685,40 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
         {/* Fixed footer - only show in success state when not minimized */}
         {!isMinimized && state === 'success' && fullData && (
           <div className="modal-footer">
-            <div className="tab-buttons">
-              <button
-                className={`tab-btn ${activeTab === 'zh' ? 'active' : ''}`}
-                onClick={() => setActiveTab('zh')}
-              >
-                中
-              </button>
-              <button
-                className={`tab-btn ${activeTab === 'en' ? 'active' : ''}`}
-                onClick={() => setActiveTab('en')}
-              >
-                EN
-              </button>
-              <button
-                className={`tab-btn ${activeTab === 'json' ? 'active' : ''}`}
-                onClick={() => setActiveTab('json')}
-              >
-                JSON
-              </button>
+            <div className="toggle-groups">
+              {/* Language toggle */}
+              <div className="toggle-group">
+                <button
+                  className={`toggle-btn ${language === 'zh' ? 'active' : ''}`}
+                  onClick={() => setLanguage('zh')}
+                >
+                  中
+                </button>
+                <button
+                  className={`toggle-btn ${language === 'en' ? 'active' : ''}`}
+                  onClick={() => setLanguage('en')}
+                >
+                  EN
+                </button>
+              </div>
+              {/* Format toggle */}
+              <div className="toggle-group">
+                <button
+                  className={`toggle-btn ${format === 'natural' ? 'active' : ''}`}
+                  onClick={() => setFormat('natural')}
+                >
+                  自然语言
+                </button>
+                <button
+                  className={`toggle-btn ${format === 'json' ? 'active' : ''}`}
+                  onClick={() => setFormat('json')}
+                >
+                  JSON
+                </button>
+              </div>
             </div>
             <button className="btn btn-primary" onClick={handleConfirm}>
-              <Copy />
-              复制并暂存
+              暂存到OMP
             </button>
           </div>
         )}

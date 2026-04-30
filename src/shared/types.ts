@@ -105,31 +105,53 @@ export interface VisionApiResultPayload {
   fullData?: VisionApiResultData // Full structured result data
 }
 
+// JSON prompt schema - structured fields for image generation (English)
+export interface JsonPromptSchema {
+  subject: string
+  action_pose: string
+  details_appearance: string
+  environment_background: string
+  lighting_atmosphere: string
+  style_camera: string
+  colors: string[]
+  materials: string[]
+  aspect_ratio: string
+  // Additional nested fields as needed (composition, layout, text, constraints, etc.)
+  [key: string]: unknown
+}
+
+// JSON prompt schema - structured fields for image generation (Chinese)
+export interface ZhJsonPromptSchema {
+  主体: string
+  动作姿态: string
+  细节外观: string
+  环境背景: string
+  光影氛围: string
+  风格镜头: string
+  色彩: string[]
+  材质: string[]
+  宽高比: string
+  // Additional nested fields in Chinese
+  [key: string]: unknown
+}
+
 // Vision API structured result (bilingual output with JSON details)
 export interface VisionApiResultData {
   zh: {
+    title: string // Chinese title for the generated prompt
     prompt: string
     analysis: string
   }
   en: {
+    title: string // English title for the generated prompt
     prompt: string
     analysis: string
   }
   zh_style_tags: string[]
   en_style_tags: string[]
-  json_prompt: {
-    subject: string
-    action_pose: string
-    details_appearance: string
-    environment_background: string
-    lighting_atmosphere: string
-    style_camera: string
-    colors: string[]
-    materials: string[]
-    aspect_ratio: string
-    // Additional nested fields as needed (composition, layout, text, constraints, etc.)
-    [key: string]: unknown
-  }
+  zh_json?: ZhJsonPromptSchema  // Chinese JSON with Chinese field names and values (optional for backward compatibility)
+  en_json?: JsonPromptSchema  // English JSON with English field names and values (optional for backward compatibility)
+  json_prompt: JsonPromptSchema  // Legacy: language-neutral JSON (backward compatible)
   confidence: number
 }
 
@@ -157,9 +179,12 @@ export interface InsertResultPayload {
 
 // Phase 12: Save to temporary category payload (updated for bilingual support)
 export interface SaveTemporaryPromptPayload {
-  name: string      // Prompt name (generated from prompt content)
+  name: string      // Prompt name (Chinese)
+  nameEn?: string   // Prompt name (English, optional)
   content: string   // Prompt content (Chinese)
   contentEn?: string // Prompt content (English, optional)
+  description?: string // Description (Chinese analysis)
+  descriptionEn?: string // Description (English analysis)
   imageUrl?: string // Source image URL (optional, for reference)
   styleTags?: string[] // Style tags for reference (optional)
 }

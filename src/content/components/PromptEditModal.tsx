@@ -426,9 +426,10 @@ export function PromptEditModal({
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {/* Tab buttons - pill style like VisionModal */}
+        {/* Tab buttons - pill style with width fit-content */}
         <div style={{
-          display: 'inline-flex',
+          display: 'flex',
+          width: 'fit-content',
           gap: '4px',
           background: '#f0f0f0',
           padding: '4px',

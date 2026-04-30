@@ -25,15 +25,41 @@ Analyze the provided image and return valid JSON only.
 The JSON schema:
 {
   "zh": {
+    "title": "A concise Chinese title (5-15 characters) summarizing the image content, e.g. '时尚女性肖像' or '城市夜景'.",
     "prompt": "A highly detailed, production-ready Chinese image generation prompt, ordered as: Subject, Action/Pose, Details/Appearance, Environment/Background, Lighting/Atmosphere, Style/Camera, Colors, Materials, Aspect Ratio.",
     "analysis": "A compact Chinese explanation that covers the same fields, with extra attention on style and camera language."
   },
   "en": {
+    "title": "A concise English title (3-10 words) summarizing the image content, e.g. 'Fashion Portrait' or 'City Night Scene'.",
     "prompt": "A highly detailed, production-ready English image generation prompt, ordered as: Subject, Action/Pose, Details/Appearance, Environment/Background, Lighting/Atmosphere, Style/Camera, Colors, Materials, Aspect Ratio.",
     "analysis": "A compact English explanation that covers the same fields, with extra attention on style and camera language."
   },
   "zh_style_tags": ["中文标签1", "中文标签2", "中文标签3"],
   "en_style_tags": ["english tag 1", "english tag 2", "english tag 3"],
+  "zh_json": {
+    "主体": "Main subject in Chinese.",
+    "动作姿态": "Action or pose in Chinese.",
+    "细节外观": "Details, clothing, appearance, accessories or visible design details in Chinese.",
+    "环境背景": "Environment or background in Chinese.",
+    "光影氛围": "Lighting and atmosphere in Chinese.",
+    "风格镜头": "Art style, design language, camera or lens feeling, and technical visual cues in Chinese.",
+    "色彩": ["primary color in Chinese"],
+    "材质": ["material 1 in Chinese"],
+    "宽高比": "4:5",
+    "...any_extra_nested_fields_in_Chinese": {}
+  },
+  "en_json": {
+    "subject": "Main subject.",
+    "action_pose": "Action or pose.",
+    "details_appearance": "Details, clothing, appearance, accessories or visible design details.",
+    "environment_background": "Environment or background.",
+    "lighting_atmosphere": "Lighting and atmosphere.",
+    "style_camera": "Art style, design language, camera or lens feeling, and technical visual cues.",
+    "colors": ["primary color"],
+    "materials": ["material 1"],
+    "aspect_ratio": "4:5",
+    "...any_extra_nested_fields_you_need": {}
+  },
   "json_prompt": {
     "subject": "Main subject.",
     "action_pose": "Action or pose.",
@@ -55,10 +81,17 @@ Rules:
 - zh.prompt and en.prompt should be highly detailed, information-dense, and still directly usable without extra rewriting.
 - Be faithful to visually verifiable facts. Do not invent unseen objects, brands, text, camera specs, materials, art movements or lighting setups.
 - If something is uncertain, use broader wording instead of hallucinating specifics.
-- json_prompt is the strictest part of the output. It can use nested objects and arrays, but prefer compact factual phrases instead of long prose.
+- zh_json must have ALL field names and values in Chinese (e.g., "主体", "动作姿态", "光影氛围").
+- en_json must have ALL field names and values in English (e.g., "subject", "action_pose", "lighting_atmosphere").
+- json_prompt is the legacy language-neutral format with English field names, keep for backward compatibility.
+- json_prompt, zh_json, en_json can use nested objects and arrays, but prefer compact factual phrases instead of long prose.
 - json_prompt must always preserve these exact top-level baseline keys:
   subject, action_pose, details_appearance, environment_background, lighting_atmosphere, style_camera, colors, materials, aspect_ratio
-- Beyond those baseline keys, add only the extra fields that materially help reconstruction, such as overview, composition, layout, text, constraints and uncertainties.
+- zh_json must always preserve these exact Chinese top-level baseline keys:
+  主体, 动作姿态, 细节外观, 环境背景, 光影氛围, 风格镜头, 色彩, 材质, 宽高比
+- en_json must always preserve these exact English top-level baseline keys:
+  subject, action_pose, details_appearance, environment_background, lighting_atmosphere, style_camera, colors, materials, aspect_ratio
+- Beyond those baseline keys, add only the extra fields that materially help reconstruction.
 - Both zh.prompt and en.prompt must follow this exact information order:
   1. Subject
   2. Action/Pose
@@ -79,7 +112,7 @@ Analyze this image and output bilingual prompt JSON.
 Prioritize accurate visual grounding over creativity.
 Keep zh.prompt and en.prompt highly detailed, richly descriptive, and directly usable.
 Focus on: subject, action/pose, details/appearance, environment/background, lighting/atmosphere, style/camera, colors, materials and aspect ratio.
-The json_prompt must preserve the baseline top-level keys while adding only the extra nested fields needed for faithful reconstruction.
+The zh_json, en_json, and json_prompt must preserve the baseline top-level keys while adding only the extra nested fields needed for faithful reconstruction.
 Prefer compact phrases, compact arrays and compact nested objects over long natural-language paragraphs.`
 
 /**
@@ -221,11 +254,38 @@ function validateVisionResult(data: VisionApiResultData): void {
     throw new Error('Missing prompt fields in Vision API response')
   }
 
-  // Check json_prompt has baseline keys
+  // Check title fields (optional but recommended)
+  if (!data.zh.title) {
+    console.warn('[Oh My Prompt] Missing zh.title, using fallback')
+  }
+  if (!data.en.title) {
+    console.warn('[Oh My Prompt] Missing en.title, using fallback')
+  }
+
+  // Check json_prompt has baseline keys (backward compatible)
   const requiredKeys = ['subject', 'action_pose', 'details_appearance', 'environment_background', 'lighting_atmosphere', 'style_camera', 'colors', 'materials', 'aspect_ratio']
   for (const key of requiredKeys) {
     if (!(key in data.json_prompt)) {
       throw new Error(`Missing required json_prompt key: ${key}`)
+    }
+  }
+
+  // Validate zh_json has Chinese baseline keys (if present)
+  const zhJsonRequiredKeys = ['主体', '动作姿态', '细节外观', '环境背景', '光影氛围', '风格镜头', '色彩', '材质', '宽高比']
+  if (data.zh_json) {
+    for (const key of zhJsonRequiredKeys) {
+      if (!(key in data.zh_json)) {
+        throw new Error(`Missing required zh_json key: ${key}`)
+      }
+    }
+  }
+
+  // Validate en_json has English baseline keys (if present)
+  if (data.en_json) {
+    for (const key of requiredKeys) {
+      if (!(key in data.en_json)) {
+        throw new Error(`Missing required en_json key: ${key}`)
+      }
     }
   }
 
