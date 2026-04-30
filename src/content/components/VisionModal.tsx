@@ -567,7 +567,7 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
                 className={`tab-btn ${activeTab === 'en' ? 'active' : ''}`}
                 onClick={() => setActiveTab('en')}
               >
-                英文
+                EN
               </button>
               <button
                 className={`tab-btn ${activeTab === 'json' ? 'active' : ''}`}

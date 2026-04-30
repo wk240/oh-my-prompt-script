@@ -143,7 +143,7 @@ function SettingsApp() {
               <div className="w-8 h-8 flex items-center justify-center rounded-md bg-purple-100 text-purple-600">
                 <Bot style={{ width: 16, height: 16 }} />
               </div>
-              <div>
+              <div className="text-left">
                 <div className="text-sm font-medium text-gray-900">视觉AI配置</div>
                 <div className="text-xs text-gray-500">配置API密钥，支持图片转提示词</div>
               </div>
@@ -159,7 +159,7 @@ function SettingsApp() {
               <div className="w-8 h-8 flex items-center justify-center rounded-md bg-blue-100 text-blue-600">
                 <Database style={{ width: 16, height: 16 }} />
               </div>
-              <div>
+              <div className="text-left">
                 <div className="text-sm font-medium text-gray-900">本地备份</div>
                 <div className="text-xs text-gray-500">选择文件夹自动同步</div>
               </div>
