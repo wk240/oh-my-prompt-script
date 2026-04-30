@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react'
 import type { Prompt, Category, ResourcePrompt, UpdateStatus } from '../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '../shared/utils'
-import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2 } from 'lucide-react'
+import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2, Clock } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -562,6 +562,7 @@ export default function SidePanelApp() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null)
   const [isResourceLibrary, setIsResourceLibrary] = useState(false)
+  const [isTemporaryLibrary, setIsTemporaryLibrary] = useState(false)
   const [selectedResourceCategoryId, setSelectedResourceCategoryId] = useState<string>('all')
   const [resourceLanguage, setResourceLanguage] = useState<'zh' | 'en'>('zh')
   const [loadedCount, setLoadedCount] = useState(50)
@@ -943,6 +944,23 @@ export default function SidePanelApp() {
       description: resourceLanguage === 'en' && p.descriptionEn ? p.descriptionEn : p.description,
     }))
   }, [filteredPrompts, resourceLanguage])
+
+  // Temporary prompts filter (prompts in '临时' category)
+  const temporaryPrompts = useMemo(() => {
+    const tempCategory = categories.find(c => c.name === '临时')
+    if (!tempCategory) return []
+    return prompts.filter(p => p.categoryId === tempCategory.id)
+  }, [prompts, categories])
+
+  // Display temporary prompts with language transformation
+  const displayTemporaryPrompts = useMemo(() => {
+    return temporaryPrompts.map(p => ({
+      ...p,
+      name: resourceLanguage === 'en' && p.nameEn ? p.nameEn : p.name,
+      content: resourceLanguage === 'en' && p.contentEn ? p.contentEn : p.content,
+      description: resourceLanguage === 'en' && p.descriptionEn ? p.descriptionEn : p.description,
+    }))
+  }, [temporaryPrompts, resourceLanguage])
 
   // Filter resource prompts
   const filteredResourcePrompts = useMemo(() => {
@@ -1394,40 +1412,57 @@ export default function SidePanelApp() {
         {/* Sidebar */}
         <div className="side-panel-sidebar">
           <div className="sidebar-categories scrollbar-thin">
-          {isResourceLibrary ? (
+          {isResourceLibrary || isTemporaryLibrary ? (
             <>
               <button
                 className="sidebar-category-item"
-                onClick={() => setIsResourceLibrary(false)}
+                onClick={() => {
+                  setIsResourceLibrary(false)
+                  setIsTemporaryLibrary(false)
+                }}
               >
                 <div className="sidebar-category-icon-wrapper">
                   <ArrowLeft className="sidebar-category-icon" />
                 </div>
                 <span>返回</span>
               </button>
-              <button
-                className={`sidebar-category-item ${selectedResourceCategoryId === 'all' ? 'selected' : ''}`}
-                onClick={() => setSelectedResourceCategoryId('all')}
-              >
-                <div className="sidebar-category-icon-wrapper">
-                  <Database className="sidebar-category-icon" />
-                </div>
-                <span>全部</span>
-              </button>
-              {sortProviderCategoriesByOrder(resourceCategories).map(category => (
-                <button
-                  key={category.id}
-                  className={`sidebar-category-item ${selectedResourceCategoryId === category.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedResourceCategoryId(category.id)}
-                >
+              {/* Temporary library mode: show title */}
+              {isTemporaryLibrary && (
+                <button className="sidebar-category-item selected">
                   <div className="sidebar-category-icon-wrapper">
-                    <Layers className="sidebar-category-icon" />
+                    <Clock className="sidebar-category-icon" />
                   </div>
-                  <Tooltip content={category.name}>
-                    <span>{category.name}</span>
-                  </Tooltip>
+                  <span>临时提示词</span>
                 </button>
-              ))}
+              )}
+              {/* Resource library mode: show categories */}
+              {isResourceLibrary && (
+                <>
+                  <button
+                    className={`sidebar-category-item ${selectedResourceCategoryId === 'all' ? 'selected' : ''}`}
+                    onClick={() => setSelectedResourceCategoryId('all')}
+                  >
+                    <div className="sidebar-category-icon-wrapper">
+                      <Database className="sidebar-category-icon" />
+                    </div>
+                    <span>全部</span>
+                  </button>
+                  {sortProviderCategoriesByOrder(resourceCategories).map(category => (
+                    <button
+                      key={category.id}
+                      className={`sidebar-category-item ${selectedResourceCategoryId === category.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedResourceCategoryId(category.id)}
+                    >
+                      <div className="sidebar-category-icon-wrapper">
+                        <Layers className="sidebar-category-icon" />
+                      </div>
+                      <Tooltip content={category.name}>
+                        <span>{category.name}</span>
+                      </Tooltip>
+                    </button>
+                  ))}
+                </>
+              )}
             </>
           ) : (
             <>
@@ -1449,6 +1484,17 @@ export default function SidePanelApp() {
                   <Database className="sidebar-category-icon" />
                 </div>
                 <span>资源库</span>
+              </button>
+
+              {/* "临时库" entry */}
+              <button
+                className={`sidebar-category-item ${isTemporaryLibrary ? 'selected' : ''}`}
+                onClick={() => setIsTemporaryLibrary(true)}
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <Clock className="sidebar-category-icon" />
+                </div>
+                <span>临时库</span>
               </button>
 
               <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
@@ -1581,6 +1627,39 @@ export default function SidePanelApp() {
             <div className="empty-state">
               <div className="empty-message">加载中...</div>
             </div>
+          ) : isTemporaryLibrary ? (
+            // Temporary library view - list format
+            displayTemporaryPrompts.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-message">暂无临时提示词</div>
+              </div>
+            ) : (
+              <DndContext collisionDetection={closestCenter} onDragEnd={handlePromptDragEnd}>
+                <SortableContext
+                  items={displayTemporaryPrompts.map(p => p.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {displayTemporaryPrompts.map(prompt => (
+                    <SortablePromptItem
+                      key={prompt.id}
+                      prompt={prompt}
+                      isSelected={selectedPromptId === prompt.id}
+                      onSelect={handleSelectPrompt}
+                      showDragHandle={displayTemporaryPrompts.length >= 2}
+                      onEdit={(p) => {
+                        setEditingItem('prompt', p)
+                        openModal('isPromptEdit')
+                      }}
+                      onDelete={(p) => {
+                        setEditingItem('deletingPrompt', p)
+                        openModal('isPromptDelete')
+                      }}
+                      canInject={inputStatus === 'available'}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )
           ) : isResourceLibrary ? (
             paginatedResourcePrompts.length === 0 ? (
               <div className="empty-state">
@@ -1642,7 +1721,7 @@ export default function SidePanelApp() {
         </div>
 
         {/* FAB add button */}
-        {!isResourceLibrary && (
+        {!isResourceLibrary && !isTemporaryLibrary && (
           <button
             className="fab-add-btn"
             onClick={() => openModal('isPromptAdd')}
