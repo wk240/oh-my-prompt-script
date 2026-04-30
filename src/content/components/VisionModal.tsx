@@ -192,10 +192,10 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
   }
 
   /**
-   * Open settings page for API configuration
+   * Open API config page directly for API configuration
    */
   const handleOpenSettings = () => {
-    chrome.runtime.sendMessage({ type: MessageType.OPEN_SETTINGS_PAGE })
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/api-config.html') })
     onClose()
   }
 
@@ -240,11 +240,12 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
       clipboardSuccess = await copyToClipboard(currentPrompt)
     }
 
-    // Step 2: Save to '临时' category with bilingual content
+    // Step 2: Save to '临时' category with bilingual content and image
     const promptName = generatePromptName(fullData.zh.prompt)
+    let localImageSaved = false
 
     try {
-      await chrome.runtime.sendMessage({
+      const saveResponse = await chrome.runtime.sendMessage({
         type: MessageType.SAVE_TEMPORARY_PROMPT,
         payload: {
           name: promptName,
@@ -254,18 +255,20 @@ function VisionModal({ imageUrl, tabId, onClose }: VisionModalProps) {
           styleTags: fullData.zh_style_tags
         } as SaveTemporaryPromptPayload
       })
+      localImageSaved = saveResponse?.data?.localImageSaved === true
     } catch (saveError) {
       console.error('[Oh My Prompt] Save to temporary failed:', saveError)
     }
 
     // Step 3: Show feedback
     let feedback = ''
+    const imageStatus = localImageSaved ? '图片已保存' : '图片URL已记录'
     if (insertSuccess) {
-      feedback = '已插入Lovart输入框，已保存到临时分类'
+      feedback = `已插入Lovart输入框，已保存到临时分类 (${imageStatus})`
     } else if (clipboardSuccess) {
-      feedback = '已复制到剪贴板，已保存到临时分类'
+      feedback = `已复制到剪贴板，已保存到临时分类 (${imageStatus})`
     } else {
-      feedback = '插入失败，请手动粘贴。已保存到临时分类'
+      feedback = `插入失败，请手动粘贴。已保存到临时分类 (${imageStatus})`
     }
 
     setFeedbackMessage(feedback)

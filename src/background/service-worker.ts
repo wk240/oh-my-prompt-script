@@ -15,7 +15,7 @@ console.log('[Oh My Prompt] Service Worker started')
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'convert-to-prompt',
-    title: '转提示词',
+    title: '用 OhMyPrompt 将此图片转为Prompt',
     contexts: ['image'], // D-02, MENU-02: Only appear on image elements
     targetUrlPatterns: ['http://*/*', 'https://*/*'] // D-03, D-07: Filter to http/https URLs only
   }, () => {
@@ -597,6 +597,7 @@ chrome.runtime.onMessage.addListener(
         return true // Required for async response
 
       // Phase 12: Save to temporary category (D-03, D-04)
+      // Now also saves image locally if folder is configured
       case MessageType.SAVE_TEMPORARY_PROMPT:
         const savePayload = message.payload as SaveTemporaryPromptPayload
         if (!savePayload || !savePayload.name || !savePayload.content) {
@@ -637,7 +638,59 @@ chrome.runtime.onMessage.addListener(
             }
             prompts.push(newPrompt)
 
-            // Save to storage
+            // Try to save image locally if imageUrl provided and folder configured
+            let localImageSaved = false
+            if (savePayload.imageUrl) {
+              try {
+                const folderHandle = await getFolderHandle()
+                if (folderHandle) {
+                  // Check permission
+                  const permission = await checkFolderPermission(folderHandle, 'readwrite')
+                  if (permission === 'granted' || permission === 'prompt') {
+                    // Request permission if needed
+                    const actualPermission = permission === 'prompt'
+                      ? await requestFolderPermission(folderHandle, 'readwrite')
+                      : permission
+
+                    if (actualPermission === 'granted') {
+                      // Download image
+                      console.log('[Oh My Prompt] Downloading image for local save:', savePayload.imageUrl)
+                      const imageResponse = await fetch(savePayload.imageUrl)
+                      if (imageResponse.ok) {
+                        const imageBlob = await imageResponse.blob()
+
+                        // Determine extension
+                        const ext = savePayload.imageUrl.split('.').pop()?.toLowerCase() || 'jpg'
+                        const finalExt = ALLOWED_IMAGE_EXTENSIONS.includes(ext)
+                          ? (ext === 'jpeg' ? 'jpg' : ext)
+                          : 'jpg'
+
+                        // Save to images directory
+                        const imagesDir = await folderHandle.getDirectoryHandle(IMAGE_DIR_NAME, { create: true })
+                        const filename = `${newPrompt.id}.${finalExt}`
+                        const fileHandle = await imagesDir.getFileHandle(filename, { create: true })
+
+                        // Write image data
+                        const writable = await fileHandle.createWritable()
+                        await writable.write(imageBlob)
+                        await writable.close()
+
+                        // Update prompt with local image path
+                        newPrompt.localImage = `${IMAGE_DIR_NAME}/${filename}`
+                        localImageSaved = true
+                        console.log('[Oh My Prompt] Image saved locally:', newPrompt.localImage)
+                      }
+                    }
+                  }
+                }
+              } catch (imageError) {
+                // Image save failed, but prompt is already saved
+                // Keep remoteImageUrl as fallback
+                console.warn('[Oh My Prompt] Image save failed:', imageError)
+              }
+            }
+
+            // Save to storage (with or without localImage)
             const version = chrome.runtime.getManifest().version
             await storageManager.saveData({
               version,
@@ -645,7 +698,8 @@ chrome.runtime.onMessage.addListener(
               settings: data.settings
             })
 
-            console.log('[Oh My Prompt] Saved prompt to 临时 category:', savePayload.name)
+            console.log('[Oh My Prompt] Saved prompt to 临时 category:', savePayload.name,
+              localImageSaved ? '(image saved locally)' : '(image URL only)')
 
             // Broadcast REFRESH_DATA to all Lovart tabs so dropdown updates immediately
             chrome.tabs.query({ url: ['*://lovart.ai/*', '*://*.lovart.ai/*'] }, (tabs) => {
@@ -657,7 +711,7 @@ chrome.runtime.onMessage.addListener(
               })
             })
 
-            sendResponse({ success: true })
+            sendResponse({ success: true, data: { localImageSaved } })
           })
           .catch((error) => {
             console.error('[Oh My Prompt] SAVE_TEMPORARY_PROMPT error:', error)
