@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Button } from './components/ui/button'
-import { X, Bot, Database, Upload, Download, ChevronRight, Eye, EyeOff } from 'lucide-react'
+import { X, Bot, Database, Upload, Download, ChevronRight, Sparkles } from 'lucide-react'
 import { MessageType } from '../shared/messages'
 import type { StorageSchema } from '../shared/types'
 import { readImportFile, mergeImportData } from '../lib/import-export'
@@ -191,8 +191,8 @@ function SettingsApp() {
           {/* Vision feature toggle */}
           <div className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 flex items-center justify-center rounded-md bg-green-100 text-green-600">
-                {visionEnabled ? <Eye style={{ width: 16, height: 16 }} /> : <EyeOff style={{ width: 16, height: 16 }} />}
+              <div className="w-8 h-8 flex items-center justify-center rounded-md bg-purple-100 text-purple-600">
+                <Sparkles style={{ width: 16, height: 16 }} />
               </div>
               <div className="text-left">
                 <div className="text-sm font-medium text-gray-900">转提示词功能</div>

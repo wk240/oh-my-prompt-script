@@ -353,8 +353,14 @@ export function DropdownContainer({
       if (response?.success && response.data?.settings?.resourceLanguage) {
         setResourceLanguage(response.data.settings.resourceLanguage)
       }
+      if (response?.success && response.data?.settings?.visionEnabled !== undefined) {
+        setVisionEnabled(response.data.settings.visionEnabled)
+      }
     })
   }, [isOpen])
+
+  // Vision feature enabled state
+  const [visionEnabled, setVisionEnabled] = useState(true)
 
   // Transform local prompts by language preference
   useEffect(() => {
@@ -1265,6 +1271,18 @@ export function DropdownContainer({
             <span className="version-badge">v{chrome.runtime.getManifest().version}</span>
           </span>
           <div className="dropdown-header-actions">
+            {visionEnabled && (
+              <Tooltip content="转提示词功能已开启" placement="bottom">
+                <button
+                  className="dropdown-action-btn"
+                  style={{ color: '#a855f7' }}
+                  onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SETTINGS_PAGE })}
+                  aria-label="转提示词功能已开启"
+                >
+                  <Sparkles style={{ width: 14, height: 14 }} />
+                </button>
+              </Tooltip>
+            )}
             <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion} 可用` : '检查更新'} placement="bottom">
               <button
                 ref={updateButtonRef}

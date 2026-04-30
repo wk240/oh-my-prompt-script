@@ -568,6 +568,7 @@ export default function SidePanelApp() {
   const [selectedResourceCategoryId, setSelectedResourceCategoryId] = useState<string>('all')
   const [resourceLanguage, setResourceLanguage] = useState<'zh' | 'en'>('zh')
   const [loadedCount, setLoadedCount] = useState(50)
+  const [visionEnabled, setVisionEnabled] = useState(true)
 
   // Input availability detection (universal - works on any page with input)
   type InputStatus = 'checking' | 'available' | 'unavailable'
@@ -824,11 +825,14 @@ export default function SidePanelApp() {
     }
   }, [loadFromStorage])
 
-  // Load language preference
+  // Load language preference and vision setting
   useEffect(() => {
     chrome.runtime.sendMessage({ type: MessageType.GET_STORAGE }, (response) => {
       if (response?.success && response.data?.settings?.resourceLanguage) {
         setResourceLanguage(response.data.settings.resourceLanguage)
+      }
+      if (response?.success && response.data?.settings?.visionEnabled !== undefined) {
+        setVisionEnabled(response.data.settings.visionEnabled)
       }
     })
   }, [])
@@ -1400,6 +1404,18 @@ export default function SidePanelApp() {
       <div className="top-header">
         <span className="top-header-version">v{chrome.runtime.getManifest().version}</span>
         <div className="top-header-actions">
+          {visionEnabled && (
+            <Tooltip content="转提示词功能已开启" placement="bottom">
+              <button
+                className="header-action-btn"
+                style={{ color: '#a855f7' }}
+                onClick={handleOpenSettings}
+                aria-label="转提示词功能已开启"
+              >
+                <Sparkles style={{ width: 14, height: 14 }} />
+              </button>
+            </Tooltip>
+          )}
           <Tooltip content={updateStatus?.hasUpdate ? `新版本 ${updateStatus.latestVersion}` : '检查更新'} placement="bottom">
             <button
               className="header-action-btn"
