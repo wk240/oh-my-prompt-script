@@ -570,10 +570,22 @@ export default function SidePanelApp() {
   type InputStatus = 'checking' | 'available' | 'unavailable'
   const [inputStatus, setInputStatus] = useState<InputStatus>('checking')
   const [currentTabId, setCurrentTabId] = useState<number | null>(null)
+  const [checkingSiteName, setCheckingSiteName] = useState<string>('')
 
   // Helper function to check if a URL is a special page (no content script)
   const isSpecialPage = useCallback((url: string): boolean => {
     return url.startsWith('chrome://') || url.startsWith('edge://') || url.startsWith('about://') || url.startsWith('chrome-extension://')
+  }, [])
+
+  // Helper function to extract site name from URL
+  const getSiteNameFromUrl = useCallback((url: string): string => {
+    try {
+      const urlObj = new URL(url)
+      // Remove www. prefix and return hostname
+      return urlObj.hostname.replace(/^www\./, '')
+    } catch {
+      return ''
+    }
   }, [])
 
   // Helper function to inject content script dynamically (for pages loaded before extension was enabled)
@@ -662,6 +674,7 @@ export default function SidePanelApp() {
   const checkInputAvailability = useCallback(async () => {
     console.log('[Oh My Prompt] SidePanel: Starting input availability check')
     setInputStatus('checking')
+    setCheckingSiteName('')
     // Reset currentTabId to ensure we don't use stale tab reference
     setCurrentTabId(null)
 
@@ -672,10 +685,13 @@ export default function SidePanelApp() {
 
       // If active tab is valid and not special page, check input availability
       if (activeTab?.id && activeTab?.url && !isSpecialPage(activeTab.url)) {
+        // Set site name for checking status display
+        setCheckingSiteName(getSiteNameFromUrl(activeTab.url))
         const hasInput = await checkInputOnTab(activeTab.id, 3, activeTab.url)
         if (hasInput) {
           setCurrentTabId(activeTab.id)
           setInputStatus('available')
+          setCheckingSiteName('')
           console.log('[Oh My Prompt] SidePanel: Input available on tab', activeTab.id)
           return
         }
@@ -694,11 +710,14 @@ export default function SidePanelApp() {
         console.log('[Oh My Prompt] SidePanel: Found', candidateTabs.length, 'candidate tabs')
         for (const tab of candidateTabs) {
           if (tab.id && tab.url) {
+            // Update site name for each candidate tab
+            setCheckingSiteName(getSiteNameFromUrl(tab.url))
             const hasInput = await checkInputOnTab(tab.id, 2, tab.url) // Fewer retries for fallback tabs
             if (hasInput) {
               console.log('[Oh My Prompt] SidePanel: Found tab with input:', tab.id, tab.url)
               setCurrentTabId(tab.id)
               setInputStatus('available')
+              setCheckingSiteName('')
               return
             }
           }
@@ -708,9 +727,10 @@ export default function SidePanelApp() {
         console.log('[Oh My Prompt] SidePanel: No tab with input found in window')
         setInputStatus('unavailable')
         setCurrentTabId(null)
+        setCheckingSiteName('')
       })
     })
-  }, [isSpecialPage, checkInputOnTab])
+  }, [isSpecialPage, checkInputOnTab, getSiteNameFromUrl])
 
   // Check current tab input availability on mount
   useEffect(() => {
@@ -1449,7 +1469,9 @@ export default function SidePanelApp() {
         {inputStatus === 'checking' && (
           <div className="input-status-banner checking">
             <Loader2 style={{ width: 14, height: 14, color: '#6b7280' }} className="spin-animation" />
-            <span className="banner-text">正在检测页面...</span>
+            <span className="banner-text">
+              {checkingSiteName ? `正在连接 ${checkingSiteName}...` : '正在检测页面...'}
+            </span>
           </div>
         )}
         {inputStatus === 'unavailable' && (
