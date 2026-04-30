@@ -103,6 +103,20 @@ export class Injector {
         display: inline-flex;
         position: relative;
       }
+
+      .trigger-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .trigger-icon {
+        display: block;
+      }
     `
   }
 }
