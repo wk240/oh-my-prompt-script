@@ -61,6 +61,7 @@ export class ImageHoverButtonManager {
     // Pre-bind handlers for proper cleanup
     this.boundMouseOver = this.handleMouseOver.bind(this)
     this.boundMouseOut = this.handleMouseOut.bind(this)
+    this.boundStorageChange = this.handleStorageChange.bind(this)
   }
 
   /**
@@ -68,6 +69,17 @@ export class ImageHoverButtonManager {
    */
   start(): void {
     console.log(LOG_PREFIX, 'ImageHoverButtonManager started (PLAN-B: event delegation)')
+
+    // Load vision setting from storage
+    chrome.runtime.sendMessage({ type: MessageType.GET_STORAGE }, (response) => {
+      if (response?.success && response.data?.settings) {
+        this.visionEnabled = response.data.settings.visionEnabled ?? true
+        console.log(LOG_PREFIX, 'Vision feature setting loaded:', this.visionEnabled)
+      }
+    })
+
+    // Listen for storage changes to update visionEnabled
+    chrome.storage.onChanged.addListener(this.boundStorageChange)
 
     // Create singleton button
     this.singletonButton = this.createSingletonButton()
@@ -78,12 +90,23 @@ export class ImageHoverButtonManager {
   }
 
   /**
+   * Handle storage changes - update visionEnabled when settings change
+   */
+  private handleStorageChange(changes: { [key: string]: chrome.storage.StorageChange }): void {
+    if (changes['prompt_script_data']?.newValue?.settings?.visionEnabled !== undefined) {
+      this.visionEnabled = changes['prompt_script_data'].newValue.settings.visionEnabled
+      console.log(LOG_PREFIX, 'Vision feature setting updated:', this.visionEnabled)
+    }
+  }
+
+  /**
    * Stop and cleanup
    */
   stop(): void {
     // Remove event listeners
     document.removeEventListener('mouseover', this.boundMouseOver)
     document.removeEventListener('mouseout', this.boundMouseOut)
+    chrome.storage.onChanged.removeListener(this.boundStorageChange)
 
     // Clear hide timeout
     if (this.hideTimeout) clearTimeout(this.hideTimeout)
@@ -298,6 +321,11 @@ export class ImageHoverButtonManager {
    * Handle document mouseover - detect image hover
    */
   private handleMouseOver(e: MouseEvent): void {
+    // Check if vision feature is enabled (cached value)
+    if (!this.visionEnabled) {
+      return // Don't show button if feature is disabled
+    }
+
     const target = e.target instanceof Element ? e.target : null
     if (!target) return
 
@@ -440,65 +468,13 @@ export class ImageHoverButtonManager {
    * Handle button click - open Vision Modal
    */
   private handleButtonClick(imageUrl: string): void {
-    console.log(LOG_PREFIX, 'Hover button clicked, checking vision setting...')
+    console.log(LOG_PREFIX, 'Hover button clicked, opening Vision Modal')
 
-    // Check if vision feature is enabled
-    chrome.runtime.sendMessage({ type: MessageType.GET_STORAGE }, (response) => {
-      if (response?.success && response.data?.settings) {
-        const visionEnabled = response.data.settings.visionEnabled ?? true
-        if (!visionEnabled) {
-          console.log(LOG_PREFIX, 'Vision feature is disabled')
-          // Show toast notification
-          this.showDisabledToast()
-          return
-        }
+    const visionManager = VisionModalManager.getInstance()
+    visionManager.create(imageUrl)
 
-        // Vision enabled, open modal
-        console.log(LOG_PREFIX, 'Vision feature enabled, opening modal')
-        const visionManager = VisionModalManager.getInstance()
-        visionManager.create(imageUrl)
-
-        // Hide button after click
-        this.hideButton()
-      } else {
-        // Failed to get settings, default to enabled
-        console.warn(LOG_PREFIX, 'Failed to get settings, defaulting to enabled')
-        const visionManager = VisionModalManager.getInstance()
-        visionManager.create(imageUrl)
-        this.hideButton()
-      }
-    })
-  }
-
-  /**
-   * Show toast when vision feature is disabled
-   */
-  private showDisabledToast(): void {
-    // Create a simple toast element
-    const toast = document.createElement('div')
-    toast.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1f1f1f;
-      color: #fff;
-      padding: 12px 20px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      z-index: 2147483647;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    `
-    toast.textContent = '转提示词功能已关闭，请在设置中开启'
-    document.body.appendChild(toast)
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-      toast.style.opacity = '0'
-      toast.style.transition = 'opacity 0.3s'
-      setTimeout(() => toast.remove(), 300)
-    }, 2500)
+    // Hide button after click
+    this.hideButton()
   }
 
   /**
