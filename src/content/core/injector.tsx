@@ -157,8 +157,11 @@ export class Injector {
     const candidates: HTMLElement[] = [document.body]
 
     // Find elements with very high z-index (modal backdrops, overlays, etc.)
+    // Exclude our own tooltip element to avoid self-append error
     const allElements = document.querySelectorAll<HTMLElement>('*')
     for (const el of allElements) {
+      // Skip our own tooltip element (cannot append to itself)
+      if (el.id === TOOLTIP_ID) continue
       const style = getComputedStyle(el)
       const zIndex = parseInt(style.zIndex)
       if (zIndex > 1000000 && style.position !== 'static') {
