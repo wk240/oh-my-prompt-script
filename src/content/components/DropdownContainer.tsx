@@ -1139,7 +1139,7 @@ export function DropdownContainer({
     ),
     cursor: isDragging ? 'grabbing' : 'default',
     width: 640,
-    maxHeight: 600,
+    height: 600,
   }
 
   // Get category icon
