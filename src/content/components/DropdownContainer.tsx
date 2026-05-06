@@ -658,11 +658,13 @@ export function DropdownContainer({
       const rect = hostElement.getBoundingClientRect()
       const viewportWidth = window.innerWidth
 
-      // 计算下拉框左边缘位置（默认右对齐触发按钮）
+      // 计算下拉框左边缘位置（默认右对齐触发按钮左边缘）
       const dropdownLeftEdge = rect.left - dropdownWidth
 
-      // 检测左侧是否超出viewport
-      const isStickyLeft = dropdownLeftEdge < 0
+      // 检测左侧是否需要吸左
+      // 条件：下拉框左边缘会超出viewport，或者按钮在页面左侧区域（viewport左50%范围内）
+      // 使用宽松条件确保居中布局时也能正确吸左
+      const isStickyLeft = dropdownLeftEdge < 16 || rect.left < viewportWidth * 0.5
 
       // 垂直位置计算
       const preferredTopPos = rect.top - dropdownGap
@@ -670,7 +672,7 @@ export function DropdownContainer({
       const isStickyTop = dropdownTop < 0
 
       if (isStickyLeft) {
-        // 左侧超出：改为左对齐（left: 0）
+        // 左侧超出：吸左（左边缘贴住viewport左边缘）
         setPosition({
           top: isStickyTop ? 0 : preferredTopPos,
           left: 0,

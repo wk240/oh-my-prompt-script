@@ -21,10 +21,10 @@ export interface LovartStyleConfig {
  */
 export const DEFAULT_STYLE: LovartStyleConfig = {
   backgroundColor: 'transparent',
-  borderRadius: '8px',
+  borderRadius: '50%',
   boxShadow: 'none',
-  color: '#666',
-  hoverBackgroundColor: 'rgba(0, 0, 0, 0.05)',
+  color: '#171717', // 黑色
+  hoverBackgroundColor: 'rgba(0, 0, 0, 0.06)',
   activeBackgroundColor: 'rgba(0, 0, 0, 0.1)',
 }
 
