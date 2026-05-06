@@ -220,11 +220,34 @@ class Coordinator {
   /**
    * Select injection config based on detected input element
    * Checks secondaryInjections for matching inputSelector
+   * Special handling for jimeng platform (Agent mode vs Image mode)
    */
   private selectInjectionConfig(inputElement: HTMLElement): UIInjectionConfig {
     const platform = this.platform
     if (!platform) {
       return platform!.uiInjection
+    }
+
+    // Special handling for jimeng platform
+    // Agent mode: voice input button is INSIDE toolbar-settings-content
+    // Image mode: voice input button is OUTSIDE toolbar-settings-content
+    if (platform.id === 'jimeng') {
+      const toolbarContent = document.querySelector('.toolbar-settings-content-AqQb52')
+      const voiceInputInToolbar = toolbarContent?.querySelector('.voice-input-button-container-t_Av1X')
+      if (voiceInputInToolbar) {
+        // Agent mode - inject before voice input button (inside toolbar)
+        return {
+          anchorSelector: '.voice-input-button-container-t_Av1X',
+          position: 'before',
+          customButton: platform.uiInjection.customButton,
+        }
+      }
+      // Image/other modes - inject at end of toolbar-settings-content
+      return {
+        anchorSelector: '.toolbar-settings-content-AqQb52',
+        position: 'append',
+        customButton: platform.uiInjection.customButton,
+      }
     }
 
     // Check secondary injections for matching inputSelector

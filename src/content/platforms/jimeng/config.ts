@@ -3,6 +3,7 @@
  */
 
 import type { PlatformConfig } from '../base/types'
+import { JimengButton } from './JimengButton'
 
 export const jimengConfig: PlatformConfig = {
   id: 'jimeng',
@@ -21,7 +22,8 @@ export const jimengConfig: PlatformConfig = {
   },
 
   uiInjection: {
-    anchorSelector: '.prompt-input-area',
+    anchorSelector: '.toolbar-settings-content-AqQb52',
     position: 'append',
+    customButton: JimengButton,
   },
 }
