@@ -29,6 +29,8 @@ import { getResourcePrompts, getResourceCategories } from '../../lib/resource-li
 import { MessageType } from '../../shared/messages'
 import { clearImageUrlCache, isFolderConfigured, downloadImageFromUrl, saveImage } from '../../lib/sync/image-sync'
 import { clearLoadQueue } from '../../lib/sync/image-loader-queue'
+import { getFolderHandle } from '../../lib/sync/indexeddb'
+import { manualSync } from '../../lib/sync/sync-manager'
 import { PromptThumbnail } from './PromptThumbnail'
 import { PORTAL_ID, STYLE_ID, DROPDOWN_STYLES } from '../styles/dropdown-styles'
 
@@ -361,6 +363,11 @@ export function DropdownContainer({
   // Vision feature enabled state
   const [visionEnabled, setVisionEnabled] = useState(true)
 
+  // Permission restore status for auto-restore on dropdown open
+  const [permissionRestoreStatus, setPermissionRestoreStatus] = useState<'idle' | 'restoring' | 'restored' | 'failed'>('idle')
+  // Sync status for permission restore and UI
+  const [syncStatus, setSyncStatus] = useState<{ hasFolder: boolean; permissionStatus?: 'granted' | 'prompt' | 'denied'; hasUnsyncedChanges?: boolean; dismissedBackupWarning?: boolean } | null>(null)
+
   // Transform local prompts by language preference
   useEffect(() => {
     setDisplayPrompts(localPrompts.map(p => ({
@@ -464,7 +471,7 @@ export function DropdownContainer({
   const [backupWarningPromptCount, setBackupWarningPromptCount] = useState(0)
   const [dontShowBackupWarning, setDontShowBackupWarning] = useState(false)
 
-  // Fetch update status and sync status when dropdown opens
+  // Get update status when dropdown opens
   useEffect(() => {
     if (!isOpen) return
     chrome.runtime.sendMessage({ type: MessageType.GET_UPDATE_STATUS }, (response) => {
@@ -472,25 +479,77 @@ export function DropdownContainer({
         setUpdateStatus(response.data)
       }
     })
-    // Check for unsynced changes to show backup reminder
+  }, [isOpen])
+
+  // Get sync status immediately when dropdown opens (for permission restore)
+  // This must run ASAP to capture user gesture from clicking trigger button
+  useEffect(() => {
+    if (!isOpen) return
     chrome.runtime.sendMessage({ type: MessageType.GET_SYNC_STATUS }, (response) => {
       if (response?.success && response.data) {
-        const syncStatus = response.data
-        if (syncStatus.hasUnsyncedChanges) {
+        const status = response.data
+        setSyncStatus(status)
+        if (status.hasUnsyncedChanges) {
           openModal('showBackupReminder')
-        }
-        // Check for first-time backup warning
-        if (!syncStatus.hasFolder && !syncStatus.dismissedBackupWarning) {
-          // Get prompt count to assess data loss risk
-          const promptCount = localPrompts.length
-          if (promptCount > 0) {
-            setBackupWarningPromptCount(promptCount)
-            openModal('showFirstBackupWarning')
-          }
         }
       }
     })
-  }, [isOpen, localPrompts.length])
+  }, [isOpen]) // Run immediately when dropdown opens
+
+  // Check for first-time backup warning (depends on prompts)
+  useEffect(() => {
+    if (!isOpen) return
+    if (syncStatus && !syncStatus.hasFolder && !syncStatus.dismissedBackupWarning && localPrompts.length > 0) {
+      setBackupWarningPromptCount(localPrompts.length)
+      openModal('showFirstBackupWarning')
+    }
+  }, [isOpen, syncStatus, localPrompts.length])
+
+  // Auto-restore folder permission when dropdown opens
+  // Clicking trigger button is valid user gesture for requestPermission()
+  useEffect(() => {
+    if (!isOpen || permissionRestoreStatus !== 'idle') return
+    if (!syncStatus?.hasFolder || syncStatus?.permissionStatus !== 'prompt') return
+
+    const restorePermission = async () => {
+      console.log('[Oh My Prompt] Dropdown: Permission auto-restore triggered')
+      setPermissionRestoreStatus('restoring')
+
+      const handle = await getFolderHandle()
+      if (!handle) {
+        console.warn('[Oh My Prompt] Dropdown: No folder handle found')
+        setPermissionRestoreStatus('failed')
+        return
+      }
+
+      try {
+        const permission = await handle.requestPermission({ mode: 'readwrite' })
+
+        if (permission === 'granted') {
+          console.log('[Oh My Prompt] Dropdown: Permission restored successfully')
+          setPermissionRestoreStatus('restored')
+          // Trigger sync after permission restored
+          manualSync().catch(err => console.warn('[Oh My Prompt] Auto-sync after permission restore failed:', err))
+        } else {
+          console.warn('[Oh My Prompt] Dropdown: Permission restore failed:', permission)
+          setPermissionRestoreStatus('failed')
+        }
+      } catch (error) {
+        console.warn('[Oh My Prompt] Dropdown: Permission request threw error:', error)
+        setPermissionRestoreStatus('failed')
+      }
+    }
+
+    restorePermission()
+  }, [isOpen, syncStatus, permissionRestoreStatus])
+
+  // Reset permission restore status when dropdown closes
+  useEffect(() => {
+    if (!isOpen) {
+      setPermissionRestoreStatus('idle')
+      setSyncStatus(null)
+    }
+  }, [isOpen])
 
   // Manual update check handler
   const handleCheckUpdate = useCallback(() => {
