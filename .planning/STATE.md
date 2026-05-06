@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3.1
-milestone_name: Release Preparation
-status: in_progress
-last_updated: "2026-05-01T17:32:00.000Z"
-last_activity: 2026-05-01
+milestone: v1.3.3
+milestone_name: Gesture-Preserving Permission
+status: complete
+last_updated: "2026-05-06T20:20:00.000Z"
+last_activity: 2026-05-06
 progress:
   total_phases: 1
   completed_phases: 0
@@ -24,21 +24,21 @@ See: .planning/PROJECT.md (updated 2026-04-28)
 
 ## Current Position
 
-Phase: Release prep
+Phase: Complete
 Plan: N/A
-Status: In progress
-Last activity: 2026-05-01
+Status: Shipped
+Last activity: 2026-05-06
 
-Progress: v1.3.0 complete, v1.3.1 in progress
+Progress: v1.3.3 shipped
 
-## Recent Work (v1.3.1 branch)
+## Recent Work (release/v1.3.3 branch)
 
-Recent commits on `release/v1.3.1`:
-- Offscreen Document API for file system operations
-- Retry mechanism for extension reload race condition
-- Update check UX improvements
-- Vision feature toggle in settings
-- Encrypted API config backup
+Version 1.3.3 shipped with gesture-preserving permission restore:
+- Folder permission auto-restore with gesture-preserving sidePanel.open()
+- Cached handle approach for cross-origin permission restore
+- Sidepanel permission denied warning banner
+- Chrome user gesture requirements documented (docs/chrome-user-gesture.md)
+- Offscreen Document API for gesture-preserving permission request
 
 ## Performance Metrics
 
@@ -90,5 +90,5 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-05-01
-Current branch: release/v1.3.1
+Last session: 2026-05-06
+Current branch: release/v1.3.3
