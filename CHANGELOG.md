@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.4] - 2026-05-06
+
+### Fixed / 修复
+- **[EN]** Gesture-preserving permission request using offscreen document
+- **[CN]** 使用 offscreen 文档保持用户手势权限请求
+
 ## [1.3.0] - 2026-04-28
 
 ### Added / 新增
