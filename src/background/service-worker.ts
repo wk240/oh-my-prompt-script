@@ -329,20 +329,7 @@ chrome.runtime.onMessage.addListener(
           })
         return true // Required for async response
 
-      case MessageType.OPEN_BACKUP_PAGE:
-        // Open backup page in a new tab with source tab ID
-        const sourceTabId = _sender.tab?.id
-        const url = sourceTabId
-          ? `src/popup/backup.html?sourceTabId=${sourceTabId}`
-          : 'src/popup/backup.html'
-        chrome.tabs.create({ url: chrome.runtime.getURL(url) })
-          .then(() => sendResponse({ success: true } as MessageResponse))
-          .catch(error => {
-            console.error('[Oh My Prompt] OPEN_BACKUP_PAGE error:', error)
-            sendResponse({ success: false, error: 'Failed to open backup page' })
-          })
-        return true // Required for async response
-
+      
       case MessageType.REFRESH_DATA:
         // Broadcast refresh to all content scripts (handled by tabs.sendMessage)
         // This is just a confirmation from backup page
@@ -391,26 +378,7 @@ chrome.runtime.onMessage.addListener(
           })
         return true // Required for async response
 
-      case MessageType.OPEN_SETTINGS_PAGE:
-        // Open settings.html for settings center (called from dropdown or VisionModal)
-        chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/settings.html') })
-          .then(() => sendResponse({ success: true } as MessageResponse))
-          .catch(error => {
-            console.error('[Oh My Prompt] OPEN_SETTINGS_PAGE error:', error)
-            sendResponse({ success: false, error: 'Failed to open settings page' })
-          })
-        return true // Required for async response
-
-      case MessageType.OPEN_API_CONFIG_PAGE:
-        // Open api-config.html from Vision Modal (content script cannot use chrome.tabs)
-        chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/api-config.html') })
-          .then(() => sendResponse({ success: true } as MessageResponse))
-          .catch(error => {
-            console.error('[Oh My Prompt] OPEN_API_CONFIG_PAGE error:', error)
-            sendResponse({ success: false, error: 'Failed to open API config page' })
-          })
-        return true // Required for async response
-
+      
       case MessageType.EXPORT_DATA:
         // Export data as JSON file download using data URL (service worker doesn't support blob URLs)
         const exportPayload = message.payload as { version: string; userData: { prompts: unknown[]; categories: unknown[] }; settings: unknown }

@@ -12,7 +12,6 @@ export enum MessageType {
   GET_SYNC_STATUS = 'GET_SYNC_STATUS',
   SET_UNSYNCED_FLAG = 'SET_UNSYNCED_FLAG',
   SYNC_FAILED = 'SYNC_FAILED',  // Broadcast to content scripts when sync fails
-  OPEN_BACKUP_PAGE = 'OPEN_BACKUP_PAGE',
   REFRESH_DATA = 'REFRESH_DATA',
   CHECK_UPDATE = 'CHECK_UPDATE',
   GET_UPDATE_STATUS = 'GET_UPDATE_STATUS',
@@ -23,8 +22,6 @@ export enum MessageType {
   RESTORE_PERMISSION = 'RESTORE_PERMISSION',  // Restore folder permission after extension update
   REQUEST_PERMISSION_GESTURE = 'REQUEST_PERMISSION_GESTURE',  // Direct permission request preserving user gesture (Content -> SW -> Offscreen)
   SET_SETTINGS_ONLY = 'SET_SETTINGS_ONLY',  // Update settings only, no backup trigger (for language toggle)
-  OPEN_SETTINGS_PAGE = 'OPEN_SETTINGS_PAGE',  // Open settings.html for settings center
-  OPEN_API_CONFIG_PAGE = 'OPEN_API_CONFIG_PAGE',  // Open api-config.html from Vision Modal
   OPEN_SIDEPANEL_FOR_PERMISSION = 'OPEN_SIDEPANEL_FOR_PERMISSION',  // Open sidepanel to restore folder permission (user gesture propagates)
 
   // Phase 10: API configuration operations
