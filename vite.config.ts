@@ -23,9 +23,6 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        backup: 'src/popup/backup.html',
-        settings: 'src/popup/settings.html',
-        apiConfig: 'src/popup/api-config.html',
         sidepanel: 'src/sidepanel/sidepanel.html',
         offscreen: 'src/offscreen/offscreen.html'
       },
