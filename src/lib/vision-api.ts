@@ -585,11 +585,12 @@ export function classifyApiError(error: unknown, retryCount = 0): VisionApiError
       }
     }
 
-    // Network error
+    // Network error - include actual error message for debugging
     if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch')) {
+      const actualErrorDetail = error instanceof Error ? error.message : 'unknown'
       return {
         type: 'network',
-        message: '网络连接失败，请检查网络后重试',
+        message: `网络连接失败，请检查网络后重试 (${actualErrorDetail})`,
         action: retryCount < MAX_RETRY_COUNT ? 'retry' : 'close'
       }
     }
