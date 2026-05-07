@@ -1597,9 +1597,9 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     if (dontShowBackupWarning) {
       chrome.runtime.sendMessage({ type: MessageType.DISMISS_BACKUP_WARNING })
     }
-    // Open backup page for folder selection
-    chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
-  }, [dontShowBackupWarning])
+    // Open settings view for folder selection
+    onOpenSettings()
+  }, [dontShowBackupWarning, closeModal, onOpenSettings])
 
   const handleBackupWarningSkip = useCallback(() => {
     closeModal('showFirstBackupWarning')
@@ -1824,7 +1824,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
               className="banner-link backup-reminder-link"
               onClick={() => {
                 closeModal('showBackupReminder')
-                chrome.runtime.sendMessage({ type: MessageType.OPEN_BACKUP_PAGE })
+                onOpenSettings()
               }}
             >
               设置备份
