@@ -195,9 +195,11 @@ class Coordinator {
    * Inject UI only if platform matches
    */
   private handleUniversalInputDetected(inputElement: HTMLElement): void {
+    console.log(LOG_PREFIX, 'Input detected:', inputElement.className, 'Platform:', this.platform?.id)
 
     // Only inject UI if platform matches
     if (!this.platform || !this.injector) {
+      console.log(LOG_PREFIX, 'No platform match or injector, skipping injection')
       return
     }
 
@@ -209,6 +211,7 @@ class Coordinator {
 
     // Select appropriate injection config based on input element
     const injectionConfig = this.selectInjectionConfig(inputElement)
+    console.log(LOG_PREFIX, 'Injection config:', injectionConfig.anchorSelector, injectionConfig.position)
 
     this.injector.inject(
       inputElement,

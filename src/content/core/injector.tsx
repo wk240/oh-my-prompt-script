@@ -39,12 +39,15 @@ export class Injector {
     this.stopAnchorObserver()
 
     const anchor = document.querySelector<HTMLElement>(config.anchorSelector)
+    console.log(LOG_PREFIX, 'Looking for anchor:', config.anchorSelector, 'Found:', !!anchor)
+
     if (!anchor) {
       console.warn(LOG_PREFIX, 'Anchor not found:', config.anchorSelector, '- waiting for anchor to appear...')
       this.waitForAnchor(inputElement, config, inserter)
       return
     }
 
+    console.log(LOG_PREFIX, 'Performing injection at anchor:', anchor.className)
     this.performInjection(inputElement, config, inserter, anchor)
   }
 
@@ -237,6 +240,8 @@ export class Injector {
         break
     }
 
+    console.log(LOG_PREFIX, 'Host element inserted:', this.hostElement.id, 'Position:', config.position)
+
     const mountPoint = this.shadowRoot.querySelector('#react-root')
     if (mountPoint) {
       const ButtonComponent = config.customButton ?? TriggerButton
@@ -249,6 +254,7 @@ export class Injector {
           buttonStyle={config.buttonStyle}
         />
       )
+      console.log(LOG_PREFIX, 'React app rendered successfully')
     }
 
     // Create tooltip at document.body level (outside Shadow DOM)
