@@ -119,48 +119,48 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | TBD | Pending |
-| AUTH-02 | TBD | Pending |
-| AUTH-03 | TBD | Pending |
-| AUTH-04 | TBD | Pending |
-| AUTH-05 | TBD | Pending |
-| AUTH-06 | TBD | Pending |
-| AUTH-07 | TBD | Pending |
-| SYNC-01 | TBD | Pending |
-| SYNC-02 | TBD | Pending |
-| SYNC-03 | TBD | Pending |
-| SYNC-04 | TBD | Pending |
-| SYNC-05 | TBD | Pending |
-| SYNC-06 | TBD | Pending |
-| TEAM-01 | TBD | Pending |
-| TEAM-02 | TBD | Pending |
-| TEAM-03 | TBD | Pending |
-| TEAM-04 | TBD | Pending |
-| TEAM-05 | TBD | Pending |
-| TEAM-06 | TBD | Pending |
-| TEAM-07 | TBD | Pending |
-| TEAM-08 | TBD | Pending |
-| TEAM-09 | TBD | Pending |
-| TEAM-10 | TBD | Pending |
-| PAY-01 | TBD | Pending |
-| PAY-02 | TBD | Pending |
-| PAY-03 | TBD | Pending |
-| PAY-04 | TBD | Pending |
-| PAY-05 | TBD | Pending |
-| PAY-06 | TBD | Pending |
-| PAY-07 | TBD | Pending |
-| PAY-08 | TBD | Pending |
-| WEB-01 | TBD | Pending |
-| WEB-02 | TBD | Pending |
-| WEB-03 | TBD | Pending |
-| WEB-04 | TBD | Pending |
-| WEB-05 | TBD | Pending |
+| AUTH-01 | Phase 13 | Pending |
+| AUTH-02 | Phase 13 | Pending |
+| AUTH-03 | Phase 13 | Pending |
+| AUTH-04 | Phase 13 | Pending |
+| AUTH-05 | Phase 13 | Pending |
+| AUTH-06 | Phase 13 | Pending |
+| AUTH-07 | Phase 13 | Pending |
+| SYNC-01 | Phase 14 | Pending |
+| SYNC-02 | Phase 14 | Pending |
+| SYNC-03 | Phase 14 | Pending |
+| SYNC-04 | Phase 14 | Pending |
+| SYNC-05 | Phase 14 | Pending |
+| SYNC-06 | Phase 14 | Pending |
+| TEAM-01 | Phase 15 | Pending |
+| TEAM-02 | Phase 15 | Pending |
+| TEAM-03 | Phase 15 | Pending |
+| TEAM-09 | Phase 15 | Pending |
+| TEAM-10 | Phase 15 | Pending |
+| TEAM-04 | Phase 16 | Pending |
+| TEAM-05 | Phase 16 | Pending |
+| TEAM-06 | Phase 16 | Pending |
+| TEAM-07 | Phase 16 | Pending |
+| TEAM-08 | Phase 16 | Pending |
+| PAY-01 | Phase 17 | Pending |
+| PAY-02 | Phase 17 | Pending |
+| PAY-03 | Phase 17 | Pending |
+| PAY-04 | Phase 17 | Pending |
+| PAY-05 | Phase 17 | Pending |
+| PAY-06 | Phase 17 | Pending |
+| PAY-07 | Phase 17 | Pending |
+| PAY-08 | Phase 17 | Pending |
+| WEB-01 | Phase 18 | Pending |
+| WEB-02 | Phase 18 | Pending |
+| WEB-03 | Phase 18 | Pending |
+| WEB-04 | Phase 18 | Pending |
+| WEB-05 | Phase 18 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 35 total
-- Mapped to phases: 0
-- Unmapped: 35 ⚠️
+- Mapped to phases: 35
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-07*
-*Last updated: 2026-05-07 after milestone scoping*
+*Last updated: 2026-05-07 after roadmap creation*
