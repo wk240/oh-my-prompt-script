@@ -95,6 +95,49 @@ export interface VisionApiConfig {
   configuredAt?: number // Timestamp of configuration (optional)
 }
 
+// Provider API configuration (multi-provider support)
+export interface ProviderConfig {
+  id: string                    // UUID (crypto.randomUUID())
+  providerId: string            // Provider ID from providers.json, or 'custom'
+  providerName: string          // Display name (e.g., 'Anthropic Claude')
+  apiKey: string                // API key — NEVER log this
+  apiEndpoint: string           // Full API URL
+  apiFormat: 'anthropic_messages' | 'chat_completions'
+  selectedModel: string         // User-selected model
+  configuredAt: number          // Timestamp
+  isCustom?: boolean            // true for custom configs
+}
+
+// Provider data from providers.json
+export interface Provider {
+  id: string                              // Generated from name (slug)
+  name: string                            // Display name
+  type: 'official' | 'cn_official' | 'aggregator' | 'third_party'
+  apiEndpoint: string                     // Default API URL
+  apiFormat: 'anthropic_messages' | 'chat_completions'
+  models: string[]                        // Available models
+  icon: string                            // Icon identifier
+  iconColor: string                       // Icon color
+  websiteUrl?: string                     // Official website
+  apiKeyUrl?: string                      // API key management page
+  isPartner?: boolean                     // Partner flag
+}
+
+// Provider group for UI display
+export interface ProviderGroup {
+  label: string              // '官方 API' / '国内提供商' / '聚合器' / '第三方'
+  labelEn: string            // 'Official' / 'China Providers' / 'Aggregators' / 'Third-party'
+  type: Provider['type']
+  providers: Provider[]
+  order: number
+}
+
+// Storage structure for provider configs
+export interface ProviderConfigsStorage {
+  configs: ProviderConfig[]
+  activeConfigId: string | null
+}
+
 // Phase 11: Vision API call payload
 export interface VisionApiCallPayload {
   imageUrl: string // HTTP URL of captured image (for reference)
