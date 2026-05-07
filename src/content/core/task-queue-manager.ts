@@ -33,6 +33,7 @@ export interface QueueTask {
   thumbnailUrl?: string       // Thumbnail (compressed base64 for display)
   status: TaskStatus
   createdAt: number           // Timestamp when added
+  modelName?: string          // Model name being used for analysis (e.g., 'claude-3-5-sonnet-20241022')
   result?: VisionApiResultData // Result on success
   error?: string              // Error message on failure
   errorAction?: 'settings' | 'retry' | 'close' // Error action for UI guidance
@@ -243,14 +244,25 @@ export class TaskQueueManager {
 
   /**
    * Start a task
+   * Fetches active config to display model name during analysis
    */
-  private startTask(task: QueueTask): void {
+  private async startTask(task: QueueTask): Promise<void> {
     const store = useTaskQueueStore.getState()
 
-    // Update status
-    store.updateTask(task.id, { status: 'running' })
-    this.runningCount++
+    // Fetch active config to get model name (async, non-blocking)
+    let modelName: string | undefined
+    try {
+      const configResponse = await chrome.runtime.sendMessage({ type: MessageType.GET_ACTIVE_CONFIG })
+      if (configResponse?.success && configResponse?.data) {
+        modelName = configResponse.data.selectedModel
+      }
+    } catch {
+      // Ignore - model name is optional for display
+    }
 
+    // Update status and model name
+    store.updateTask(task.id, { status: 'running', modelName })
+    this.runningCount++
 
     // Create abort controller
     const abortController = new AbortController()
