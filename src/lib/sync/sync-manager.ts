@@ -630,6 +630,11 @@ export async function restoreFromBackup(
     }
     await storageManager.updateSettings({ lastSyncTime: Date.now() })
 
+    // Sync restored data to latest backup file (omps-latest.json)
+    // This ensures the restored state becomes the "current" backup state
+    const version = chrome.runtime.getManifest().version
+    await sendToOffscreen(MessageType.OFFSCREEN_SYNC, { backupData, version })
+
     return { success: true }
   } catch (error) {
     console.error('[Oh My Prompt] Restore failed:', error)
