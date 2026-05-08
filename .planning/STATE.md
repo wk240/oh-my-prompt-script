@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 Phase: 13 of 18 (Authentication Foundation)
 Plan: 0 of TBD
 Status: Ready to plan
-Last activity: 2026-05-08 — Completed quick task 260508-rmx: 给README加入eg2.gif，图片转提示词
+Last activity: 2026-05-08 — Completed quick task 260508-rx8: 更新README文档准确性
 
 ## Recent Work (release/v1.3.4 branch)
 
@@ -97,6 +97,7 @@ None currently.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260508-rmx | 给README加入eg2.gif，图片转提示词 | 2026-05-08 | cfec370 | [260508-rmx-readme-eg2-gif](./quick/260508-rmx-readme-eg2-gif/) |
+| 260508-rx8 | 更新README，检查每个模块的功能描述是否与当前实现一致 | 2026-05-08 | 08ae86c | [260508-rx8-readme](./quick/260508-rx8-readme/) |
 
 ## Deferred Items
 
