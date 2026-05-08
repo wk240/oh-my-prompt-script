@@ -38,6 +38,12 @@ export function DropdownApp({
 
   useEffect(() => {
     loadFromStorage()
+
+    // Pre-cache folder handle on component mount
+    // This ensures the handle is ready when user clicks the button
+    // OFFSCREEN_CHECK_PERMISSION triggers handle caching in offscreen document
+    chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_CHECK_PERMISSION })
+      .catch(() => { /* Ignore errors - folder may not be configured */ })
   }, [loadFromStorage])
 
   // Handle click outside to close dropdown
