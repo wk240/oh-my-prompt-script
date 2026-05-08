@@ -11,7 +11,7 @@ import {
 } from '@/lib/sync/sync-manager'
 import type { SyncStatus, ExistingBackupInfo } from '@/lib/sync/sync-manager'
 import type { BackupVersion } from '@/lib/sync/file-sync'
-import { MessageType } from '@/shared/messages'
+import { MessageType } from '@oh-my-prompt/shared/messages'
 import { BackupStatusCard } from './components/BackupStatusCard'
 import { VersionCard } from './components/VersionCard'
 import { RestoreDialog } from './components/RestoreDialog'

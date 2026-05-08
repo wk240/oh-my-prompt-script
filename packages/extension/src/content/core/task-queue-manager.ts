@@ -4,8 +4,8 @@
  * Singleton pattern with max 10 tasks, max 5 concurrent
  */
 
-import type { VisionApiResultData, VisionApiErrorPayload, SaveTemporaryPromptPayload } from '@/shared/types'
-import { MessageType } from '@/shared/messages'
+import type { VisionApiResultData, VisionApiErrorPayload, SaveTemporaryPromptPayload } from '@oh-my-prompt/shared/types'
+import { MessageType } from '@oh-my-prompt/shared/messages'
 import { classifyApiError } from '@/lib/vision-api'
 import { useTaskQueueStore } from './task-queue-store'
 import { generateThumbnail } from '@/lib/image-utils'

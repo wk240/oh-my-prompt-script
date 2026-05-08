@@ -4,7 +4,7 @@
  * Handles Vision Modal functionality and universal prompt insertion
  */
 
-import { MessageType } from '@/shared/messages'
+import { MessageType } from '@oh-my-prompt/shared/messages'
 import { TaskQueueManager } from './core/task-queue-manager'
 
 const LOG_PREFIX = '[Oh My Prompt]'

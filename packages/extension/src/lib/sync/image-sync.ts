@@ -7,9 +7,9 @@
  * Therefore, content scripts send image data to service worker for file operations.
  */
 
-import { IMAGE_DIR_NAME, MAX_IMAGE_SIZE, ALLOWED_IMAGE_EXTENSIONS } from '@/shared/constants'
+import { IMAGE_DIR_NAME, MAX_IMAGE_SIZE, ALLOWED_IMAGE_EXTENSIONS } from '@oh-my-prompt/shared/constants'
 import { getFolderHandle, checkFolderPermission, requestFolderPermission } from './indexeddb'
-import { MessageType } from '@/shared/messages'
+import { MessageType } from '@oh-my-prompt/shared/messages'
 
 /**
  * Check if we're in content script context

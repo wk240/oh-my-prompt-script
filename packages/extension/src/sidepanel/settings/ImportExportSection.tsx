@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Button } from '@/popup/components/ui/button'
 import { Upload, Download } from 'lucide-react'
-import { MessageType } from '@/shared/messages'
-import type { StorageSchema } from '@/shared/types'
+import { MessageType } from '@oh-my-prompt/shared/messages'
+import type { StorageSchema } from '@oh-my-prompt/shared/types'
 import { readImportFile, mergeImportData } from '@/lib/import-export'
 
 /**

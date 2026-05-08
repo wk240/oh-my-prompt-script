@@ -9,7 +9,7 @@
 
 import { createRoot, type Root } from 'react-dom/client'
 import HoverButton from './components/HoverButton'
-import { MessageType } from '@/shared/messages'
+import { MessageType } from '@oh-my-prompt/shared/messages'
 import { TaskQueueManager } from './core/task-queue-manager'
 import { VisionModalManager } from './vision-modal-manager'
 import { isFileUrl, imageElementToBase64 } from '@/lib/file-image-utils'

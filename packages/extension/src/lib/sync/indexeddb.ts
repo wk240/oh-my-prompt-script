@@ -1,4 +1,4 @@
-import { SYNC_DB_NAME, SYNC_STORE_NAME, SYNC_HANDLE_KEY } from '@/shared/constants'
+import { SYNC_DB_NAME, SYNC_STORE_NAME, SYNC_HANDLE_KEY } from '@oh-my-prompt/shared/constants'
 
 // Legacy DB name for migration (v1.1.4 and earlier)
 const LEGACY_SYNC_DB_NAME = 'oh-my-prompt-script-sync'

@@ -11,8 +11,8 @@ import {
   DialogFooter,
 } from '@/popup/components/ui/dialog'
 import { Check, ExternalLink, Sparkles } from 'lucide-react'
-import { MessageType } from '@/shared/messages'
-import type { ProviderConfig, Provider, ProviderGroup } from '@/shared/types'
+import { MessageType } from '@oh-my-prompt/shared/messages'
+import type { ProviderConfig, Provider, ProviderGroup } from '@oh-my-prompt/shared/types'
 import { loadSupportedProviders, groupProvidersByType } from '@/lib/provider-data'
 import { ProviderSelect } from '@/popup/components/ProviderSelect'
 import { ModelSelect } from '@/popup/components/ModelSelect'
