@@ -9,11 +9,11 @@
  */
 
 import { MessageType, MessageResponse } from '../shared/messages'
-import type { VisionApiConfig } from '../shared/types'
+import type { VisionApiConfig, ProviderConfigsStorage } from '../shared/types'
 import type { FullBackupData } from '../lib/sync/file-sync'
 import { getFolderHandle, saveFolderHandle, checkFolderPermission, requestFolderPermission } from '../lib/sync/indexeddb'
 import { syncToLocalFolder, listBackupVersions, readBackupFile } from '../lib/sync/file-sync'
-import { syncApiConfigToFolder, readApiConfigFromFolder } from '../lib/sync/api-config-sync'
+import { syncApiConfigToFolder, readApiConfigFromFolder, syncProviderConfigsToFolder, readProviderConfigsFromFolder } from '../lib/sync/api-config-sync'
 import { IMAGE_DIR_NAME, ALLOWED_IMAGE_EXTENSIONS } from '../shared/constants'
 
 
@@ -182,6 +182,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case MessageType.OFFSCREEN_READ_API_CONFIG:
       handleReadApiConfig()
+        .then(result => sendResponse(result))
+        .catch(error => sendResponse({ success: false, error: String(error) }))
+      return true
+
+    case MessageType.OFFSCREEN_SAVE_PROVIDER_CONFIGS:
+      handleSaveProviderConfigs(message.payload as { storage: ProviderConfigsStorage })
+        .then(result => sendResponse(result))
+        .catch(error => sendResponse({ success: false, error: String(error) }))
+      return true
+
+    case MessageType.OFFSCREEN_READ_PROVIDER_CONFIGS:
+      handleReadProviderConfigs()
         .then(result => sendResponse(result))
         .catch(error => sendResponse({ success: false, error: String(error) }))
       return true
@@ -414,6 +426,36 @@ async function handleReadApiConfig(): Promise<MessageResponse> {
     return { success: true, data: config }
   } catch (error) {
     console.error('[Oh My Prompt] Offscreen read API config failed:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+async function handleSaveProviderConfigs(payload: { storage: ProviderConfigsStorage }): Promise<MessageResponse> {
+  const handle = await getFolderHandle()
+  if (!handle) {
+    return { success: false, error: 'FOLDER_NOT_CONFIGURED' }
+  }
+
+  try {
+    await syncProviderConfigsToFolder(payload.storage, handle)
+    return { success: true } as MessageResponse
+  } catch (error) {
+    console.error('[Oh My Prompt] Offscreen save provider configs failed:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+async function handleReadProviderConfigs(): Promise<MessageResponse> {
+  const handle = await getFolderHandle()
+  if (!handle) {
+    return { success: false, error: 'FOLDER_NOT_CONFIGURED' }
+  }
+
+  try {
+    const storage = await readProviderConfigsFromFolder(handle)
+    return { success: true, data: storage }
+  } catch (error) {
+    console.error('[Oh My Prompt] Offscreen read provider configs failed:', error)
     return { success: false, error: String(error) }
   }
 }

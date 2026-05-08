@@ -7,7 +7,7 @@
 
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowUpRight, Bookmark } from 'lucide-react'
+import { ArrowUpRight, Bookmark, Copy } from 'lucide-react'
 import type { ResourcePrompt } from '../../shared/types'
 import { truncateText } from '../../shared/utils'
 import { Tooltip } from './Tooltip'
@@ -17,6 +17,7 @@ interface NetworkPromptCardProps {
   onClick: () => void
   onInject?: () => void
   onCollect?: () => void
+  onCopy?: () => void
   isCollected?: boolean
   language?: 'zh' | 'en' // Language preference for display
 }
@@ -36,6 +37,7 @@ export function NetworkPromptCard({
   onClick,
   onInject,
   onCollect,
+  onCopy,
   isCollected = false,
   language = 'zh'
 }: NetworkPromptCardProps) {
@@ -163,7 +165,7 @@ export function NetworkPromptCard({
     >
       {/* Preview rendered via portal to document.body */}
       {previewElement && createPortal(previewElement, document.body)}
-      {/* Collect button - bottom right, left of inject */}
+      {/* Collect button - bottom right */}
       <Tooltip content={isCollected ? '已收藏' : '收藏'}>
         <button
           onClick={handleCollectClick}
@@ -171,7 +173,7 @@ export function NetworkPromptCard({
           style={{
             position: 'absolute',
             bottom: '8px',
-            right: '40px',
+            right: '72px',
             width: '24px',
             height: '24px',
             display: 'flex',
@@ -186,6 +188,32 @@ export function NetworkPromptCard({
           }}
         >
           <Bookmark style={{ width: 12, height: 12, color: isCollected ? '#ffffff' : '#171717', fill: isCollected ? '#171717' : 'none' }} />
+        </button>
+      </Tooltip>
+
+      {/* Copy button - bottom right, right of collect */}
+      <Tooltip content="复制">
+        <button
+          onClick={(e) => { e.stopPropagation(); onCopy?.() }}
+          aria-label="复制"
+          style={{
+            position: 'absolute',
+            bottom: '8px',
+            right: '40px',
+            width: '24px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#ffffff',
+            border: '1px solid #E5E5E5',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            zIndex: 10,
+          }}
+        >
+          <Copy style={{ width: 12, height: 12, color: '#171717' }} />
         </button>
       </Tooltip>
 

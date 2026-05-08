@@ -2,7 +2,7 @@ import { MessageType, MessageResponse } from '../shared/messages'
 import type { StorageSchema, SyncSettings, VisionApiConfig, InsertPromptPayload, InsertResultPayload, SaveTemporaryPromptPayload, UpdateTemporaryPromptFormatPayload, Prompt, ProviderConfig, ProviderConfigsStorage } from '../shared/types'
 import { StorageManager } from '../lib/storage'
 import { saveFolderHandle, getFolderHandle } from '../lib/sync/indexeddb'
-import { getSyncStatus, triggerSync, restorePermission, initialSync } from '../lib/sync/sync-manager'
+import { getSyncStatus, triggerSync, restorePermission, initialSync, triggerProviderConfigsSync } from '../lib/sync/sync-manager'
 import { syncApiConfigToFolder } from '../lib/sync/api-config-sync'
 import { checkForUpdate, getUpdateStatus, clearUpdateStatus, type UpdateStatus } from '../lib/version-checker'
 import { executeVisionApiCall, classifyApiError, getLanguagePreference } from '../lib/vision-api'
@@ -456,13 +456,15 @@ chrome.runtime.onMessage.addListener(
 
       case MessageType.OPEN_SIDEPANEL_FOR_SETTINGS:
         // Open sidepanel and navigate to settings view
+        // CRITICAL: sidePanel.open() must be called in sync path to preserve user gesture
         const settingsTabId = _sender.tab?.id
         if (settingsTabId && settingsTabId >= 0) {
+          // Call sidePanel.open FIRST in sync path (user gesture preserved)
           chrome.sidePanel.open({ tabId: settingsTabId })
             .then(() => {
-              console.log('[Oh My Prompt] Sidepanel opened for settings from content script')
-              // Set intent in session storage (cleared when sidepanel reads it)
+              // Set intent AFTER sidepanel opens - storage.onChanged will catch it if already open
               chrome.storage.session.set({ sidepanelIntent: 'settings' })
+              console.log('[Oh My Prompt] Sidepanel opened for settings from content script')
               sendResponse({ success: true } as MessageResponse)
             })
             .catch(error => {
@@ -680,7 +682,11 @@ chrome.runtime.onMessage.addListener(
 
             return chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: updatedStorage })
           })
-          .then(() => sendResponse({ success: true, data: { id: newConfig.id } }))
+          .then(() => {
+            // Trigger sync to backup folder
+            triggerProviderConfigsSync().catch(err => console.warn('[Oh My Prompt] Provider configs sync failed:', err))
+            sendResponse({ success: true, data: { id: newConfig.id } })
+          })
           .catch(error => {
             console.error('[Oh My Prompt] ADD_PROVIDER_CONFIG error:', error)
             sendResponse({ success: false, error: String(error) })
@@ -733,7 +739,11 @@ chrome.runtime.onMessage.addListener(
               }
             })
           })
-          .then(() => sendResponse({ success: true }))
+          .then(() => {
+            // Trigger sync to backup folder
+            triggerProviderConfigsSync().catch(err => console.warn('[Oh My Prompt] Provider configs sync failed:', err))
+            sendResponse({ success: true })
+          })
           .catch(error => {
             console.error('[Oh My Prompt] UPDATE_PROVIDER_CONFIG error:', error)
             sendResponse({ success: false, error: String(error) })
@@ -773,7 +783,11 @@ chrome.runtime.onMessage.addListener(
               }
             })
           })
-          .then(() => sendResponse({ success: true }))
+          .then(() => {
+            // Trigger sync to backup folder
+            triggerProviderConfigsSync().catch(err => console.warn('[Oh My Prompt] Provider configs sync failed:', err))
+            sendResponse({ success: true })
+          })
           .catch(error => {
             console.error('[Oh My Prompt] DELETE_PROVIDER_CONFIG error:', error)
             sendResponse({ success: false, error: String(error) })
@@ -809,7 +823,11 @@ chrome.runtime.onMessage.addListener(
               }
             })
           })
-          .then(() => sendResponse({ success: true }))
+          .then(() => {
+            // Trigger sync to backup folder (active config change)
+            triggerProviderConfigsSync().catch(err => console.warn('[Oh My Prompt] Provider configs sync failed:', err))
+            sendResponse({ success: true })
+          })
           .catch(error => {
             console.error('[Oh My Prompt] SET_ACTIVE_CONFIG error:', error)
             sendResponse({ success: false, error: String(error) })

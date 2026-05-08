@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy, useRef } from 'react'
 import type { Prompt, Category, ResourcePrompt, UpdateStatus } from '@/shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '@/shared/utils'
-import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2, Clock, CheckCircle } from 'lucide-react'
+import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2, Clock, CheckCircle, Copy } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -145,6 +145,7 @@ function SortablePromptItem({
   showDragHandle,
   onEdit,
   onDelete,
+  onCopy,
   canInject,
 }: {
   prompt: Prompt
@@ -153,6 +154,7 @@ function SortablePromptItem({
   showDragHandle: boolean
   onEdit: (prompt: Prompt) => void
   onDelete: (prompt: Prompt) => void
+  onCopy: (prompt: Prompt) => void
   canInject: boolean
 }) {
   const {
@@ -345,6 +347,13 @@ function SortablePromptItem({
       <div className="prompt-action-buttons">
         <button
           className="prompt-action-btn"
+          onClick={(e) => { e.stopPropagation(); onCopy(prompt) }}
+          aria-label="复制提示词"
+        >
+          <Copy style={{ width: 14, height: 14 }} />
+        </button>
+        <button
+          className="prompt-action-btn"
           onClick={(e) => { e.stopPropagation(); onEdit(prompt) }}
           aria-label="编辑提示词"
         >
@@ -369,6 +378,7 @@ function SidePanelNetworkCard({
   onClick,
   onInject,
   onCollect,
+  onCopy,
   isCollected,
   language,
   canInject,
@@ -377,6 +387,7 @@ function SidePanelNetworkCard({
   onClick: () => void
   onInject?: () => void
   onCollect?: () => void
+  onCopy?: () => void
   isCollected?: boolean
   language: 'zh' | 'en'
   canInject: boolean
@@ -534,6 +545,15 @@ function SidePanelNetworkCard({
             aria-label={isCollected ? '已收藏' : '收藏'}
           >
             <Bookmark style={{ width: 12, height: 12, fill: isCollected ? 'currentColor' : 'none' }} />
+          </button>
+        </Tooltip>
+        <Tooltip content="复制">
+          <button
+            onClick={(e) => { e.stopPropagation(); onCopy?.() }}
+            className="network-card-btn copy"
+            aria-label="复制"
+          >
+            <Copy style={{ width: 12, height: 12 }} />
           </button>
         </Tooltip>
         {canInject && (
@@ -1255,6 +1275,33 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     setTimeout(() => setSelectedPromptId(null), 2000)
   }, [inputStatus, currentTabId, setToastMessage, hideToast, isSpecialPage])
 
+  // Handle copy prompt to clipboard
+  const handleCopyPrompt = useCallback(async (prompt: Prompt) => {
+    try {
+      await navigator.clipboard.writeText(prompt.content)
+      setToastMessage('已复制到剪贴板')
+      setTimeout(hideToast, 2000)
+    } catch {
+      setToastMessage('复制失败')
+      setTimeout(hideToast, 2000)
+    }
+  }, [setToastMessage, hideToast])
+
+  // Handle copy resource prompt to clipboard
+  const handleCopyResourcePrompt = useCallback(async (resourcePrompt: ResourcePrompt) => {
+    const promptToCopy = resourceLanguage === 'en' && resourcePrompt.contentEn
+      ? resourcePrompt.contentEn
+      : resourcePrompt.content
+    try {
+      await navigator.clipboard.writeText(promptToCopy)
+      setToastMessage('已复制到剪贴板')
+      setTimeout(hideToast, 2000)
+    } catch {
+      setToastMessage('复制失败')
+      setTimeout(hideToast, 2000)
+    }
+  }, [resourceLanguage, setToastMessage, hideToast])
+
   // Handle resource prompt injection
   const handleInjectResource = useCallback(async (resourcePrompt: ResourcePrompt) => {
     if (inputStatus !== 'available' || !currentTabId) return
@@ -1896,6 +1943,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                     }}
                     onInject={() => handleInjectResource(prompt)}
                     onCollect={() => handleQuickCollect(prompt)}
+                    onCopy={() => handleCopyResourcePrompt(prompt)}
                     isCollected={isPromptCollected(prompt)}
                     canInject={inputStatus === 'available'}
                   />
@@ -1930,6 +1978,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                       setEditingItem('deletingPrompt', p)
                       openModal('isPromptDelete')
                     }}
+                    onCopy={handleCopyPrompt}
                     canInject={inputStatus === 'available'}
                   />
                 ))}
@@ -1968,6 +2017,11 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                   ? { ...editingStates.resourcePrompt, content: editingStates.resourcePrompt.contentEn }
                   : editingStates.resourcePrompt
                 handleInjectResource(promptToInject)
+              }
+            }}
+            onCopy={() => {
+              if (editingStates.resourcePrompt) {
+                handleCopyResourcePrompt(editingStates.resourcePrompt)
               }
             }}
             globalLanguage={resourceLanguage}

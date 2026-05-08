@@ -403,7 +403,7 @@ export function BackupSection() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 p-2 bg-blue-50 rounded text-sm text-blue-800">
+          <div className="flex items-center gap-2 p-2 mt-2 bg-blue-50 rounded text-sm text-blue-800">
             <span>💡</span>
             <span>加载后将替换当前数据</span>
           </div>

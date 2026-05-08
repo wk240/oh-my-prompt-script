@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import type { Prompt, Category } from '../../shared/types'
 import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '../../shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '../../shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, AlertTriangle, Settings, Clock } from 'lucide-react'
+import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, AlertTriangle, Settings, Clock, Copy } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -207,6 +207,7 @@ function SortableDropdownItem({
   showDragHandle,
   onEdit,
   onDelete,
+  onCopy,
   onThumbnailClick,
 }: {
   prompt: Prompt
@@ -216,6 +217,7 @@ function SortableDropdownItem({
   showDragHandle: boolean
   onEdit: (prompt: Prompt) => void
   onDelete: (prompt: Prompt) => void
+  onCopy: (prompt: Prompt) => void
   onThumbnailClick?: (prompt: Prompt) => void  // Click on thumbnail to open preview
 }) {
   const {
@@ -280,6 +282,16 @@ function SortableDropdownItem({
       <ArrowUpRight className="dropdown-item-arrow" />
       {/* Edit/Delete buttons */}
       <div className="prompt-action-buttons">
+        <button
+          className="prompt-action-btn"
+          onClick={(e) => {
+            e.stopPropagation()
+            onCopy(prompt)
+          }}
+          aria-label="复制提示词"
+        >
+          <Copy style={{ width: 14, height: 14 }} />
+        </button>
         <button
           className="prompt-action-btn"
           onClick={(e) => {
@@ -1016,6 +1028,28 @@ export function DropdownContainer({
     showToast('已转移到分类')
   }, [editingStates.prompt])
 
+  // Handle copy prompt to clipboard
+  const handleCopyPrompt = useCallback(async (prompt: Prompt) => {
+    const contentToCopy = resourceLanguage === 'en' && prompt.contentEn ? prompt.contentEn : prompt.content
+    try {
+      await navigator.clipboard.writeText(contentToCopy)
+      showToast('已复制到剪贴板')
+    } catch {
+      showToast('复制失败')
+    }
+  }, [resourceLanguage])
+
+  // Handle copy resource prompt to clipboard
+  const handleCopyResourcePrompt = useCallback(async (resourcePrompt: ResourcePrompt) => {
+    const contentToCopy = resourceLanguage === 'en' && resourcePrompt.contentEn ? resourcePrompt.contentEn : resourcePrompt.content
+    try {
+      await navigator.clipboard.writeText(contentToCopy)
+      showToast('已复制到剪贴板')
+    } catch {
+      showToast('复制失败')
+    }
+  }, [resourceLanguage])
+
   // Check if currently editing a temporary prompt
   const isEditingTemporaryPrompt = useMemo(() => {
     if (!editingStates.prompt) return false
@@ -1470,6 +1504,7 @@ export function DropdownContainer({
                     }}
                     onInject={() => handleInjectFromCard(prompt)}
                     onCollect={() => handleQuickCollect(prompt)}
+                    onCopy={() => handleCopyResourcePrompt(prompt)}
                     isCollected={isPromptCollected(prompt)}
                   />
                 ))}
@@ -1509,6 +1544,7 @@ export function DropdownContainer({
                         setEditingItem('deletingPrompt', p)
                         openModal('isPromptDelete')
                       }}
+                      onCopy={handleCopyPrompt}
                     />
                   ))}
                 </SortableContext>
@@ -1550,6 +1586,11 @@ export function DropdownContainer({
               showToast('已注入提示词')
             }
           }}
+          onCopy={() => {
+            if (editingStates.resourcePrompt) {
+              handleCopyResourcePrompt(editingStates.resourcePrompt)
+            }
+          }}
           globalLanguage={resourceLanguage}
         />
       </Suspense>
@@ -1583,6 +1624,11 @@ export function DropdownContainer({
               closeModal('isUserPreview')
               clearEditingItem('userPrompt')
               showToast('已插入提示词')
+            }
+          }}
+          onCopy={() => {
+            if (editingStates.userPrompt) {
+              handleCopyPrompt(editingStates.userPrompt)
             }
           }}
         />

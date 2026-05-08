@@ -7,7 +7,7 @@
 
 import { createPortal } from 'react-dom'
 import { useEffect, useCallback, useState } from 'react'
-import { X, Bookmark, ArrowUpRight, Languages, Pencil } from 'lucide-react'
+import { X, Bookmark, ArrowUpRight, Languages, Pencil, Copy } from 'lucide-react'
 import type { ResourcePrompt, Prompt } from '../../shared/types'
 
 interface PromptPreviewModalProps {
@@ -16,6 +16,7 @@ interface PromptPreviewModalProps {
   onClose: () => void
   onCollect?: () => void           // Only for resource prompts
   onInject?: (language: 'zh' | 'en') => void // Inject callback with language
+  onCopy?: () => void              // Copy callback
   globalLanguage?: 'zh' | 'en' // Global preference for initial state
   onEdit?: () => void              // NEW: for user prompts
   isUserPrompt?: boolean           // NEW: flag to distinguish type
@@ -56,6 +57,7 @@ export function PromptPreviewModal({
   onClose,
   onCollect,
   onInject,
+  onCopy,
   globalLanguage = 'zh',
   onEdit,          // NEW: for user prompts
   isUserPrompt = false, // NEW: flag to distinguish type
@@ -427,6 +429,30 @@ export function PromptPreviewModal({
               收藏
             </button>
           )}
+          {/* Copy button */}
+          <button
+            onClick={() => onCopy?.()}
+            aria-label="复制提示词"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: '8px 12px',
+              background: '#ffffff',
+              border: '1px solid #E5E5E5',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              color: '#171717',
+              cursor: 'pointer',
+              flex: '1',
+              minWidth: '0',
+            }}
+          >
+            <Copy style={{ width: 14, height: 14 }} />
+            复制
+          </button>
           {/* Right 2/3: 插入 button */}
           <button
             onClick={handleInject}

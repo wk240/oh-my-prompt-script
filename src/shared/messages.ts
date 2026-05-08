@@ -80,6 +80,8 @@ export enum MessageType {
   OFFSCREEN_READ_BACKUP = 'OFFSCREEN_READ_BACKUP',        // Read specific backup file
   OFFSCREEN_SAVE_API_CONFIG = 'OFFSCREEN_SAVE_API_CONFIG',  // Save encrypted API config
   OFFSCREEN_READ_API_CONFIG = 'OFFSCREEN_READ_API_CONFIG',  // Read encrypted API config
+  OFFSCREEN_SAVE_PROVIDER_CONFIGS = 'OFFSCREEN_SAVE_PROVIDER_CONFIGS',  // Save ProviderConfigsStorage
+  OFFSCREEN_READ_PROVIDER_CONFIGS = 'OFFSCREEN_READ_PROVIDER_CONFIGS',  // Read ProviderConfigsStorage
 }
 
 export interface Message<T = unknown> {

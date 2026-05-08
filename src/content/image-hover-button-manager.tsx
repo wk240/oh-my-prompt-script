@@ -443,15 +443,26 @@ export class ImageHoverButtonManager {
   }
 
   /**
-   * Handle button click - add to queue and show VisionModal
+   * Handle button click - open sidepanel settings FIRST (preserves user gesture), then add task
    */
-  private async handleButtonClick(imageUrl: string): Promise<void> {
+  private handleButtonClick(imageUrl: string): void {
+    // CRITICAL: Open sidepanel BEFORE any async operations - user gesture must be preserved
+    // Chrome requires sidePanel.open() to be called in sync execution path from user click
+    chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_SETTINGS })
 
+    // Then handle task queue (can be async, doesn't affect sidepanel opening)
+    this.processImageTask(imageUrl)
+  }
+
+  /**
+   * Process image task - async operations after sidepanel is opened
+   */
+  private async processImageTask(imageUrl: string): Promise<void> {
     try {
       const queueManager = TaskQueueManager.getInstance()
       const visionModalManager = VisionModalManager.getInstance()
 
-      // Ensure modal is open first
+      // Ensure modal is open
       visionModalManager.create()
 
       // Handle file:// URLs - convert to base64 in content script context

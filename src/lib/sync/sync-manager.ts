@@ -1,5 +1,6 @@
 import type { FullBackupData } from './file-sync'
-import { BACKUP_FILE_NAME, IMAGE_DIR_NAME, VISION_API_CONFIG_STORAGE_KEY } from '../../shared/constants'
+import type { ProviderConfigsStorage } from '../../shared/types'
+import { BACKUP_FILE_NAME, IMAGE_DIR_NAME, VISION_API_CONFIG_STORAGE_KEY, PROVIDER_CONFIGS_STORAGE_KEY } from '../../shared/constants'
 import { StorageManager } from '../storage'
 import { getFolderHandle, saveFolderHandle, checkFolderPermission } from './indexeddb'
 import { syncToLocalFolder, readFromLocalFolder, selectSyncFolder } from './file-sync'
@@ -221,6 +222,21 @@ export async function initialSync(): Promise<void> {
       }
     } catch (apiRestoreError) {
       console.warn('[Oh My Prompt] Failed to restore API config:', apiRestoreError)
+    }
+
+    // Restore ProviderConfigsStorage from folder if not in storage
+    try {
+      const providerConfigsResult = await chrome.storage.local.get(PROVIDER_CONFIGS_STORAGE_KEY)
+
+      if (!providerConfigsResult[PROVIDER_CONFIGS_STORAGE_KEY]) {
+        const providerResult = await sendToOffscreen(MessageType.OFFSCREEN_READ_PROVIDER_CONFIGS)
+
+        if (providerResult.success && providerResult.data) {
+          await chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: providerResult.data })
+        }
+      }
+    } catch (providerRestoreError) {
+      console.warn('[Oh My Prompt] Failed to restore provider configs:', providerRestoreError)
     }
   } catch (error) {
     console.error('[Oh My Prompt] Initial sync failed:', error)
@@ -635,9 +651,64 @@ export async function restoreFromBackup(
     const version = chrome.runtime.getManifest().version
     await sendToOffscreen(MessageType.OFFSCREEN_SYNC, { backupData, version })
 
+    // Restore API config from backup folder (overwrite existing)
+    try {
+      const apiResult = await sendToOffscreen(MessageType.OFFSCREEN_READ_API_CONFIG)
+      if (apiResult.success && apiResult.data) {
+        await chrome.storage.local.set({ [VISION_API_CONFIG_STORAGE_KEY]: apiResult.data })
+        console.log('[Oh My Prompt] API config restored from backup')
+      }
+    } catch (apiRestoreError) {
+      console.warn('[Oh My Prompt] Failed to restore API config from backup:', apiRestoreError)
+    }
+
+    // Restore ProviderConfigs from backup folder (overwrite existing)
+    try {
+      const providerResult = await sendToOffscreen(MessageType.OFFSCREEN_READ_PROVIDER_CONFIGS)
+      if (providerResult.success && providerResult.data) {
+        await chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: providerResult.data })
+        console.log('[Oh My Prompt] Provider configs restored from backup')
+      }
+    } catch (providerRestoreError) {
+      console.warn('[Oh My Prompt] Failed to restore provider configs from backup:', providerRestoreError)
+    }
+
     return { success: true }
   } catch (error) {
     console.error('[Oh My Prompt] Restore failed:', error)
     return { success: false, error: '恢复失败，请检查文件权限' }
+  }
+}
+
+/**
+ * Trigger provider configs sync to local folder
+ * Called after ADD/UPDATE/DELETE/SET_ACTIVE_PROVIDER_CONFIG operations
+ * Routes through offscreen document for better permission handling
+ */
+export async function triggerProviderConfigsSync(): Promise<boolean> {
+  try {
+    // Get current provider configs from storage
+    const result = await chrome.storage.local.get(PROVIDER_CONFIGS_STORAGE_KEY)
+    const storage = result[PROVIDER_CONFIGS_STORAGE_KEY] as ProviderConfigsStorage | undefined
+
+    if (!storage) {
+      return false
+    }
+
+    // Get folder handle
+    const handle = await getFolderHandle()
+    if (!handle) {
+      console.warn('[Oh My Prompt] No folder handle for provider configs sync')
+      return false
+    }
+
+    // Sync via offscreen document
+    await ensureOffscreenDocument()
+    const syncResult = await sendToOffscreen(MessageType.OFFSCREEN_SAVE_PROVIDER_CONFIGS, { storage })
+
+    return syncResult.success
+  } catch (error) {
+    console.error('[Oh My Prompt] Provider configs sync failed:', error)
+    return false
   }
 }

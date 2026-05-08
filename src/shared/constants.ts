@@ -45,3 +45,4 @@ export const LEGACY_VISION_API_CONFIG_KEY = '_visionApiConfig'
 // Secrets directory for API config (no encryption)
 export const SECRETS_DIR_NAME = 'secrets'
 export const API_CONFIG_FILE = 'api-config.json'
+export const PROVIDER_CONFIGS_FILE = 'provider-configs.json'
