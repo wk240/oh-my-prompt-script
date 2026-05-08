@@ -291,19 +291,19 @@ export function BackupSection() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="w-full space-y-4 p-4">
       {/* Status Card */}
-      <div className="p-4 bg-white rounded-lg border">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">本地备份</h3>
+      <div className="p-4 bg-white rounded-lg border border-gray-200">
+        <h3 className="text-sm font-medium text-gray-900 mb-4">本地备份</h3>
 
         {/* Error message */}
         {error && (
-          <p className="text-sm text-red-500 mb-3">{error}</p>
+          <p className="text-sm text-red-500 mb-4">{error}</p>
         )}
 
         {/* Success message */}
         {success && (
-          <p className="text-sm text-green-600 mb-3">{success}</p>
+          <p className="text-sm text-green-600 mb-4">{success}</p>
         )}
 
         <BackupStatusCard
@@ -317,17 +317,17 @@ export function BackupSection() {
         />
 
         {/* Tip */}
-        <p className="text-xs text-gray-500 mt-3">
+        <p className="text-xs text-gray-500 mt-4">
           提示：扩展卸载后数据仍可从此文件夹恢复
         </p>
       </div>
 
       {/* History Versions - only show when folder configured and permission granted */}
       {status?.hasFolder && status.permissionStatus === 'granted' && (
-        <div className="p-4 bg-white rounded-lg border">
+        <div className="p-4 bg-white rounded-lg border border-gray-200">
           <button
             onClick={handleShowHistory}
-            className="w-full flex items-center justify-between"
+            className="w-full flex items-center justify-between py-1"
           >
             <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
               <History className="w-4 h-4" />
@@ -349,11 +349,11 @@ export function BackupSection() {
           </button>
 
           {showHistory && (
-            <div className="mt-3 space-y-2">
+            <div className="mt-4 space-y-2">
               {versionsLoading ? (
-                <span className="text-sm text-gray-500">加载中...</span>
+                <span className="text-sm text-gray-500 py-2">加载中...</span>
               ) : versions.length === 0 ? (
-                <span className="text-sm text-gray-500">暂无历史版本</span>
+                <span className="text-sm text-gray-500 py-2">暂无历史版本</span>
               ) : (
                 versions.map((v) => (
                   <VersionCard

@@ -114,45 +114,47 @@ export function ImportExportSection() {
   }
 
   return (
-    <div className="p-4 bg-white rounded-lg border">
-      <h3 className="text-sm font-medium text-gray-900 mb-3">导入导出</h3>
+    <div className="w-full space-y-4 p-4">
+      <div className="p-4 bg-white rounded-lg border border-gray-200">
+        <h3 className="text-sm font-medium text-gray-900 mb-4">导入导出</h3>
 
-      {/* Action buttons */}
-      <div className="flex gap-3">
-        <Button
-          variant="outline"
-          onClick={handleImport}
-          disabled={loading}
-          className="flex-1"
-        >
-          <Upload className="w-4 h-4" />
-          {loading ? '导入prompt中...' : '导入prompt'}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={handleExport}
-          disabled={loading}
-          className="flex-1"
-        >
-          <Download className="w-4 h-4" />
-          {loading ? '导出prompt中...' : '导出prompt'}
-        </Button>
+        {/* Action buttons */}
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={handleImport}
+            disabled={loading}
+            className="flex-1 h-10"
+          >
+            <Upload className="w-4 h-4" />
+            {loading ? '导入中...' : '导入数据'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={loading}
+            className="flex-1 h-10"
+          >
+            <Download className="w-4 h-4" />
+            {loading ? '导出中...' : '导出数据'}
+          </Button>
+        </div>
+
+        {/* Error message */}
+        {error && (
+          <p className="text-sm text-red-500 mt-4">{error}</p>
+        )}
+
+        {/* Success message */}
+        {success && (
+          <p className="text-sm text-green-600 mt-4">{success}</p>
+        )}
+
+        {/* Tip */}
+        <p className="text-xs text-gray-500 mt-4">
+          提示：导入时会保留已有数据，仅添加新内容
+        </p>
       </div>
-
-      {/* Error message */}
-      {error && (
-        <p className="text-sm text-red-500 mt-3">{error}</p>
-      )}
-
-      {/* Success message */}
-      {success && (
-        <p className="text-sm text-green-600 mt-3">{success}</p>
-      )}
-
-      {/* Tip */}
-      <p className="text-xs text-gray-500 mt-3">
-        提示：导入时会保留已有数据，仅添加新内容
-      </p>
     </div>
   )
 }

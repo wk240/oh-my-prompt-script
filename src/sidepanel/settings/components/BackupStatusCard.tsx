@@ -84,14 +84,14 @@ export function BackupStatusCard({
   // No folder configured
   if (!status.hasFolder) {
     return (
-      <div className="space-y-3">
-        <p className="text-sm text-gray-600">
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600 leading-relaxed">
           选择文件夹以启用备份，数据变更时自动同步
         </p>
         <Button
           onClick={onSelectFolder}
           disabled={loading}
-          className="w-full"
+          className="w-full h-10"
         >
           <FolderOpen className="w-4 h-4" />
           {loading ? '处理中...' : '选择文件夹'}
@@ -102,12 +102,12 @@ export function BackupStatusCard({
 
   // Permission granted - show status info
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Enabled status */}
       {status.enabled && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">状态</span>
-          <span className="text-sm flex items-center gap-1 text-green-600">
+          <span className="text-sm flex items-center gap-1.5 text-green-600">
             <Check className="w-4 h-4" />
             已启用
           </span>
@@ -118,7 +118,7 @@ export function BackupStatusCard({
       {status.folderName && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">备份文件夹</span>
-          <span className="text-sm text-gray-500 truncate max-w-[140px]">
+          <span className="text-sm text-gray-500 truncate max-w-[140px]" title={status.folderName}>
             {status.folderName}
           </span>
         </div>
@@ -135,13 +135,13 @@ export function BackupStatusCard({
       )}
 
       {/* Action buttons */}
-      <div className="flex gap-2 pt-1">
+      <div className="flex gap-2 pt-2">
         {status.permissionStatus === 'granted' && (
           <Button
             onClick={onBackupNow}
             disabled={loading}
             size="sm"
-            className="flex-1"
+            className="flex-1 h-9"
           >
             <RefreshCw className="w-4 h-4" />
             {loading ? '备份中...' : '立即备份'}
@@ -152,6 +152,7 @@ export function BackupStatusCard({
           onClick={onChangeFolder}
           disabled={loading}
           size="sm"
+          className="h-9"
         >
           更换
         </Button>
@@ -161,6 +162,7 @@ export function BackupStatusCard({
             onClick={onDisable}
             disabled={loading}
             size="sm"
+            className="h-9"
           >
             禁用
           </Button>

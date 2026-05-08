@@ -454,6 +454,26 @@ chrome.runtime.onMessage.addListener(
         }
         return true // Required for async response
 
+      case MessageType.OPEN_SIDEPANEL_FOR_SETTINGS:
+        // Open sidepanel and navigate to settings view
+        const settingsTabId = _sender.tab?.id
+        if (settingsTabId && settingsTabId >= 0) {
+          chrome.sidePanel.open({ tabId: settingsTabId })
+            .then(() => {
+              console.log('[Oh My Prompt] Sidepanel opened for settings from content script')
+              // Set intent in session storage (cleared when sidepanel reads it)
+              chrome.storage.session.set({ sidepanelIntent: 'settings' })
+              sendResponse({ success: true } as MessageResponse)
+            })
+            .catch(error => {
+              console.error('[Oh My Prompt] sidePanel.open error:', error)
+              sendResponse({ success: false, error: String(error) })
+            })
+        } else {
+          sendResponse({ success: false, error: 'No sender tab' })
+        }
+        return true // Required for async response
+
       case MessageType.OPEN_SIDEPANEL_FOR_PERMISSION:
         // Open sidepanel to restore folder permission (user gesture propagates from content script click)
         // CRITICAL: User gesture must be used in synchronous execution path, NOT after await

@@ -1348,7 +1348,7 @@ export function DropdownContainer({
             <Tooltip content="设置" placement="bottom">
               <button
                 className="dropdown-action-btn"
-                onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL })}
+                onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_SETTINGS })}
                 aria-label="设置"
               >
                 <Settings style={{ width: 14, height: 14 }} />

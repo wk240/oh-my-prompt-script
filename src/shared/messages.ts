@@ -24,6 +24,7 @@ export enum MessageType {
   SET_SETTINGS_ONLY = 'SET_SETTINGS_ONLY',  // Update settings only, no backup trigger (for language toggle)
   OPEN_SIDEPANEL = 'OPEN_SIDEPANEL',  // Open sidepanel (general use - backup settings, etc.)
   OPEN_SIDEPANEL_FOR_PERMISSION = 'OPEN_SIDEPANEL_FOR_PERMISSION',  // Open sidepanel to restore folder permission (user gesture propagates)
+  OPEN_SIDEPANEL_FOR_SETTINGS = 'OPEN_SIDEPANEL_FOR_SETTINGS',  // Open sidepanel and navigate to settings view
 
   // Phase 10: API configuration operations
   GET_API_CONFIG = 'GET_API_CONFIG',

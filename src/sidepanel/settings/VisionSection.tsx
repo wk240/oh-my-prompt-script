@@ -10,7 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/popup/components/ui/dialog'
-import { Check, ExternalLink } from 'lucide-react'
+import { Check, ExternalLink, Sparkles } from 'lucide-react'
 import { MessageType } from '@/shared/messages'
 import type { ProviderConfig, Provider, ProviderGroup } from '@/shared/types'
 import { loadSupportedProviders, groupProvidersByType } from '@/lib/provider-data'
@@ -51,6 +51,9 @@ export function VisionSection() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  // Vision feature toggle state
+  const [visionEnabled, setVisionEnabled] = useState(true)
+
   // Quick config state
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null)
   const [selectedModel, setSelectedModel] = useState('')
@@ -78,7 +81,37 @@ export function VisionSection() {
     setProviders(loadedProviders)
     setProviderGroups(groupProvidersByType(loadedProviders))
     loadConfigs()
+    loadVisionSetting()
   }, [])
+
+  // Load vision enabled setting from storage
+  const loadVisionSetting = async () => {
+    chrome.storage.local.get('prompt_script_data', (result) => {
+      if (result.prompt_script_data?.settings?.visionEnabled !== undefined) {
+        setVisionEnabled(result.prompt_script_data.settings.visionEnabled)
+      }
+    })
+  }
+
+  // Handle vision toggle
+  const handleVisionToggle = async (enabled: boolean) => {
+    setVisionEnabled(enabled)
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: MessageType.SET_SETTINGS_ONLY,
+        payload: { settings: { visionEnabled: enabled } }
+      })
+      if (response.success) {
+        setSuccess(enabled ? '转提示词功能已开启' : '转提示词功能已关闭')
+      } else {
+        setError('设置保存失败')
+        setVisionEnabled(!enabled) // Revert on error
+      }
+    } catch (err) {
+      setError('设置保存失败')
+      setVisionEnabled(!enabled) // Revert on error
+    }
+  }
 
   // Auto-select first model when provider changes
   useEffect(() => {
@@ -301,155 +334,190 @@ export function VisionSection() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="w-full space-y-4 p-4">
+      {/* Feature Toggle */}
+      <div className="p-4 bg-white rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-purple-500" />
+            <div>
+              <p className="font-medium text-gray-900">转提示词功能</p>
+              <p className="text-sm text-gray-500">鼠标悬停图片时显示转换按钮</p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleVisionToggle(!visionEnabled)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+              visionEnabled ? 'bg-purple-500' : 'bg-gray-200'
+            }`}
+            role="switch"
+            aria-checked={visionEnabled}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                visionEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
       {/* Intro for first-time users */}
-      {configs.length === 0 && (
+      {configs.length === 0 && visionEnabled && (
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-          <p className="font-medium text-blue-800 mb-1">什么是视觉AI？</p>
-          <p className="text-sm text-blue-700">
+          <p className="font-medium text-blue-800 mb-2">什么是视觉AI？</p>
+          <p className="text-sm text-blue-700 leading-relaxed">
             视觉AI能「看懂」图片内容，自动分析风格、元素、配色等，生成对应的提示词描述。
           </p>
         </div>
       )}
 
-      {/* Tabs Card */}
-      <div className="p-4 bg-white rounded-lg border">
-        <Tabs defaultValue="quick">
-          <TabsList className="w-full">
-            <TabsTrigger value="quick" className="flex-1">快速配置</TabsTrigger>
-            <TabsTrigger value="custom" className="flex-1">自定义配置</TabsTrigger>
-          </TabsList>
+      {/* API Configuration - only show when feature is enabled */}
+      {visionEnabled && (
+        <div className="p-4 bg-white rounded-lg border border-gray-200">
+          <Tabs defaultValue="quick">
+            <TabsList className="w-full">
+              <TabsTrigger value="quick" className="flex-1">快速配置</TabsTrigger>
+              <TabsTrigger value="custom" className="flex-1">自定义配置</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="quick">
-            <div className="space-y-3 mt-3">
-              <ProviderSelect
-                providers={providers}
-                groups={providerGroups}
-                value={selectedProvider}
-                onChange={setSelectedProvider}
-                disabled={loading}
-              />
-              {selectedProvider && (
-                <ModelSelect
-                  models={selectedProvider.models}
-                  value={selectedModel}
-                  onChange={setSelectedModel}
+            <TabsContent value="quick">
+              <div className="space-y-4 mt-4">
+                <ProviderSelect
+                  providers={providers}
+                  groups={providerGroups}
+                  value={selectedProvider}
+                  onChange={setSelectedProvider}
                   disabled={loading}
                 />
-              )}
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">API密钥</label>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  disabled={loading}
-                />
-                {selectedProvider?.apiKeyUrl && (
-                  <a
-                    href={selectedProvider.apiKeyUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 mt-1"
-                  >
-                    获取 API Key <ExternalLink className="w-3 h-3" />
-                  </a>
+                {selectedProvider && (
+                  <ModelSelect
+                    models={selectedProvider.models}
+                    value={selectedModel}
+                    onChange={setSelectedModel}
+                    disabled={loading}
+                  />
                 )}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">API密钥</label>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-md focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    disabled={loading}
+                  />
+                  {selectedProvider?.apiKeyUrl && (
+                    <a
+                      href={selectedProvider.apiKeyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 mt-2"
+                    >
+                      获取 API Key <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+                <Button onClick={handleSaveQuickConfig} disabled={loading || !selectedProvider} className="w-full h-10">
+                  <Check className="w-4 h-4" />
+                  {loading ? '保存中...' : '保存配置'}
+                </Button>
               </div>
-              <Button onClick={handleSaveQuickConfig} disabled={loading || !selectedProvider} className="w-full">
-                <Check className="w-4 h-4" />
-                {loading ? '保存中...' : '保存配置'}
-              </Button>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="custom">
-            <div className="space-y-3 mt-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">配置名称</label>
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="我的自定义配置"
-                  className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  disabled={loading}
-                />
+            <TabsContent value="custom">
+              <div className="space-y-4 mt-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">配置名称</label>
+                  <input
+                    type="text"
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    placeholder="我的自定义配置"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-md focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">API 格式</label>
+                  <select
+                    value={customApiFormat}
+                    onChange={(e) => setCustomApiFormat(e.target.value as typeof customApiFormat)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-md bg-white focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    disabled={loading}
+                  >
+                    <option value="anthropic_messages">Anthropic 格式</option>
+                    <option value="chat_completions">OpenAI 格式</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">API地址</label>
+                  <input
+                    type="text"
+                    value={customEndpoint}
+                    onChange={(e) => setCustomEndpoint(e.target.value)}
+                    placeholder="https://api.example.com/v1"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-md focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">模型名称</label>
+                  <input
+                    type="text"
+                    value={customModel}
+                    onChange={(e) => setCustomModel(e.target.value)}
+                    placeholder="gpt-4o, qwen-vl-max 等"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-md focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">API密钥</label>
+                  <input
+                    type="password"
+                    value={customApiKey}
+                    onChange={(e) => setCustomApiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-md focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    disabled={loading}
+                  />
+                </div>
+                <Button onClick={handleSaveCustomConfig} disabled={loading} className="w-full h-10">
+                  <Check className="w-4 h-4" />
+                  {loading ? '保存中...' : '保存配置'}
+                </Button>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">API 格式</label>
-                <select
-                  value={customApiFormat}
-                  onChange={(e) => setCustomApiFormat(e.target.value as typeof customApiFormat)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded bg-white focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  disabled={loading}
-                >
-                  <option value="anthropic_messages">Anthropic 格式</option>
-                  <option value="chat_completions">OpenAI 格式</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">API地址</label>
-                <input
-                  type="text"
-                  value={customEndpoint}
-                  onChange={(e) => setCustomEndpoint(e.target.value)}
-                  placeholder="https://api.example.com/v1"
-                  className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">模型名称</label>
-                <input
-                  type="text"
-                  value={customModel}
-                  onChange={(e) => setCustomModel(e.target.value)}
-                  placeholder="gpt-4o, qwen-vl-max 等"
-                  className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">API密钥</label>
-                <input
-                  type="password"
-                  value={customApiKey}
-                  onChange={(e) => setCustomApiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  disabled={loading}
-                />
-              </div>
-              <Button onClick={handleSaveCustomConfig} disabled={loading} className="w-full">
-                <Check className="w-4 h-4" />
-                {loading ? '保存中...' : '保存配置'}
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
 
-        {/* Error/Success messages */}
-        {error && <p className="text-sm text-red-500 mt-3" role="alert">{error}</p>}
-        {success && <p className="text-sm text-green-600 mt-3">{success}</p>}
+          {/* Error/Success messages */}
+          {error && <p className="text-sm text-red-500 mt-4" role="alert">{error}</p>}
+          {success && <p className="text-sm text-green-600 mt-4">{success}</p>}
 
-        {/* Saved configs */}
-        <SavedConfigsList
-          configs={configs}
-          activeConfigId={activeConfigId}
-          onActivate={handleActivate}
-          onDelete={handleDeleteClick}
-          onEdit={handleEdit}
-        />
+          {/* Saved configs */}
+          <SavedConfigsList
+            configs={configs}
+            activeConfigId={activeConfigId}
+            onActivate={handleActivate}
+            onDelete={handleDeleteClick}
+            onEdit={handleEdit}
+          />
 
-        {/* Hint */}
-        <div className="text-xs text-gray-500 pt-3 space-y-1">
-          <p>推荐服务商：Anthropic Claude、阿里云百炼、DeepSeek</p>
-          <p>所有配置仅存储在本地，不会上传到云端</p>
+          {/* Hint */}
+          <div className="text-xs text-gray-500 pt-4 border-t border-gray-100 mt-4">
+            <p>所有配置仅存储在本地，不会上传到云端</p>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Disabled state hint */}
+      {!visionEnabled && (
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
+          <p className="text-sm text-gray-500">转提示词功能已关闭，开启后可配置 API</p>
+        </div>
+      )}
 
       {/* Edit dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

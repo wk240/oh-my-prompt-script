@@ -26,29 +26,29 @@ export default function SettingsView({ onBack }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('backup')
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 shrink-0">
         <button
           onClick={onBack}
-          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
           aria-label="返回"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold">设置</h1>
+        <h1 className="text-lg font-semibold truncate">设置</h1>
       </div>
 
-      {/* Tab Bar */}
-      <div className="flex gap-1 px-4 py-2 border-b border-gray-200">
+      {/* Tab Bar - Adaptive layout */}
+      <div className="flex px-4 py-3 border-b border-gray-200 shrink-0 bg-gray-50">
         {(Object.keys(tabLabels) as SettingsTab[]).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
               activeTab === tab
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'bg-white text-blue-700 shadow-sm border border-gray-200'
+                : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'
             }`}
           >
             {tabLabels[tab]}
@@ -56,8 +56,8 @@ export default function SettingsView({ onBack }: SettingsViewProps) {
         ))}
       </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-auto">
+      {/* Tab Content - Scrollable with full width */}
+      <div className="flex-1 w-full overflow-y-auto">
         {activeTab === 'backup' && <BackupSection />}
         {activeTab === 'vision' && (
           <Suspense fallback={<LoadingSpinner className="py-8" />}>
