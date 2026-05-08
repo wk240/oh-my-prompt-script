@@ -18,9 +18,9 @@ description: >
 
 **完整流程**：
 ```
-version → git commit → release → github-release
-  ↓          ↓           ↓            ↓
-更新版本号  提交更改    构建打包zip   发布到GitHub
+确认版本 → 预览说明 → version → git commit → release → github-release
+    ↓         ↓         ↓          ↓           ↓            ↓
+  输入版本   用户确认   更新版本号  提交更改    构建打包zip   发布到GitHub
 ```
 
 ## 前置条件检查
@@ -48,7 +48,54 @@ version → git commit → release → github-release
 - 输入支持：`v1.4.0`, `v1-4-0`, `1.4.0`, `1-4-0`
 - 内部统一：`x.y.z`（3位）
 
-### 第二步：版本号同步
+### 第二步：预览发布说明（用户确认）
+
+**重要**：此步骤必须在执行任何更改前完成，确保用户对发布内容有充分了解。
+
+1. **获取变更范围**：
+   ```bash
+   # 获取上一个 tag
+   git describe --tags --abbrev=0 HEAD^
+
+   # 获取 commits 范围（如果无上一个 tag，使用 HEAD~10）
+   git log <last-tag>..HEAD --oneline --no-merges
+   ```
+
+2. **生成 Release Notes**：
+   - 按类型分组 commits：feat, fix, refactor, docs, chore, perf, test
+   - 使用 emoji 标识类型：
+     - feat → 🚀 Features
+     - fix → 🐛 Bug Fixes
+     - refactor → 🔧 Refactor
+     - docs → 📚 Docs
+     - chore → 📦 Chores
+     - perf → ⚡ Performance
+     - test → 🧪 Tests
+
+   **格式示例**：
+   ```markdown
+   ## What's Changed
+
+   ### 🚀 Features
+   - feat: 添加新功能 A
+   - feat: 支持平台 B
+
+   ### 🐛 Bug Fixes
+   - fix: 修复问题 C
+
+   ### 📦 Chores
+   - chore: bump version to v1.4.0
+   ```
+
+3. **用户确认**：
+   使用 AskUserQuestion 展示生成的 release notes，让用户确认：
+   - 选项1：确认发布（继续执行）
+   - 选项2：修改说明（用户提供修改内容）
+   - 选项3：取消发布（终止流程）
+
+   **注意**：用户确认后才开始执行版本号更新等操作。
+
+### 第三步：版本号同步
 
 运行版本更新脚本：
 
@@ -63,7 +110,7 @@ npm run version <new-version>
 - `BUILD.md` — 文档中的版本引用
 - `package-lock.json` — 自动同步
 
-### 第三步：Git 提交
+### 第四步：Git 提交
 
 提交版本号更改：
 
@@ -74,7 +121,7 @@ git commit -m "chore: bump version to v<版本号>"
 
 如果用户需要，可额外提交其他更改。
 
-### 第四步：构建与打包
+### 第五步：构建与打包
 
 运行构建打包脚本：
 
@@ -89,7 +136,7 @@ npm run release
 
 **输出位置**：`releases/oh-my-prompt-v{版本号}.zip`
 
-### 第五步：GitHub Release
+### 第六步：GitHub Release
 
 运行 GitHub 发布脚本：
 
@@ -119,7 +166,7 @@ npm run github-release
 - chore: bump version to v1.4.0
 ```
 
-### 第六步：后续操作提示
+### 第七步：后续操作提示
 
 发布完成后提示用户：
 
