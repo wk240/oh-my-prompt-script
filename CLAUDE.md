@@ -151,7 +151,7 @@ npm run test
 
 ### Platform Configuration
 
-Each platform requires a `config.ts` in `src/content/platforms/{platform}/` with:
+Each platform requires a `config.ts` in `packages/extension/src/content/platforms/{platform}/` with:
 
 ```typescript
 export const platformConfig: PlatformConfig = {
@@ -177,7 +177,7 @@ export const platformConfig: PlatformConfig = {
 Complex platforms can override strategies (e.g., Lexical/ProseMirror editors). Most use `DefaultInserter`.
 
 To add a new platform:
-1. Create `src/content/platforms/{platform}/config.ts`
+1. Create `packages/extension/src/content/platforms/{platform}/config.ts`
 2. Import and `registerPlatform()` in `coordinator.ts`
 
 ### Manifest Configuration
@@ -199,6 +199,7 @@ Uses File System Access API for automatic backup to user-selected folder:
 
 ### Path Alias
 - Use `@/` for imports: `import { foo } from '@/lib/utils'`
+- Import shared types: `import { Prompt } from '@oh-my-prompt/shared/types'`
 
 ### Storage Key
 - Single key `prompt_script_data` stores entire `StorageSchema` object
