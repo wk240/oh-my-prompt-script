@@ -408,12 +408,12 @@ export function BackupSection() {
             <span>加载后将替换当前数据</span>
           </div>
 
-          <DialogFooter className="pt-2">
+          <DialogFooter className="py-3 pt-2">
             <Button variant="outline" onClick={handleSkipLoadBackup}>
               跳过
             </Button>
             <Button onClick={handleLoadBackupConfirm} disabled={loading}>
-              {loading ? '加载中...' : '加载备份'}
+              {loading ? '恢复中...' : '恢复备份'}
             </Button>
           </DialogFooter>
         </DialogContent>

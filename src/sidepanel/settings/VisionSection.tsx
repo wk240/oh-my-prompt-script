@@ -365,9 +365,12 @@ export function VisionSection() {
       {/* Intro for first-time users */}
       {configs.length === 0 && visionEnabled && (
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-          <p className="font-medium text-blue-800 mb-2">什么是视觉AI？</p>
-          <p className="text-sm text-blue-700 leading-relaxed">
-            视觉AI能「看懂」图片内容，自动分析风格、元素、配色等，生成对应的提示词描述。
+          <p className="font-medium text-blue-800 mb-2">一键提取图片提示词</p>
+          <p className="text-sm text-blue-700 leading-relaxed mb-3">
+            看到喜欢的图片？AI帮你分析并生成提示词，直接用于AI绘画创作。
+          </p>
+          <p className="text-sm text-blue-600 leading-relaxed">
+            图片识别需要调用视觉AI模型（如 GPT-4 Vision、Claude Vision 等），请配置你的 API 密钥以启用此功能。
           </p>
         </div>
       )}

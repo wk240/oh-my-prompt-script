@@ -1801,7 +1801,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
         {inputStatus === 'unavailable' && (
           <div className="input-status-banner unavailable">
             <AlertTriangle style={{ width: 14, height: 14, color: '#ea580c' }} />
-            <span className="banner-text">无法连接到页面，请关闭并重新打开扩展</span>
+            <span className="banner-text">当前页面不支持一键插入，切换到支持的平台或刷新</span>
           </div>
         )}
 
@@ -1841,20 +1841,22 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
               <span className="first-backup-warning-title">数据安全提醒</span>
             </div>
             <div className="first-backup-warning-text">
-              当前有 {backupWarningPromptCount} 个提示词，尚未设置备份。浏览器扩展卸载后数据将无法恢复。
+              当前有 {backupWarningPromptCount} 个提示词。<br />
+              <strong>设置备份后，数据将自动保存到您电脑的本地文件夹</strong>。<br />
+              扩展更新或重新安装后，重新选择该文件夹即可恢复数据。
             </div>
             <div className="first-backup-warning-actions">
               <button
                 className="first-backup-warning-btn"
                 onClick={handleBackupWarningSelectFolder}
               >
-                设置备份
+                选择备份文件夹
               </button>
               <span
                 className="first-backup-warning-skip"
                 onClick={handleBackupWarningSkip}
               >
-                稍后
+                稍后设置
               </span>
               <label className="first-backup-warning-checkbox">
                 <input

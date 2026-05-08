@@ -1411,20 +1411,22 @@ export function DropdownContainer({
                   <span className="first-backup-warning-title">数据安全提醒</span>
                 </div>
                 <div className="first-backup-warning-text">
-                  当前有 {backupWarningPromptCount} 个提示词，尚未设置备份。浏览器扩展卸载后数据将无法恢复。
+                  当前有 {backupWarningPromptCount} 个提示词。<br />
+                  <strong>设置备份后，数据将自动保存到您电脑的本地文件夹</strong>。<br />
+                  扩展更新或重新安装后，重新选择该文件夹即可恢复数据。
                 </div>
                 <div className="first-backup-warning-actions">
                   <button
                     className="first-backup-warning-btn"
                     onClick={handleBackupWarningSelectFolder}
                   >
-                    设置备份
+                    选择备份文件夹
                   </button>
                   <span
                     className="first-backup-warning-skip"
                     onClick={handleBackupWarningSkip}
                   >
-                    稍后
+                    稍后设置
                   </span>
                   <label className="first-backup-warning-checkbox">
                     <input

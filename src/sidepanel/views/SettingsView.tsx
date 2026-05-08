@@ -18,7 +18,7 @@ type SettingsTab = 'backup' | 'vision' | 'import-export'
 
 const tabLabels: Record<SettingsTab, string> = {
   backup: '备份',
-  vision: 'Vision',
+  vision: 'AI识图',
   'import-export': '导入导出'
 }
 
