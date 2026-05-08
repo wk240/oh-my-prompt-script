@@ -21,7 +21,8 @@ import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(__dirname, '..');
+// scripts/version.ts -> release/ -> skills/ -> .claude/ -> project root
+const rootDir = path.resolve(__dirname, '..', '..', '..', '..');
 
 const colors = {
   green: '\x1b[32m',

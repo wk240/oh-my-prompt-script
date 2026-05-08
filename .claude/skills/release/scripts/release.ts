@@ -15,7 +15,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(__dirname, '..');
+// scripts/release.ts -> release/ -> skills/ -> .claude/ -> project root
+const rootDir = path.resolve(__dirname, '..', '..', '..', '..');
 
 // ANSI颜色码
 const colors = {
