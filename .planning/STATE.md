@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: Maintenance
-last_updated: "2026-05-08T12:00:00.000Z"
-last_activity: 2026-05-08
+milestone: v2.0
+milestone_name: 商业化 MVP
+status: Planning
+last_updated: "2026-05-09T12:00:00.000Z"
+last_activity: 2026-05-09
 progress:
   total_phases: 0
   completed_phases: 0
@@ -17,18 +17,19 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-08)
+See: .planning/PROJECT.md (updated 2026-05-09)
 
 **Core value:** 一键插入预设提示词，提升AI平台创作效率
-**Current focus:** v1.x maintenance — 稳定性维护和用户体验优化
+**Current focus:** v2.0 商业化 MVP — Web-app 基础架构 + Extension 云端同步
 
 ## Current Position
 
-**Status:** Maintenance mode
+**Status:** Planning mode
 **Last milestone:** v1.3.4 (shipped 2026-05-06)
-**Next:** 暂无新里程碑规划
+**Next:** v2.0 商业化 MVP
 
-**v2.0 状态:** 已放弃 (2026-05-08) — Web + Team 功能规划暂停，专注现有功能的稳定性和用户体验
+**Phase:** Not started (defining requirements)
+**Plan:** —
 
 ## Recent Work (release/v1.3.4 branch)
 
