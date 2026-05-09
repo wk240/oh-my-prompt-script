@@ -82,10 +82,12 @@ export async function signInWithOAuth(provider: 'google' | 'github'): Promise<{ 
   const supabase = getSupabaseClient()
 
   try {
+    // Add extension=true parameter to indicate this is an extension OAuth flow
+    // Web-app callback will redirect back to /auth/callback with tokens in hash
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${WEB_APP_URL}/auth/callback`,
+        redirectTo: `${WEB_APP_URL}/auth/callback?extension=true`,
         skipBrowserRedirect: true // We open in new tab manually
       }
     })

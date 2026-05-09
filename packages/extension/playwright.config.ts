@@ -15,7 +15,10 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',  // 使用本地安装的 Chrome
+      },
     },
   ],
 });
