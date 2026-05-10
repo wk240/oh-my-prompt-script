@@ -132,6 +132,7 @@ export class CloudSyncStrategy extends BaseSyncStrategy {
         body: JSON.stringify({
           prompts: data.prompts,
           categories: data.categories,
+          temporaryPrompts: data.temporaryPrompts,
           timestamp: data.timestamp
         })
       })
@@ -191,8 +192,8 @@ export class CloudSyncStrategy extends BaseSyncStrategy {
       return {
         prompts: result.data.prompts || [],
         categories: result.data.categories || [],
-        temporaryPrompts: [], // Cloud doesn't store temporary prompts
-        timestamp: result.data.timestamp || 0
+        temporaryPrompts: result.data.temporaryPrompts || [],
+        timestamp: result.data.timestamp || Date.now()
       }
     } catch (error) {
       console.error('[Oh My Prompt] Cloud restore failed:', error)
@@ -238,6 +239,56 @@ export class CloudSyncStrategy extends BaseSyncStrategy {
         enabled: false,
         error: 'NETWORK_ERROR'
       }
+    }
+  }
+
+  /**
+   * Upload only specific items to cloud.
+   * Used for syncing local-only data that wasn't previously uploaded.
+   *
+   * @param data - Partial data with items to upload
+   * @returns SyncResult with success status
+   */
+  async uploadPartial(data: {
+    prompts?: FullBackupData['prompts']
+    categories?: FullBackupData['categories']
+    temporaryPrompts?: FullBackupData['temporaryPrompts']
+    timestamp: number
+  }): Promise<SyncResult> {
+    const token = await this.getAuthToken()
+    if (!token) {
+      return { success: false, error: 'NOT_LOGGED_IN' }
+    }
+
+    try {
+      const response = await fetch(`${WEB_APP_URL}/api/sync/upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: this.mapError(response.status)
+        }
+      }
+
+      const result = await response.json()
+
+      return {
+        success: true,
+        syncedAt: result.timestamp || data.timestamp,
+        promptsCount: data.prompts?.length || 0,
+        categoriesCount: data.categories?.length || 0,
+        temporaryPromptsCount: data.temporaryPrompts?.length || 0
+      }
+    } catch (error) {
+      console.error('[Oh My Prompt] Cloud partial upload failed:', error)
+      return { success: false, error: 'NETWORK_ERROR' }
     }
   }
 }
