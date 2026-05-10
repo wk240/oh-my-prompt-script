@@ -15,6 +15,9 @@ declare const DEV_WEB_APP_URL: string | undefined
 
 const WEB_APP_URL = DEV_WEB_APP_URL ?? 'https://ohmyprompt.com'
 
+// Supabase project reference (extracted from URL)
+const SUPABASE_PROJECT_REF = 'futfxudabvjfldlismun'
+
 /**
  * Get the current authentication state with subscription info.
  *
@@ -143,21 +146,40 @@ export async function signOut(): Promise<{ success: boolean }> {
  * Poll for auth callback completion.
  *
  * Used after signInWithOAuth() to wait for user to complete OAuth
- * in the opened tab. Polls getAuthState() until logged_in or timeout.
+ * in the opened tab. Polls chrome.storage.local directly until session detected.
  *
  * @param timeoutMs - Maximum time to wait (default 60 seconds)
  * @returns true if auth completed, false if timeout
  */
 export async function waitForAuthCallback(timeoutMs: number = 60000): Promise<boolean> {
   const startTime = Date.now()
+  const storageKey = `sb-${SUPABASE_PROJECT_REF}-auth-token`
 
   while (Date.now() - startTime < timeoutMs) {
-    const state = await getAuthState()
-    if (state.status === 'logged_in') {
-      return true
+    // Check storage directly instead of relying on Supabase client cache
+    const result = await chrome.storage.local.get(storageKey)
+    const sessionData = result[storageKey]
+
+    if (sessionData) {
+      try {
+        // Parse and validate session
+        const session = JSON.parse(sessionData)
+        if (session.access_token && session.user?.id) {
+          console.log('[Oh My Prompt] Auth detected in storage, user:', session.user.id)
+
+          // Clear the singleton client so it re-initializes with new session
+          clearSupabaseClient()
+
+          return true
+        }
+      } catch (e) {
+        console.warn('[Oh My Prompt] Failed to parse session data:', e)
+      }
     }
+
     await new Promise(resolve => setTimeout(resolve, 2000))
   }
 
+  console.log('[Oh My Prompt] Auth wait timeout')
   return false
 }
