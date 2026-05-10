@@ -6,14 +6,14 @@ import type { CloudAuthState } from '@oh-my-prompt/shared/types'
  * Web app URL for OAuth callback and sync status API.
  *
  * For development: Set DEV_WEB_APP_URL in vite.config.ts define option.
- * For production: Defaults to https://ohmyprompt.com.
+ * For production: Defaults to https://oh-my-prompt.com.
  *
  * Vite define example (vite.config.ts):
  *   define: { DEV_WEB_APP_URL: '"http://localhost:3000"' }
  */
 declare const DEV_WEB_APP_URL: string | undefined
 
-const WEB_APP_URL = DEV_WEB_APP_URL ?? 'https://ohmyprompt.com'
+const WEB_APP_URL = DEV_WEB_APP_URL ?? 'https://oh-my-prompt.com'
 
 // Supabase project reference (extracted from URL)
 const SUPABASE_PROJECT_REF = 'futfxudabvjfldlismun'
@@ -85,12 +85,12 @@ export async function signInWithOAuth(provider: 'google' | 'github'): Promise<{ 
   const supabase = getSupabaseClient()
 
   try {
-    // Add extension=true parameter to indicate this is an extension OAuth flow
-    // Web-app callback will redirect back to /auth/callback with tokens in hash
+    // Use dedicated extension callback path to avoid query param matching issues
+    // Supabase's redirect URL matching is exact - query params must match exactly
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${WEB_APP_URL}/auth/callback?extension=true`,
+        redirectTo: `${WEB_APP_URL}/auth/extension/callback`,
         skipBrowserRedirect: true // We open in new tab manually
       }
     })
@@ -110,8 +110,6 @@ export async function signInWithOAuth(provider: 'google' | 'github'): Promise<{ 
   }
 }
 
-// Supabase project reference (extracted from URL)
-const SUPABASE_PROJECT_REF = 'futfxudabvjfldlismun'
 const SUPABASE_AUTH_KEY = `sb-${SUPABASE_PROJECT_REF}-auth-token`
 
 /**

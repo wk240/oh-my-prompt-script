@@ -12,7 +12,7 @@ export default defineConfig({
   base: './',
   define: {
     // Web-app URL for development (localhost:3000)
-    // Production builds will use the fallback 'https://ohmyprompt.com'
+    // Production builds will use the fallback 'https://oh-my-prompt.com'
     DEV_WEB_APP_URL: '"http://localhost:3000"'
   },
   resolve: {
@@ -22,6 +22,13 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      port: 5173,
+      protocol: 'ws',
+      host: 'localhost'
+    },
     cors: true,
   },
   build: {
