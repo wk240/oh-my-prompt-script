@@ -3,6 +3,7 @@ import type { StorageSchema, SyncSettings, VisionApiConfig, InsertPromptPayload,
 import { StorageManager } from '../lib/storage'
 import { saveFolderHandle, getFolderHandle } from '../lib/sync/indexeddb'
 import { getSyncStatus, triggerSync, restorePermission, initialSync, triggerProviderConfigsSync } from '../lib/sync/sync-manager'
+import { createSyncOrchestrator } from '../lib/sync'
 import { syncApiConfigToFolder } from '../lib/sync/api-config-sync'
 import { checkForUpdate, getUpdateStatus, clearUpdateStatus, type UpdateStatus } from '../lib/version-checker'
 import { executeVisionApiCall, classifyApiError, getLanguagePreference } from '../lib/vision-api'
@@ -11,6 +12,9 @@ import { CAPTURED_IMAGE_STORAGE_KEY, VISION_API_CONFIG_STORAGE_KEY, PROVIDER_CON
 import { validateProviderConfig, maskApiKey } from '../lib/config-validator'
 import { sendToOffscreen } from '../lib/offscreen-manager'
 import '../lib/migrations/register' // Register all migrations
+
+// Create sync orchestrator for cloud-first decision matrix
+const syncOrchestrator = createSyncOrchestrator()
 
 
 // Create context menu on startup (survives service worker restarts)
@@ -40,16 +44,34 @@ createContextMenu()
 // Run initial sync on startup (restores data from backup folder including encrypted API config)
 initialSync().catch(err => console.error('[Oh My Prompt] Initial sync error:', err))
 
+// Run orchestrator initial sync on startup (cloud-first decision matrix)
+chrome.runtime.onStartup.addListener(async () => {
+  console.log('[Oh My Prompt] Extension started, running orchestrator initial sync...')
+  try {
+    await syncOrchestrator.initialSync()
+  } catch (error) {
+    console.error('[Oh My Prompt] Orchestrator initial sync failed:', error)
+  }
+})
+
 // Also create on install (for clean install)
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async (details) => {
+  console.log('[Oh My Prompt] Extension installed/updated:', details.reason)
   createContextMenu()
 
   // Set side panel to open on action click (Chrome 116+)
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
     .catch((error) => console.error('[Oh My Prompt] Side panel behavior error:', error))
 
-  // Run initial sync on install (restores data from backup folder)
+  // Run initial sync on install (restores data from backup folder including encrypted API config)
   initialSync().catch(err => console.error('[Oh My Prompt] Initial sync on install error:', err))
+
+  // Run orchestrator initial sync on install (cloud-first decision matrix)
+  try {
+    await syncOrchestrator.initialSync()
+  } catch (error) {
+    console.error('[Oh My Prompt] Orchestrator initial sync on install failed:', error)
+  }
 })
 
 // Open side panel when extension icon is clicked (fallback for older Chrome versions)
