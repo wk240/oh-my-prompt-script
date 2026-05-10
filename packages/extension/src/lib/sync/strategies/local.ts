@@ -20,16 +20,15 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
   }
 
   /**
-   * Check if local sync is available (folder handle exists with permission)
+   * Check if local sync is available (folder handle exists).
+   * Note: Permission check is deferred to actual sync operation.
+   * Service Worker may return 'prompt' from queryPermission even if
+   * permission was granted in popup context. The actual sync via
+   * offscreen document handles permission request when needed.
    */
   async isAvailable(): Promise<boolean> {
     const handle = await getFolderHandle()
-    if (!handle) {
-      return false
-    }
-
-    const permission = await checkFolderPermission(handle, 'readwrite')
-    return permission === 'granted'
+    return handle !== null
   }
 
   /**
@@ -145,7 +144,10 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
   }
 
   /**
-   * Get current status of local sync
+   * Get current status of local sync.
+   * Note: Service Worker cannot directly read files or query permission.
+   * Returns basic status based on handle existence and stored settings.
+   * Detailed file operations are handled by sync-manager via offscreen document.
    */
   async getStatus(): Promise<StrategyStatus> {
     const handle = await getFolderHandle()
@@ -153,21 +155,15 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
       return { enabled: false }
     }
 
-    const permission = await checkFolderPermission(handle, 'readwrite')
-    if (permission !== 'granted') {
-      return { enabled: false, error: 'Permission required' }
-    }
-
-    // Try to get last sync time from backup file
+    // Handle exists - enabled (actual permission check happens during sync)
+    // Try to get last sync time from stored settings (managed by sync-manager)
     try {
-      const fileHandle = await handle.getFileHandle(BACKUP_FILE_NAME)
-      const file = await fileHandle.getFile()
-      const content = await file.text()
-      const parsed = JSON.parse(content)
-
+      const result = await chrome.storage.local.get('syncStatus')
+      const syncStatus = result.syncStatus || {}
       return {
         enabled: true,
-        lastSyncTime: parsed.backupTime ? new Date(parsed.backupTime).getTime() : undefined,
+        lastSyncTime: syncStatus.lastLocalSyncTime,
+        error: syncStatus.localError
       }
     } catch {
       return { enabled: true }
