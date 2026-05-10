@@ -5,13 +5,10 @@ import {
   MAX_BACKUP_HISTORY,
 } from '@oh-my-prompt/shared/constants'
 import { computeBackupDataHash } from '../hash'
-import { openSyncDB, saveFolderHandle, removeFolderHandle, checkFolderPermission } from '../indexeddb'
+import { getFolderHandle, saveFolderHandle, removeFolderHandle, checkFolderPermission } from '../indexeddb'
 import { BaseSyncStrategy } from './base'
-import { SyncStrategyId, FullBackupData, SyncResult, StrategyStatus, SyncResultError } from '../types'
+import { FullBackupData, SyncResult, StrategyStatus, SyncResultError } from '../types'
 import type { Prompt, Category } from '@oh-my-prompt/shared/types'
-
-const SYNC_HANDLE_KEY = 'syncFolderHandle'
-const SYNC_STORE_NAME = 'handles'
 
 /**
  * Local folder backup strategy using File System Access API
@@ -19,14 +16,14 @@ const SYNC_STORE_NAME = 'handles'
  */
 export class LocalSyncStrategy extends BaseSyncStrategy {
   constructor() {
-    super('local' as SyncStrategyId, 'Local Backup')
+    super('local', 'Local Backup')
   }
 
   /**
    * Check if local sync is available (folder handle exists with permission)
    */
   async isAvailable(): Promise<boolean> {
-    const handle = await this.getFolderHandle()
+    const handle = await getFolderHandle()
     if (!handle) {
       return false
     }
@@ -40,7 +37,7 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
    * Creates omps-latest.json and history backup if content changed
    */
   async sync(data: FullBackupData): Promise<SyncResult> {
-    const handle = await this.getFolderHandle()
+    const handle = await getFolderHandle()
     if (!handle) {
       return { success: false, error: 'PERMISSION_DENIED' as SyncResultError }
     }
@@ -106,7 +103,7 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
    * Reads from omps-latest.json
    */
   async restore(): Promise<FullBackupData | null> {
-    const handle = await this.getFolderHandle()
+    const handle = await getFolderHandle()
     if (!handle) {
       return null
     }
@@ -154,7 +151,7 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
    * Get current status of local sync
    */
   async getStatus(): Promise<StrategyStatus> {
-    const handle = await this.getFolderHandle()
+    const handle = await getFolderHandle()
     if (!handle) {
       return { enabled: false }
     }
@@ -192,7 +189,7 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
       })
 
       // Save handle to IndexedDB for persistence
-      await this.saveFolderHandle(handle)
+      await saveFolderHandle(handle)
 
       return handle
     } catch {
@@ -205,45 +202,10 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
    * Disconnect from folder sync
    */
   async disconnect(): Promise<void> {
-    await this.removeFolderHandle()
+    await removeFolderHandle()
   }
 
   // --- Private methods for IndexedDB operations ---
-
-  /**
-   * Get folder handle from IndexedDB
-   */
-  private async getFolderHandle(): Promise<FileSystemDirectoryHandle | null> {
-    const db = await openSyncDB()
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(SYNC_STORE_NAME, 'readonly')
-      const store = transaction.objectStore(SYNC_STORE_NAME)
-      const request = store.get(SYNC_HANDLE_KEY)
-
-      request.onsuccess = () => {
-        resolve(request.result || null)
-      }
-
-      request.onerror = () => reject(request.error)
-
-      transaction.oncomplete = () => db.close()
-    })
-  }
-
-  /**
-   * Save folder handle to IndexedDB (exposed for selectFolder)
-   */
-  private async saveFolderHandle(handle: FileSystemDirectoryHandle): Promise<void> {
-    await saveFolderHandle(handle)
-  }
-
-  /**
-   * Remove folder handle from IndexedDB (exposed for disconnect)
-   */
-  private async removeFolderHandle(): Promise<void> {
-    await removeFolderHandle()
-  }
 
   // --- Private methods for backup history ---
 

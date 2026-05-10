@@ -2,6 +2,16 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { LocalSyncStrategy } from '../strategies/local'
 import { FullBackupData } from '../types'
 
+// Mock indexeddb module functions
+vi.mock('../indexeddb', () => ({
+  getFolderHandle: vi.fn(),
+  saveFolderHandle: vi.fn(),
+  removeFolderHandle: vi.fn(),
+  checkFolderPermission: vi.fn(),
+}))
+
+import { getFolderHandle, saveFolderHandle, removeFolderHandle, checkFolderPermission } from '../indexeddb'
+
 // Mock indexedDB operations
 const mockIndexedDB = {
   open: vi.fn(),
@@ -59,8 +69,7 @@ describe('LocalSyncStrategy', () => {
 
   describe('isAvailable', () => {
     it('should return false when no folder handle', async () => {
-      // Mock getFolderHandle to return null
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(null)
+      vi.mocked(getFolderHandle).mockResolvedValue(null)
 
       const available = await strategy.isAvailable()
       expect(available).toBe(false)
@@ -70,7 +79,8 @@ describe('LocalSyncStrategy', () => {
       const mockDirHandle = createMockDirHandle()
       mockDirHandle.queryPermission.mockResolvedValue('denied')
 
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(mockDirHandle)
+      vi.mocked(getFolderHandle).mockResolvedValue(mockDirHandle as any)
+      vi.mocked(checkFolderPermission).mockResolvedValue('denied')
 
       const available = await strategy.isAvailable()
       expect(available).toBe(false)
@@ -80,7 +90,8 @@ describe('LocalSyncStrategy', () => {
       const mockDirHandle = createMockDirHandle()
       mockDirHandle.queryPermission.mockResolvedValue('granted')
 
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(mockDirHandle)
+      vi.mocked(getFolderHandle).mockResolvedValue(mockDirHandle as any)
+      vi.mocked(checkFolderPermission).mockResolvedValue('granted')
 
       const available = await strategy.isAvailable()
       expect(available).toBe(true)
@@ -89,7 +100,7 @@ describe('LocalSyncStrategy', () => {
 
   describe('sync', () => {
     it('should return error when no folder handle', async () => {
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(null)
+      vi.mocked(getFolderHandle).mockResolvedValue(null)
 
       const data: FullBackupData = {
         prompts: [],
@@ -110,7 +121,7 @@ describe('LocalSyncStrategy', () => {
       mockDirHandle.getFileHandle.mockResolvedValue(mockFileHandle)
       mockDirHandle.queryPermission.mockResolvedValue('granted')
 
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(mockDirHandle)
+      vi.mocked(getFolderHandle).mockResolvedValue(mockDirHandle as any)
 
       const data: FullBackupData = {
         prompts: [{ id: 'p1', name: 'Test Prompt', content: 'test', categoryId: 'c1', order: 0 }],
@@ -134,7 +145,7 @@ describe('LocalSyncStrategy', () => {
       mockDirHandle.getFileHandle.mockRejectedValue(new Error('Write failed'))
       mockDirHandle.queryPermission.mockResolvedValue('granted')
 
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(mockDirHandle)
+      vi.mocked(getFolderHandle).mockResolvedValue(mockDirHandle as any)
 
       const data: FullBackupData = {
         prompts: [],
@@ -151,7 +162,7 @@ describe('LocalSyncStrategy', () => {
 
   describe('restore', () => {
     it('should return null when no folder handle', async () => {
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(null)
+      vi.mocked(getFolderHandle).mockResolvedValue(null)
 
       const result = await strategy.restore()
       expect(result).toBeNull()
@@ -174,7 +185,7 @@ describe('LocalSyncStrategy', () => {
       mockDirHandle.getFileHandle.mockResolvedValue(mockFileHandle)
       mockDirHandle.queryPermission.mockResolvedValue('granted')
 
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(mockDirHandle)
+      vi.mocked(getFolderHandle).mockResolvedValue(mockDirHandle as any)
 
       const result = await strategy.restore()
 
@@ -192,7 +203,7 @@ describe('LocalSyncStrategy', () => {
       mockDirHandle.getFileHandle.mockResolvedValue(mockFileHandle)
       mockDirHandle.queryPermission.mockResolvedValue('granted')
 
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(mockDirHandle)
+      vi.mocked(getFolderHandle).mockResolvedValue(mockDirHandle as any)
 
       const result = await strategy.restore()
       expect(result).toBeNull()
@@ -209,7 +220,7 @@ describe('LocalSyncStrategy', () => {
       mockDirHandle.getFileHandle.mockResolvedValue(mockFileHandle)
       mockDirHandle.queryPermission.mockResolvedValue('granted')
 
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(mockDirHandle)
+      vi.mocked(getFolderHandle).mockResolvedValue(mockDirHandle as any)
 
       const result = await strategy.restore()
 
@@ -221,7 +232,7 @@ describe('LocalSyncStrategy', () => {
 
   describe('getStatus', () => {
     it('should return disabled status when no folder handle', async () => {
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(null)
+      vi.mocked(getFolderHandle).mockResolvedValue(null)
 
       const status = await strategy.getStatus()
       expect(status.enabled).toBe(false)
@@ -240,7 +251,7 @@ describe('LocalSyncStrategy', () => {
       const mockFileHandle = createMockFileHandle(backupContent)
       mockDirHandle.getFileHandle.mockResolvedValue(mockFileHandle)
 
-      vi.spyOn(strategy as any, 'getFolderHandle').mockResolvedValue(mockDirHandle)
+      vi.mocked(getFolderHandle).mockResolvedValue(mockDirHandle as any)
 
       const status = await strategy.getStatus()
       expect(status.enabled).toBe(true)
@@ -251,17 +262,12 @@ describe('LocalSyncStrategy', () => {
     it('should return handle when user selects folder', async () => {
       const mockDirHandle = createMockDirHandle()
       ;(global as any).window.showDirectoryPicker = vi.fn().mockResolvedValue(mockDirHandle)
-
-      // Mock saveFolderHandle to avoid IndexedDB operations
-      const originalSave = strategy['saveFolderHandle']
-      strategy['saveFolderHandle'] = vi.fn().mockResolvedValue(undefined)
+      vi.mocked(saveFolderHandle).mockResolvedValue(undefined)
 
       const handle = await strategy.selectFolder()
 
-      // Restore original method
-      strategy['saveFolderHandle'] = originalSave
-
       expect(handle).toBe(mockDirHandle)
+      expect(saveFolderHandle).toHaveBeenCalledWith(mockDirHandle)
     })
 
     it('should return null when user cancels', async () => {
@@ -274,10 +280,10 @@ describe('LocalSyncStrategy', () => {
 
   describe('disconnect', () => {
     it('should remove folder handle', async () => {
-      vi.spyOn(strategy as any, 'removeFolderHandle').mockResolvedValue(undefined)
+      vi.mocked(removeFolderHandle).mockResolvedValue(undefined)
 
       await strategy.disconnect()
-      expect((strategy as any).removeFolderHandle).toHaveBeenCalled()
+      expect(removeFolderHandle).toHaveBeenCalled()
     })
   })
 })
