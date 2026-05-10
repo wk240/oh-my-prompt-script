@@ -44,16 +44,32 @@ function cacheFolderHandle(handle: FileSystemDirectoryHandle): void {
 /**
  * Initialize offscreen document - pre-cache folder handle
  * This must complete before permission requests can work with user gesture
+ *
+ * We retry initialization multiple times to handle edge cases:
+ * - IndexedDB may not be ready immediately after document creation
+ * - Service Worker may restart during initialization
  */
 async function initialize(): Promise<void> {
-  try {
-    const handle = await getFolderHandle()
-    if (handle) {
-      cacheFolderHandle(handle)
+  const maxRetries = 5
+  const retryDelay = 1000
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const handle = await getFolderHandle()
+      if (handle) {
+        cacheFolderHandle(handle)
+        console.log(`[Oh My Prompt] Offscreen initialized, handle cached (attempt ${attempt})`)
+        return
+      }
+    } catch (err) {
+      console.warn(`[Oh My Prompt] Init attempt ${attempt} failed:`, err)
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+      }
     }
-  } catch (err) {
-    console.warn('[Oh My Prompt] Failed to pre-cache folder handle:', err)
   }
+
+  console.warn('[Oh My Prompt] Offscreen init failed after retries, handle not cached')
 }
 
 // Start initialization immediately
@@ -87,10 +103,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Handle PING for readiness check
     case MessageType.OFFSCREEN_PING:
       // Wait for initialization to complete before responding
+      // Return success only if init completed (handle cached or no folder configured)
+      // Return failure if init is still pending or failed
       _initPromise?.then(() => {
-        sendResponse({ success: true, data: 'pong' })
+        // Init completed - check if handle is cached
+        const handle = getCachedFolderHandle()
+        if (handle) {
+          console.log('[Oh My Prompt] PING: init complete, handle cached')
+          sendResponse({ success: true, data: 'pong', handleCached: true })
+        } else {
+          console.log('[Oh My Prompt] PING: init complete, no handle (folder not configured)')
+          sendResponse({ success: true, data: 'pong', handleCached: false })
+        }
       }).catch(() => {
-        sendResponse({ success: true, data: 'pong' }) // Still respond even if init failed
+        // Init failed - still respond but indicate failure
+        console.warn('[Oh My Prompt] PING: init failed')
+        sendResponse({ success: true, data: 'pong', handleCached: false })
       })
       return true
 
@@ -132,25 +160,44 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case MessageType.OFFSCREEN_REQUEST_PERMISSION:
       // CRITICAL: User gesture must be preserved for permission request
-      // Chrome propagates user gesture through message passing, but only in SYNC execution path
-      // We must call requestPermission() BEFORE any await, using cached handle from IndexedDB
+      // Chrome propagates user gesture through message passing, but only if requestPermission()
+      // is called in the SYNC execution path BEFORE any await
+      //
+      // Strategy:
+      // 1. Check cached handle synchronously - if available, request permission immediately
+      // 2. If not cached, the handle will be retrieved in fallback (async), gesture may be lost
+      // 3. To minimize gesture loss, ensure offscreen document is initialized BEFORE user clicks
+      console.log('[Oh My Prompt] Offscreen received permission request, checking cached handle')
 
-      // Step 1: Open IndexedDB synchronously (IDBDatabase.open is async, but we can cache)
-      // For now, we need to get handle synchronously - use a cached handle approach
+      // Step 1: Get cached handle synchronously (no await)
       const cachedHandle = getCachedFolderHandle()
 
       if (!cachedHandle) {
         // No cached handle - need async retrieval, gesture will break
-        // This should not happen if handle was properly cached during previous operations
+        // This happens when:
+        // 1. Offscreen document just created and init not complete
+        // 2. Extension was refreshed/reloaded
+        // 3. Folder was never configured
+        console.warn('[Oh My Prompt] No cached handle, gesture will be lost in fallback path')
         handleRequestPermissionFallback()
-          .then(result => sendResponse(result))
-          .catch(error => sendResponse({ success: false, error: String(error) }))
+          .then(result => {
+            console.log('[Oh My Prompt] Fallback permission result:', result)
+            sendResponse(result)
+          })
+          .catch(error => {
+            console.error('[Oh My Prompt] Fallback permission error:', error)
+            sendResponse({ success: false, error: String(error) })
+          })
         return true
       }
 
       // Step 2: Request permission synchronously BEFORE any await
+      // Even though requestPermission() returns a Promise, calling it synchronously
+      // preserves user gesture - Chrome associates the request with the gesture context
+      console.log('[Oh My Prompt] Calling requestPermission with cached handle:', cachedHandle.name)
       cachedHandle.requestPermission({ mode: 'readwrite' })
         .then((permission: PermissionState) => {
+          console.log('[Oh My Prompt] Permission result:', permission)
           if (permission === 'granted') {
             sendResponse({ success: true, data: { permission: 'granted' } })
           } else {
@@ -158,6 +205,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }
         })
         .catch((error: Error) => {
+          console.error('[Oh My Prompt] Permission request error:', error)
           sendResponse({ success: false, error: String(error) })
         })
       return true

@@ -2,6 +2,8 @@ import { CloudSyncStrategy } from './strategies/cloud'
 import { LocalSyncStrategy } from './strategies/local'
 import { executeLocalSync } from './local-sync-executor'
 import { getFolderHandle, checkFolderPermission } from './indexeddb'
+import { ensureOffscreenDocument, sendToOffscreen } from '../offscreen-manager'
+import { MessageType } from '@oh-my-prompt/shared/messages'
 import {
   FullBackupData,
   MergeResult,
@@ -245,6 +247,7 @@ export class SyncOrchestrator {
 
   /**
    * Get unified sync status.
+   * Uses offscreen document for permission checks to ensure consistent state across contexts.
    */
   async getStatus(): Promise<UnifiedSyncStatus> {
     const [cloudStatus, localStatus] = await Promise.all([
@@ -254,15 +257,28 @@ export class SyncOrchestrator {
 
     const settings = await this.getSyncStatus()
 
-    // Get folder name and permission status
+    // Get folder name and permission status via offscreen document
+    // This ensures consistent permission state across Service Worker and Sidepanel contexts
     let folderName: string | undefined = undefined
     let permissionStatus: 'granted' | 'prompt' | 'denied' | undefined = undefined
 
     if (localStatus.enabled) {
-      const handle = await getFolderHandle()
-      if (handle) {
-        folderName = handle.name
-        permissionStatus = await checkFolderPermission(handle)
+      try {
+        await ensureOffscreenDocument()
+        const permResult = await sendToOffscreen<{ hasFolder: boolean; permission?: 'granted' | 'prompt' | 'denied'; folderName?: string }>(MessageType.OFFSCREEN_CHECK_PERMISSION)
+
+        if (permResult.success && permResult.data?.hasFolder) {
+          folderName = permResult.data.folderName
+          permissionStatus = permResult.data.permission
+        }
+      } catch (err) {
+        console.warn('[Oh My Prompt] Failed to get permission status via offscreen:', err)
+        // Fallback: try direct access (may fail in Service Worker)
+        const handle = await getFolderHandle()
+        if (handle) {
+          folderName = handle.name
+          permissionStatus = await checkFolderPermission(handle)
+        }
       }
     }
 

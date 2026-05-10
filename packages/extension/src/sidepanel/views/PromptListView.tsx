@@ -1008,7 +1008,10 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       if (response?.success && response.data) {
         const syncStatus = response.data
         setStatus(syncStatus)
-        if (syncStatus.hasUnsyncedChanges) {
+        // Only show backup reminder if there's actual unsynced content
+        // AND permission is either granted (sync will happen) or denied (can't sync)
+        // Don't show for 'prompt' status - it's normal after extension refresh and will be restored
+        if (syncStatus.hasUnsyncedChanges && syncStatus.permissionStatus !== 'prompt') {
           setModalStates(prev => ({ ...prev, showBackupReminder: true }))
         }
       }

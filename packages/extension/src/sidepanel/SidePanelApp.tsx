@@ -11,29 +11,21 @@ type CurrentView = 'prompts' | 'settings'
 export default function SidePanelApp() {
   const [currentView, setCurrentView] = useState<CurrentView>('prompts')
 
-  // Check and restore folder permission on mount (like content script dropdown)
-  // This preserves user gesture from sidepanel open action (clicking extension icon)
+  // Check sync status on mount to detect permission issues
+  // Note: We don't request permission here because user gesture is already lost
+  // (sidepanel.open is async, useEffect runs after that)
   useEffect(() => {
-    // Fire permission request message - restore permission if needed
-    chrome.runtime.sendMessage({ type: MessageType.REQUEST_PERMISSION_GESTURE })
+    // Check permission status via orchestrator
+    chrome.runtime.sendMessage({ type: MessageType.GET_UNIFIED_SYNC_STATUS })
       .then((response) => {
-        if (response?.success) {
-          console.log('[Oh My Prompt] Sidepanel permission restored successfully')
-          // Trigger sync after permission restored
-          chrome.runtime.sendMessage({ type: MessageType.TRIGGER_SYNC })
-            .then((syncResponse) => {
-              if (syncResponse?.success) {
-                console.log('[Oh My Prompt] Sidepanel auto-sync completed')
-              }
-            })
-            .catch(() => {
-              // Silently ignore sync errors
-            })
+        if (response?.success && response.data?.permissionStatus === 'prompt') {
+          console.log('[Oh My Prompt] Sidepanel: folder permission needs restoration (prompt status)')
+          // Don't auto-request - user gesture is lost
+          // UnifiedSyncSection will show "需要重新授权" message and user can click to restore
         }
       })
-      .catch((error) => {
-        // Silently ignore - permission may not be configured
-        console.log('[Oh My Prompt] Sidepanel permission request skipped:', error)
+      .catch(() => {
+        // Silently ignore - folder may not be configured
       })
   }, []) // Run once on mount
 

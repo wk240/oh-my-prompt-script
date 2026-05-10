@@ -497,12 +497,36 @@ export function DropdownContainer({
       if (response?.success && response.data) {
         const status = response.data
         setSyncStatus(status)
-        if (status.hasUnsyncedChanges) {
+        // Only show backup reminder if there's actual unsynced content
+        // AND permission is either granted (sync will happen) or denied (can't sync)
+        // Don't show for 'prompt' status - it's normal after extension refresh and will be restored
+        if (status.hasUnsyncedChanges && status.permissionStatus !== 'prompt') {
           openModal('showBackupReminder')
         }
       }
     })
   }, [isOpen]) // Run immediately when dropdown opens
+
+  // Poll sync status when hasUnsyncedChanges is true (waiting for permission restore + sync to complete)
+  // This ensures backup reminder disappears automatically after permission is restored and sync succeeds
+  useEffect(() => {
+    if (!isOpen || !syncStatus?.hasUnsyncedChanges) return
+
+    const pollInterval = setInterval(() => {
+      chrome.runtime.sendMessage({ type: MessageType.GET_SYNC_STATUS }, (response) => {
+        if (response?.success && response.data) {
+          const newStatus = response.data
+          setSyncStatus(newStatus)
+          // Close backup reminder when sync succeeds (hasUnsyncedChanges becomes false)
+          if (!newStatus.hasUnsyncedChanges && modalStates.showBackupReminder) {
+            closeModal('showBackupReminder')
+          }
+        }
+      })
+    }, 2000) // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval)
+  }, [isOpen, syncStatus?.hasUnsyncedChanges, modalStates.showBackupReminder])
 
   // Check for first-time backup warning (depends on prompts)
   useEffect(() => {

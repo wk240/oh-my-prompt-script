@@ -81,11 +81,12 @@ export async function ensureOffscreenDocument(): Promise<void> {
 /**
  * Wait for offscreen document to be ready to receive messages
  * Sends a ping message and waits for response
+ * Also waits for folder handle to be cached (for permission requests)
  */
 async function waitForOffscreenReady(): Promise<void> {
-  const maxAttempts = 10
-  const initialDelayMs = 200  // Wait for script to load before first ping
-  const retryDelayMs = 150    // Delay between retry attempts
+  const maxAttempts = 15  // Increased to match longer init retries
+  const initialDelayMs = 500  // Increased initial delay
+  const retryDelayMs = 500    // Increased retry delay
 
   // Initial delay - allow document script to load and initialize
   await new Promise(resolve => setTimeout(resolve, initialDelayMs))
@@ -94,6 +95,13 @@ async function waitForOffscreenReady(): Promise<void> {
     try {
       const response = await chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_PING })
       if (response?.success) {
+        // Check if handle is cached (for permission requests)
+        if (response.handleCached === true) {
+          console.log('[Oh My Prompt] Offscreen ready with cached handle')
+          return
+        }
+        // Handle not cached but init complete - folder not configured
+        console.log('[Oh My Prompt] Offscreen ready but no handle cached')
         return
       }
     } catch (error) {

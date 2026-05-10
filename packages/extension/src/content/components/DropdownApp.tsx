@@ -38,12 +38,8 @@ export function DropdownApp({
 
   useEffect(() => {
     loadFromStorage()
-
-    // Pre-cache folder handle on component mount
-    // This ensures the handle is ready when user clicks the button
-    // OFFSCREEN_CHECK_PERMISSION triggers handle caching in offscreen document
-    chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_CHECK_PERMISSION })
-      .catch(() => { /* Ignore errors - folder may not be configured */ })
+    // Note: We no longer pre-check permission on mount - this is unnecessary overhead
+    // Permission check is deferred to user click, which is the only time it's actually needed
   }, [loadFromStorage])
 
   // Handle click outside to close dropdown
@@ -75,25 +71,42 @@ export function DropdownApp({
     }
   }, [isOpen])
 
-  // Check and restore folder permission in user gesture context (before opening dropdown)
-  // Chrome requires permission request to be called directly in response to user gesture
-  // The gesture propagates through message chain: Content -> SW -> Offscreen
-  // CRITICAL: We must send permission request BEFORE any await to preserve gesture
-  // Offscreen document uses cached handle for synchronous permission request
+  // Handle button click - toggle dropdown and optionally restore folder permission
+  // Permission check is deferred to user click (not on mount) to avoid unnecessary overhead
+  //
+  // STRATEGY:
+  // 1. On user click, check permission status via offscreen document
+  // 2. If permission needs restoration ('prompt'), trigger restore asynchronously
+  // 3. Open dropdown immediately - sync status polling will handle backup reminder
+  // 4. If restore succeeds, sync will be triggered and backup reminder will auto-dismiss
   const handleToggle = useCallback(() => {
-    // Fire permission request message immediately (preserves user gesture)
-    // We don't wait for the result - just trigger it and continue
-    // Offscreen will check if folder exists and request permission if needed
-    chrome.runtime.sendMessage({ type: MessageType.REQUEST_PERMISSION_GESTURE })
+    // Check permission status and restore if needed (async, non-blocking)
+    chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_CHECK_PERMISSION })
       .then((response) => {
-        if (response?.success) {
-          console.log('[Oh My Prompt] Permission check/restored successfully')
+        if (response?.success && response.data?.hasFolder) {
+          // If permission needs restoration, trigger request
+          // Note: After page refresh, gesture context may be lost in offscreen fallback path
+          // But we still try - if it fails, user can manually restore via sidepanel
+          if (response.data.permission === 'prompt') {
+            console.log('[Oh My Prompt] Permission needs restoration, triggering request')
+            chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_REQUEST_PERMISSION })
+              .then((restoreResponse) => {
+                if (restoreResponse?.success) {
+                  console.log('[Oh My Prompt] Permission restored successfully')
+                  // Trigger sync after permission restored
+                  chrome.runtime.sendMessage({ type: MessageType.TRIGGER_SYNC })
+                    .catch(() => { /* Ignore sync errors */ })
+                } else {
+                  console.log('[Oh My Prompt] Permission restore failed or requires manual action')
+                }
+              })
+              .catch(() => { /* Ignore errors - user can manually restore */ })
+          }
         }
       })
-      .catch((error) => {
-        console.warn('[Oh My Prompt] Permission request failed:', error)
-      })
+      .catch(() => { /* Ignore errors - folder may not be configured */ })
 
+    // Open dropdown immediately (non-blocking)
     setIsOpen((prev) => !prev)
   }, [])
 

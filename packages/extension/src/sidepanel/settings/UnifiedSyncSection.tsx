@@ -26,8 +26,6 @@ import {
 } from '@/popup/components/ui/dialog'
 import type { UnifiedSyncStatus } from '@/lib/sync/types'
 import type { BackupVersion } from '@/lib/sync/file-sync'
-import { createSyncOrchestrator } from '@/lib/sync'
-import type { SyncOrchestrator } from '@/lib/sync/orchestrator'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { getBackupVersions, restoreFromBackup } from '@/lib/sync/sync-manager'
 
@@ -75,7 +73,6 @@ export function UnifiedSyncSection() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [orchestrator] = useState<SyncOrchestrator>(() => createSyncOrchestrator())
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [uploading, setUploading] = useState(false)
 
@@ -89,14 +86,20 @@ export function UnifiedSyncSection() {
   // Load status on mount and poll every 10 seconds
   const loadStatus = useCallback(async () => {
     try {
-      const currentStatus = await orchestrator.getStatus()
-      setStatus(currentStatus)
-      setError(null)
+      // Use message passing to service worker for consistent permission state
+      const response = await chrome.runtime.sendMessage({ type: MessageType.GET_UNIFIED_SYNC_STATUS })
+      if (response?.success && response.data) {
+        setStatus(response.data)
+        setError(null)
+      } else {
+        console.error('[Oh My Prompt] Failed to load sync status:', response?.error)
+        setError('获取状态失败')
+      }
     } catch (err) {
       console.error('[Oh My Prompt] Failed to load sync status:', err)
       setError('获取状态失败')
     }
-  }, [orchestrator])
+  }, [])
 
   useEffect(() => {
     loadStatus()
@@ -180,25 +183,14 @@ export function UnifiedSyncSection() {
     setSuccess(null)
 
     try {
-      // Get current storage data
-      const response = await chrome.runtime.sendMessage({ type: MessageType.GET_STORAGE })
-      if (!response?.success || !response.data) {
-        setError('获取数据失败')
-        setLoading(false)
-        return
+      // Trigger sync via service worker
+      const response = await chrome.runtime.sendMessage({ type: MessageType.TRIGGER_SYNC })
+      if (response?.success) {
+        setSuccess('同步成功')
+        await loadStatus()
+      } else {
+        setError(response?.error || '同步失败')
       }
-
-      const data = response.data
-      const backupData = {
-        prompts: data.userData?.prompts || [],
-        categories: data.userData?.categories || [],
-        temporaryPrompts: data.temporaryPrompts || [],
-        timestamp: Date.now()
-      }
-
-      await orchestrator.triggerSync(backupData)
-      setSuccess('同步成功')
-      await loadStatus()
     } catch (err) {
       console.error('[Oh My Prompt] Manual sync failed:', err)
       setError('同步失败')
@@ -209,6 +201,7 @@ export function UnifiedSyncSection() {
 
   /**
    * Handle download and merge from cloud
+   * Note: This still needs orchestrator in service worker for complex merge logic
    */
   const handleDownloadAndMerge = async () => {
     setLoading(true)
@@ -216,25 +209,18 @@ export function UnifiedSyncSection() {
     setSuccess(null)
 
     try {
-      const result = await orchestrator.downloadAndMerge()
-
-      if (result.localOnlyItems.prompts.length > 0 ||
-          result.localOnlyItems.categories.length > 0 ||
-          result.localOnlyItems.temporaryPrompts.length > 0) {
-        // Show upload dialog for local-only items
-        setShowUploadDialog(true)
-      } else {
-        setSuccess('下载成功')
+      // Get current storage data
+      const storageResponse = await chrome.runtime.sendMessage({ type: MessageType.GET_STORAGE })
+      if (!storageResponse?.success || !storageResponse.data) {
+        setError('获取数据失败')
+        setLoading(false)
+        return
       }
 
+      // For now, show a message that this feature needs to be implemented
+      // TODO: Add DOWNLOAD_AND_MERGE message type in service worker
+      setSuccess('下载功能开发中，请稍后')
       await loadStatus()
-
-      // Notify content script to refresh data
-      try {
-        await chrome.runtime.sendMessage({ type: MessageType.REFRESH_DATA })
-      } catch (err) {
-        console.warn('[Oh My Prompt] Failed to notify refresh:', err)
-      }
     } catch (err) {
       console.error('[Oh My Prompt] Download and merge failed:', err)
       setError('下载失败')
@@ -245,14 +231,15 @@ export function UnifiedSyncSection() {
 
   /**
    * Handle upload local-only items
+   * Note: This feature needs orchestrator in service worker for complex upload logic
    */
   const handleUploadLocalOnly = async () => {
     setUploading(true)
     setError(null)
 
     try {
-      await orchestrator.uploadLocalOnlyItems()
-      setSuccess('上传成功')
+      // TODO: Add UPLOAD_LOCAL_ONLY message type in service worker
+      setSuccess('上传功能开发中，请稍后')
       setShowUploadDialog(false)
       await loadStatus()
     } catch (err) {
@@ -448,14 +435,61 @@ export function UnifiedSyncSection() {
               </div>
             )}
 
+            {/* Permission warning and restore button */}
             {status.permissionStatus && status.permissionStatus !== 'granted' && (
-              <div className="p-2 bg-yellow-50 rounded border border-yellow-200 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                <span className="text-sm text-yellow-800">
-                  {status.permissionStatus === 'denied'
-                    ? '文件夹权限被拒绝'
-                    : '需要重新授权文件夹权限'}
-                </span>
+              <div className="space-y-2">
+                {/* Only show warning for 'denied' status - 'prompt' is normal after extension refresh */}
+                {status.permissionStatus === 'denied' && (
+                  <div className="p-2 bg-red-50 rounded border border-red-200 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <span className="text-sm text-red-800">
+                      文件夹权限被拒绝，请重新选择文件夹
+                    </span>
+                  </div>
+                )}
+                {/* Restore permission button for 'prompt' status - silent restore */}
+                {status.permissionStatus === 'prompt' && (
+                  <Button
+                    onClick={() => {
+                      setLoading(true)
+                      // Send directly to Offscreen Document (bypassing Service Worker forwarding)
+                      // This preserves user gesture for permission request
+                      chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_REQUEST_PERMISSION })
+                        .then(async (response) => {
+                          if (response?.success) {
+                            setSuccess('权限已恢复')
+                            // Re-enable sync before triggering sync
+                            // This is needed because sync may have been disabled when permission was lost
+                            try {
+                              await chrome.runtime.sendMessage({
+                                type: MessageType.SET_SETTINGS_ONLY,
+                                payload: { settings: { syncEnabled: true, hasUnsyncedChanges: false } }
+                              })
+                              // Trigger sync after permission restored and settings updated
+                              chrome.runtime.sendMessage({ type: MessageType.TRIGGER_SYNC })
+                                .catch(() => { /* Ignore sync errors */ })
+                            } catch (settingsError) {
+                              console.warn('[Oh My Prompt] Failed to update settings:', settingsError)
+                            }
+                            loadStatus()
+                          } else {
+                            setError('权限恢复失败：' + (response?.error || '未知错误'))
+                          }
+                          setLoading(false)
+                        })
+                        .catch(() => {
+                          setError('权限恢复失败')
+                          setLoading(false)
+                        })
+                    }}
+                    disabled={loading}
+                    size="sm"
+                    className="w-full h-9"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    {loading ? '恢复中...' : '恢复文件夹权限'}
+                  </Button>
+                )}
               </div>
             )}
 

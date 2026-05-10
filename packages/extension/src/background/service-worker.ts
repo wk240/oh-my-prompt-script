@@ -75,10 +75,32 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 })
 
 // Open side panel when extension icon is clicked (fallback for older Chrome versions)
+// Also attempt to restore folder permission if needed (using user gesture from icon click)
+// CRITICAL: Must preserve user gesture through the message chain
 chrome.action.onClicked.addListener((tab) => {
   // Check tab.id is valid (>= 0, not TAB_ID_NONE which is -1)
   if (tab.id !== undefined && tab.id >= 0) {
+    // Open sidepanel first (sync path, preserves user gesture)
     chrome.sidePanel.open({ tabId: tab.id })
+      .then(() => {
+        console.log('[Oh My Prompt] Sidepanel opened from extension icon click')
+        // After sidepanel is open, restore permission via proper handler
+        // This uses ensureOffscreenDocument() which waits for initialization
+        restorePermission()
+          .then(result => {
+            if (result.success) {
+              console.log('[Oh My Prompt] Permission auto-restored from extension icon click')
+            } else if (result.error === '文件夹信息已丢失，请重新选择') {
+              // Folder not configured - silently ignore
+              console.log('[Oh My Prompt] Folder not configured')
+            } else {
+              console.log('[Oh My Prompt] Permission restore result:', result.error)
+            }
+          })
+          .catch(err => {
+            console.warn('[Oh My Prompt] Permission restore failed:', err)
+          })
+      })
       .catch((error) => console.error('[Oh My Prompt] Side panel open error:', error))
   }
 })
@@ -280,6 +302,17 @@ chrome.runtime.onMessage.addListener(
           .then(status => sendResponse({ success: true, data: status } as MessageResponse))
           .catch(error => {
             console.error('[Oh My Prompt] GET_SYNC_STATUS error:', error)
+            sendResponse({ success: false, error: String(error) })
+          })
+        return true // Required for async response
+
+      case MessageType.GET_UNIFIED_SYNC_STATUS:
+        // Get unified sync status (cloud + local) from orchestrator
+        // Called from sidepanel to ensure consistent permission state via offscreen document
+        syncOrchestrator.getStatus()
+          .then(status => sendResponse({ success: true, data: status } as MessageResponse))
+          .catch(error => {
+            console.error('[Oh My Prompt] GET_UNIFIED_SYNC_STATUS error:', error)
             sendResponse({ success: false, error: String(error) })
           })
         return true // Required for async response

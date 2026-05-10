@@ -169,9 +169,10 @@ export async function initialSync(): Promise<void> {
     const permission = permResult.data.permission
     if (permission !== 'granted') {
       console.warn('[Oh My Prompt] Initial sync skipped - permission status:', permission)
+      // Don't disable sync - just mark as unsynced
+      // syncEnabled should remain true so that permission restore can trigger sync
       const storageManager = StorageManager.getInstance()
       await storageManager.updateSettings({
-        syncEnabled: false,
         hasUnsyncedChanges: true
       })
       return

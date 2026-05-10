@@ -89,6 +89,9 @@ export enum MessageType {
 
   // Sidepanel status check
   SIDEPANEL_PING = 'SIDEPANEL_PING',  // Check if sidepanel is open (SW → Sidepanel)
+
+  // Unified sync status (Sidepanel → SW)
+  GET_UNIFIED_SYNC_STATUS = 'GET_UNIFIED_SYNC_STATUS',  // Get unified sync status from service worker
 }
 
 export interface Message<T = unknown> {
