@@ -40,6 +40,85 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * Helper function to create styled page using DOM APIs (avoiding CSP violations)
+ */
+function createStyledPage(config: {
+  iconStroke: string
+  title: string
+  description: string
+  iconType: 'success' | 'error' | 'timeout'
+}) {
+  // Clear body
+  while (document.body.firstChild) {
+    document.body.removeChild(document.body.firstChild)
+  }
+
+  // Set body background
+  document.body.style.cssText = 'min-height: 100vh; background: #0e0e10; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: #f9f5f8; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;'
+
+  // Icon
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', config.iconStroke)
+  svg.setAttribute('stroke-width', '2')
+  svg.style.cssText = 'width: 64px; height: 64px; margin-bottom: 24px;'
+
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+  circle.setAttribute('cx', '12')
+  circle.setAttribute('cy', '12')
+  circle.setAttribute('r', '10')
+  svg.appendChild(circle)
+
+  if (config.iconType === 'success') {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    path.setAttribute('d', 'M9 12l2 2 4-4')
+    svg.appendChild(path)
+  } else if (config.iconType === 'error') {
+    const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+    line1.setAttribute('x1', '15')
+    line1.setAttribute('y1', '9')
+    line1.setAttribute('x2', '9')
+    line1.setAttribute('y2', '15')
+    svg.appendChild(line1)
+
+    const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+    line2.setAttribute('x1', '9')
+    line2.setAttribute('y1', '9')
+    line2.setAttribute('x2', '15')
+    line2.setAttribute('y2', '15')
+    svg.appendChild(line2)
+  } else if (config.iconType === 'timeout') {
+    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline')
+    polyline.setAttribute('points', '12 6 12 12 16 14')
+    svg.appendChild(polyline)
+  }
+
+  document.body.appendChild(svg)
+
+  // Title
+  const title = document.createElement('h2')
+  title.style.cssText = 'font-size: 22px; font-weight: 600; margin: 0 0 8px 0;'
+  title.textContent = config.title
+  document.body.appendChild(title)
+
+  // Description
+  const desc = document.createElement('p')
+  desc.style.cssText = 'color: rgba(173, 170, 173, 0.9); font-size: 14px; margin: 0 0 24px 0;'
+  desc.innerHTML = config.description
+  document.body.appendChild(desc)
+
+  // Close button
+  const button = document.createElement('button')
+  button.style.cssText = 'padding: 14px 28px; background: linear-gradient(135deg, #81ecff 0%, #00e3fd 100%); color: #003840; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600;'
+  button.textContent = '关闭页面'
+  button.addEventListener('click', () => {
+    window.close()
+  })
+  document.body.appendChild(button)
+}
+
 function extractAndSaveTokens(): boolean {
   // Extract tokens from URL hash
   const hash = window.location.hash.substring(1) // Remove '#'
@@ -112,24 +191,13 @@ function extractAndSaveTokens(): boolean {
       console.warn('[Oh My Prompt] Failed to notify background:', err)
     })
 
-    // Show success message to user (DESIGN.md minimalist style)
-    document.body.innerHTML = `
-      <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Inter', system-ui, sans-serif; background: #FFFFFF;">
-        <div style="text-align: center; padding: 32px 40px; background: #FFFFFF; border-radius: 12px; box-shadow: 0 12px 48px rgba(0,0,0,0.25); max-width: 400px;">
-          <div style="width: 48px; height: 48px; margin: 0 auto 24px auto;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 48px; height: 48px;">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M9 12l2 2 4-4"/>
-            </svg>
-          </div>
-          <h2 style="color: #171717; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">登录成功</h2>
-          <p style="color: #64748B; font-size: 12px; font-weight: 500; margin: 0 0 24px 0;">云端同步已激活<br/>请关闭此页面返回扩展继续使用</p>
-          <button onclick="window.close()" style="padding: 8px 24px; background: #171717; color: #FFFFFF; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background 0.15s;">
-            关闭页面
-          </button>
-        </div>
-      </div>
-    `
+    // Show success message
+    createStyledPage({
+      iconStroke: '#81ecff',
+      title: '登录成功',
+      description: '云端同步已激活',
+      iconType: 'success'
+    })
   })
 
   return true
@@ -180,24 +248,12 @@ if (extractAndSaveTokens()) {
           console.warn('[Oh My Prompt] Failed to notify background:', err)
         })
 
-        document.body.innerHTML = `
-          <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Inter', system-ui, sans-serif; background: #FFFFFF;">
-            <div style="text-align: center; padding: 32px 40px; background: #FFFFFF; border-radius: 12px; box-shadow: 0 12px 48px rgba(0,0,0,0.25); max-width: 400px;">
-              <div style="width: 48px; height: 48px; margin: 0 auto 24px auto;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 48px; height: 48px;">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="15" y1="9" x2="9" y2="15"/>
-                  <line x1="9" y1="9" x2="15" y2="15"/>
-                </svg>
-              </div>
-              <h2 style="color: #171717; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">登录失败</h2>
-              <p style="color: #64748B; font-size: 12px; font-weight: 500; margin: 0 0 24px 0;">${errorMsg || errorCode || '未知错误'}</p>
-              <button onclick="window.close()" style="padding: 8px 24px; background: #171717; color: #FFFFFF; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background 0.15s;">
-                关闭页面
-              </button>
-            </div>
-          </div>
-        `
+        createStyledPage({
+          iconStroke: '#ff716c',
+          title: '登录失败',
+          description: errorMsg || errorCode || '未知错误',
+          iconType: 'error'
+        })
       } else {
         console.error('[Oh My Prompt] Auth timeout - no tokens received')
 
@@ -208,23 +264,12 @@ if (extractAndSaveTokens()) {
           console.warn('[Oh My Prompt] Failed to notify background:', err)
         })
 
-        document.body.innerHTML = `
-          <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Inter', system-ui, sans-serif; background: #FFFFFF;">
-            <div style="text-align: center; padding: 32px 40px; background: #FFFFFF; border-radius: 12px; box-shadow: 0 12px 48px rgba(0,0,0,0.25); max-width: 400px;">
-              <div style="width: 48px; height: 48px; margin: 0 auto 24px auto;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 48px; height: 48px;">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
-                </svg>
-              </div>
-              <h2 style="color: #171717; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">登录超时</h2>
-              <p style="color: #64748B; font-size: 12px; font-weight: 500; margin: 0 0 24px 0;">未收到认证信息，请重试</p>
-              <button onclick="window.close()" style="padding: 8px 24px; background: #171717; color: #FFFFFF; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background 0.15s;">
-                关闭页面
-              </button>
-            </div>
-          </div>
-        `
+        createStyledPage({
+          iconStroke: '#ff716c',
+          title: '登录超时',
+          description: '未收到认证信息，请重试',
+          iconType: 'timeout'
+        })
       }
     }
   }, 100)

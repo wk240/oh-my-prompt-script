@@ -231,7 +231,7 @@ export class CloudSyncStrategy extends BaseSyncStrategy {
 
       return {
         enabled: true,
-        lastSyncTime: statusData.lastSyncAt
+        lastSyncTime: statusData.lastSyncedAt
       }
     } catch (error) {
       console.error('[Oh My Prompt] Cloud status check failed:', error)

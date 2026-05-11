@@ -10,6 +10,7 @@ import {
   Check,
   X,
   LogIn,
+  LogOut,
   History,
   ChevronDown,
   ChevronUp,
@@ -25,6 +26,7 @@ import {
   DialogFooter
 } from '@/popup/components/ui/dialog'
 import { AuthModal } from '@/sidepanel/components/CloudSync/AuthModal'
+import { signOut } from '@/lib/cloud-sync/auth-service'
 import type { UnifiedSyncStatus } from '@/lib/sync/types'
 import type { BackupVersion } from '@/lib/sync/file-sync'
 import { MessageType } from '@oh-my-prompt/shared/messages'
@@ -262,6 +264,30 @@ export function UnifiedSyncSection() {
     await loadStatus()
   }
 
+  /**
+   * Handle logout from cloud sync
+   */
+  const handleLogout = async () => {
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const result = await signOut()
+      if (result.success) {
+        setSuccess('已退出登录')
+        await loadStatus()
+      } else {
+        setError('退出失败')
+      }
+    } catch (err) {
+      console.error('[Oh My Prompt] Logout failed:', err)
+      setError('退出失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Compute status colors
   const getCloudStatusColor = (): 'green' | 'yellow' | 'red' | 'gray' => {
     if (!status) return 'gray'
@@ -336,10 +362,22 @@ export function UnifiedSyncSection() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">状态</span>
-              <span className="text-sm flex items-center gap-1.5 text-green-600">
-                <Check className="w-4 h-4" />
-                已登录
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm flex items-center gap-1.5 text-green-600">
+                  <Check className="w-4 h-4" />
+                  已登录
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  disabled={loading}
+                  className="h-7 px-2 text-gray-500 hover:text-gray-700"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  退出
+                </Button>
+              </div>
             </div>
 
             {status.lastCloudSyncTime && (

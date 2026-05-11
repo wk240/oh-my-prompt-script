@@ -341,7 +341,7 @@ describe('CloudSyncStrategy', () => {
       ok: true,
       json: vi.fn().mockResolvedValue({
         success: true,
-        lastSyncAt: 1234567890
+        lastSyncedAt: 1234567890
       })
     })
 

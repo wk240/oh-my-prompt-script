@@ -90,7 +90,7 @@ export async function getAuthState(): Promise<CloudAuthState> {
       status: 'logged_in',
       user: statusData.user,
       subscription: statusData.subscription,
-      lastSyncAt: statusData.lastSyncAt
+      lastSyncAt: statusData.lastSyncedAt
     }
   } catch (error) {
     console.error('[Oh My Prompt] Auth state check failed:', error)
