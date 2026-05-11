@@ -33,12 +33,34 @@ export async function triggerSync(backupData: FullBackupData): Promise<{ success
   const storageManager = StorageManager.getInstance()
   const settings = await storageManager.getSettings()
 
-  // If sync not enabled, mark as unsynced and return
+  // Auto-fix: check if folder handle exists but syncEnabled is false
+  // This can happen after extension refresh or when permission is in 'prompt' state
   if (!settings.syncEnabled) {
-    if (backupData.prompts.length > 0 || backupData.temporaryPrompts.length > 0) {
-      await storageManager.updateSettings({ hasUnsyncedChanges: true })
+    // Check if we have a folder handle via offscreen document
+    try {
+      await ensureOffscreenDocument()
+      const permResult = await sendToOffscreen<{ hasFolder: boolean; permission?: 'granted' | 'prompt' | 'denied' }>(MessageType.OFFSCREEN_CHECK_PERMISSION)
+
+      // If folder exists and permission is not denied, auto-enable sync
+      if (permResult.success && permResult.data?.hasFolder && permResult.data.permission !== 'denied') {
+        console.log('[Oh My Prompt] Auto-fixing syncEnabled in triggerSync: folder exists, permission:', permResult.data.permission)
+        await storageManager.updateSettings({ syncEnabled: true })
+        // Continue with sync below
+      } else {
+        // No folder or permission denied - mark as unsynced and return
+        if (backupData.prompts.length > 0 || backupData.temporaryPrompts.length > 0) {
+          await storageManager.updateSettings({ hasUnsyncedChanges: true })
+        }
+        return { success: false } // No backup configured or permission denied
+      }
+    } catch (e) {
+      console.warn('[Oh My Prompt] Failed to check folder status in triggerSync:', e)
+      // Fallback: mark as unsynced if sync not enabled
+      if (backupData.prompts.length > 0 || backupData.temporaryPrompts.length > 0) {
+        await storageManager.updateSettings({ hasUnsyncedChanges: true })
+      }
+      return { success: false }
     }
-    return { success: false } // No backup configured
   }
 
   // Get version for backup file
@@ -507,8 +529,14 @@ export async function getSyncStatus(): Promise<SyncStatus> {
       }
     }
 
+    // Auto-fix: if folder handle exists but syncEnabled is false, enable sync
+    if (!settings.syncEnabled && permResult.data.hasFolder) {
+      console.log('[Oh My Prompt] Auto-fixing syncEnabled: folder exists, enabling sync')
+      await storageManager.updateSettings({ syncEnabled: true })
+    }
+
     return {
-      enabled: settings.syncEnabled,
+      enabled: true, // Always true when folder exists
       hasFolder: true,
       lastSyncTime: settings.lastSyncTime,
       folderName: permResult.data.folderName,
@@ -525,8 +553,14 @@ export async function getSyncStatus(): Promise<SyncStatus> {
       permissionStatus = await checkFolderPermission(handle)
     }
 
+    // Auto-fix: if folder handle exists but syncEnabled is false, enable sync
+    if (!settings.syncEnabled && handle) {
+      console.log('[Oh My Prompt] Auto-fixing syncEnabled: folder exists (fallback), enabling sync')
+      await storageManager.updateSettings({ syncEnabled: true })
+    }
+
     return {
-      enabled: settings.syncEnabled,
+      enabled: handle !== null, // Always true when folder exists
       hasFolder: handle !== null,
       lastSyncTime: settings.lastSyncTime,
       folderName: handle?.name,

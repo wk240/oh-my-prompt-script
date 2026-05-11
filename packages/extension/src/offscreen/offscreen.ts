@@ -58,18 +58,21 @@ async function initialize(): Promise<void> {
       const handle = await getFolderHandle()
       if (handle) {
         cacheFolderHandle(handle)
-        console.log(`[Oh My Prompt] Offscreen initialized, handle cached (attempt ${attempt})`)
+        console.log(`[Oh My Prompt] Offscreen initialized, handle cached: "${handle.name}" (attempt ${attempt})`)
         return
+      } else {
+        // No handle in IndexedDB - folder not configured
+        console.log(`[Oh My Prompt] Init attempt ${attempt}: No folder handle found (folder not configured)`)
       }
     } catch (err) {
-      console.warn(`[Oh My Prompt] Init attempt ${attempt} failed:`, err)
+      console.warn(`[Oh My Prompt] Init attempt ${attempt} failed with error:`, err)
       if (attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, retryDelay))
       }
     }
   }
 
-  console.warn('[Oh My Prompt] Offscreen init failed after retries, handle not cached')
+  console.warn('[Oh My Prompt] Offscreen init complete - no folder handle cached (folder not configured or IndexedDB issue)')
 }
 
 // Start initialization immediately

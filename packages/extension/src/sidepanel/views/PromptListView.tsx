@@ -18,6 +18,7 @@ import { Tooltip } from '@/content/components/Tooltip'
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
 import { queueImageLoad } from '@/lib/sync/image-loader-queue'
 import { downloadImageFromUrl, saveImage } from '@/lib/sync/image-sync'
+import { getFolderHandle } from '@/lib/sync/indexeddb'
 
 // Lazy load modal components
 const PromptPreviewModal = lazy(() => import('@/content/components/PromptPreviewModal').then(m => ({ default: m.PromptPreviewModal })))
@@ -614,6 +615,9 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
   // Port reference for managing connection
   const currentPortRef = useRef<chrome.runtime.Port | null>(null)
 
+  // Cache folder handle for synchronous permission request (preserves user gesture)
+  const cachedFolderHandleRef = useRef<FileSystemDirectoryHandle | null>(null)
+
   // Ref for findAvailableTab to avoid circular dependency in useCallback
   const findAvailableTabRef = useRef<() => void>(() => {})
 
@@ -943,6 +947,45 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     loadFromStorage()
   }, [loadFromStorage])
 
+  // Auto-restore folder permission on sidepanel open
+  // CRITICAL: User gesture from clicking extension icon propagates to sidepanel
+  // We MUST send permission request in SYNC execution path BEFORE any async callback
+  // Chrome preserves gesture only through the first message call, not subsequent async callbacks
+  useEffect(() => {
+    // Send permission request IMMEDIATELY in sync path (preserves user gesture)
+    // The offscreen document will check if folder exists and handle accordingly
+    console.log('[Oh My Prompt] Sidepanel opened, attempting permission restore...')
+    chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_REQUEST_PERMISSION })
+      .then((response) => {
+        if (response?.success) {
+          console.log('[Oh My Prompt] Permission auto-restored from sidepanel open')
+          // Update settings to enable sync and clear unsynced flag
+          chrome.runtime.sendMessage({
+            type: MessageType.SET_SETTINGS_ONLY,
+            payload: { settings: { syncEnabled: true, hasUnsyncedChanges: false } }
+          }).catch(() => {})
+          // Trigger sync after permission restored
+          chrome.runtime.sendMessage({ type: MessageType.TRIGGER_SYNC }).catch(() => {})
+        } else {
+          // Permission not restored (no folder configured, or user denied)
+          console.log('[Oh My Prompt] Permission restore result:', response?.error || 'no folder')
+        }
+      })
+      .catch(err => {
+        console.warn('[Oh My Prompt] Permission request error:', err)
+      })
+
+    // Also cache folder handle for future synchronous permission requests (e.g., button clicks)
+    getFolderHandle().then(handle => {
+      if (handle) {
+        cachedFolderHandleRef.current = handle
+        console.log('[Oh My Prompt] Folder handle cached for future use')
+      }
+    }).catch(err => {
+      console.warn('[Oh My Prompt] Failed to cache folder handle:', err)
+    })
+  }, [])
+
   // Listen for REFRESH_DATA messages from service worker (backup import, sync complete)
   useEffect(() => {
     const handleMessage = (message: { type: string }) => {
@@ -1033,7 +1076,18 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       if (changes['prompt_script_data']) {
         const newValue = changes['prompt_script_data'].newValue
         if (newValue?.settings?.hasUnsyncedChanges && !modalStates.showBackupReminder) {
-          setModalStates(prev => ({ ...prev, showBackupReminder: true }))
+          // Check permission status before showing reminder
+          // Don't show for 'prompt' status - it's recoverable via permission restore
+          chrome.runtime.sendMessage({ type: MessageType.GET_SYNC_STATUS }, (response) => {
+            if (response?.success && response.data) {
+              const syncStatus = response.data
+              // Only show if permission is granted (sync should work) or denied (permanently lost)
+              // 'prompt' means permission can be restored, don't bother user
+              if (syncStatus.permissionStatus !== 'prompt') {
+                setModalStates(prev => ({ ...prev, showBackupReminder: true }))
+              }
+            }
+          })
         }
       }
     }
@@ -1428,7 +1482,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     setTimeout(hideToast, 2000)
   }, [editingStates.deletingCategory, selectedCategoryId, clearEditingItem, closeModal, setToastMessage, hideToast])
 
-  const handleAddPrompt = useCallback((data: {
+  const handleAddPrompt = useCallback(async (data: {
     name: string
     nameEn?: string
     description?: string
@@ -1439,6 +1493,26 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     localImage?: string
     remoteImageUrl?: string
   }) => {
+    // Restore folder permission via Offscreen Document (preserves user gesture)
+    // CRITICAL: chrome.runtime.sendMessage() MUST be called in SYNC path from user click
+    // Chrome propagates user gesture through message passing to offscreen document
+    // DO NOT await the response - that would break the gesture chain
+    // Permission will be restored in background, sync will happen on next data change
+    if (cachedFolderHandleRef.current) {
+      chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_REQUEST_PERMISSION })
+        .then((response) => {
+          if (response?.success) {
+            console.log('[Oh My Prompt] Permission restored from add prompt click')
+            chrome.runtime.sendMessage({
+              type: MessageType.SET_SETTINGS_ONLY,
+              payload: { settings: { syncEnabled: true, hasUnsyncedChanges: false } }
+            }).catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }
+
+    // Save prompt immediately (don't wait for permission response)
     usePromptStore.getState().addPrompt({
       name: data.name,
       nameEn: data.nameEn,
@@ -1456,7 +1530,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     setTimeout(hideToast, 2000)
   }, [prompts, closeModal, setToastMessage, hideToast])
 
-  const handleUpdatePrompt = useCallback((data: {
+  const handleUpdatePrompt = useCallback(async (data: {
     name: string
     nameEn?: string
     description?: string
@@ -1468,6 +1542,24 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     remoteImageUrl?: string
   }) => {
     if (!editingStates.prompt) return
+
+    // Restore folder permission via Offscreen Document (preserves user gesture)
+    // CRITICAL: chrome.runtime.sendMessage() MUST be called in SYNC path
+    if (cachedFolderHandleRef.current) {
+      chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_REQUEST_PERMISSION })
+        .then((response) => {
+          if (response?.success) {
+            console.log('[Oh My Prompt] Permission restored from update prompt click')
+            chrome.runtime.sendMessage({
+              type: MessageType.SET_SETTINGS_ONLY,
+              payload: { settings: { syncEnabled: true, hasUnsyncedChanges: false } }
+            }).catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }
+
+    // Save prompt immediately (don't wait for permission response)
     usePromptStore.getState().updatePrompt(editingStates.prompt.id, {
       name: data.name,
       nameEn: data.nameEn,

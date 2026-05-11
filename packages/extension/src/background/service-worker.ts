@@ -59,9 +59,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('[Oh My Prompt] Extension installed/updated:', details.reason)
   createContextMenu()
 
-  // Set side panel to open on action click (Chrome 116+)
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
-    .catch((error) => console.error('[Oh My Prompt] Side panel behavior error:', error))
+  // Do NOT set openPanelOnActionClick: true - we handle sidepanel open manually in action.onClicked
+  // This allows us to restore folder permission BEFORE opening sidepanel, preserving user gesture
+  // If we set openPanelOnActionClick: true, action.onClicked never fires and permission restore fails
 
   // Run initial sync on install (restores data from backup folder including encrypted API config)
   initialSync().catch(err => console.error('[Oh My Prompt] Initial sync on install error:', err))
@@ -74,32 +74,36 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
 })
 
-// Open side panel when extension icon is clicked (fallback for older Chrome versions)
-// Also attempt to restore folder permission if needed (using user gesture from icon click)
-// CRITICAL: Must preserve user gesture through the message chain
+// Handle extension icon click: restore folder permission + open sidepanel
+// This is the PRIMARY handler (not a fallback) - we removed openPanelOnActionClick to enable permission restore
+// CRITICAL: User gesture from icon click propagates through message chain for permission request
+// We must send permission request in SYNC path BEFORE any async operation (sidePanel.open)
 chrome.action.onClicked.addListener((tab) => {
   // Check tab.id is valid (>= 0, not TAB_ID_NONE which is -1)
   if (tab.id !== undefined && tab.id >= 0) {
-    // Open sidepanel first (sync path, preserves user gesture)
+    // CRITICAL: Send permission request BEFORE any async operation
+    // chrome.runtime.sendMessage() preserves user gesture in sync path
+    // The message goes directly to offscreen document which has cached handle
+    console.log('[Oh My Prompt] Extension icon clicked, sending permission request...')
+    chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_REQUEST_PERMISSION })
+      .then((response) => {
+        if (response?.success) {
+          console.log('[Oh My Prompt] Permission auto-restored from extension icon click')
+          // Update settings to enable sync
+          storageManager.updateSettings({ syncEnabled: true, hasUnsyncedChanges: false })
+            .catch(err => console.warn('[Oh My Prompt] Failed to update settings:', err))
+        } else {
+          console.log('[Oh My Prompt] Permission restore skipped:', response?.error)
+        }
+      })
+      .catch(err => {
+        console.warn('[Oh My Prompt] Permission request failed:', err)
+      })
+
+    // Open sidepanel (async, but permission request already sent in sync path)
     chrome.sidePanel.open({ tabId: tab.id })
       .then(() => {
         console.log('[Oh My Prompt] Sidepanel opened from extension icon click')
-        // After sidepanel is open, restore permission via proper handler
-        // This uses ensureOffscreenDocument() which waits for initialization
-        restorePermission()
-          .then(result => {
-            if (result.success) {
-              console.log('[Oh My Prompt] Permission auto-restored from extension icon click')
-            } else if (result.error === '文件夹信息已丢失，请重新选择') {
-              // Folder not configured - silently ignore
-              console.log('[Oh My Prompt] Folder not configured')
-            } else {
-              console.log('[Oh My Prompt] Permission restore result:', result.error)
-            }
-          })
-          .catch(err => {
-            console.warn('[Oh My Prompt] Permission restore failed:', err)
-          })
       })
       .catch((error) => console.error('[Oh My Prompt] Side panel open error:', error))
   }
@@ -280,6 +284,7 @@ chrome.runtime.onMessage.addListener(
         }
         saveFolderHandle(handle)
           .then(() => storageManager.updateSettings({
+            syncEnabled: true,
             lastSyncTime: lastSyncTime || Date.now()
           }))
           .then(() => getSyncStatus())

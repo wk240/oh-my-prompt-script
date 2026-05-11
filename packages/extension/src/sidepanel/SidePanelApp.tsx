@@ -11,24 +11,6 @@ type CurrentView = 'prompts' | 'settings'
 export default function SidePanelApp() {
   const [currentView, setCurrentView] = useState<CurrentView>('prompts')
 
-  // Check sync status on mount to detect permission issues
-  // Note: We don't request permission here because user gesture is already lost
-  // (sidepanel.open is async, useEffect runs after that)
-  useEffect(() => {
-    // Check permission status via orchestrator
-    chrome.runtime.sendMessage({ type: MessageType.GET_UNIFIED_SYNC_STATUS })
-      .then((response) => {
-        if (response?.success && response.data?.permissionStatus === 'prompt') {
-          console.log('[Oh My Prompt] Sidepanel: folder permission needs restoration (prompt status)')
-          // Don't auto-request - user gesture is lost
-          // UnifiedSyncSection will show "需要重新授权" message and user can click to restore
-        }
-      })
-      .catch(() => {
-        // Silently ignore - folder may not be configured
-      })
-  }, []) // Run once on mount
-
   // Respond to SIDEPANEL_PING from service worker (check if sidepanel is open)
   useEffect(() => {
     const handleMessage = (
