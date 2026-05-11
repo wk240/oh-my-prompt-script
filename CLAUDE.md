@@ -21,6 +21,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+### Extension (Chrome Plugin)
+
 ```bash
 # Development with hot reload
 npm run dev
@@ -38,11 +40,36 @@ npx tsc --noEmit
 npm run test           # Run all tests
 npm run test:ui        # Interactive test UI
 npm run test:headed    # Run with visible browser
+
+# Unit tests (Vitest)
+npm run test:unit      # Run unit tests
+npm run test:unit:watch # Watch mode
 ```
 
 After running `npm run dev`, load the extension from `packages/extension/dist/` folder in Chrome via `chrome://extensions` (enable Developer Mode).
 
-**Note:** `manifest.json` is at `packages/extension/manifest.json` (imported by `vite.config.ts`), not in `src/`.
+**Note:** `manifest.json` is at `packages/extension/manifest.json` (imported by vite configs), not in `src/`. Vite configs are split: `vite.config.base.ts` (shared), `vite.config.dev.ts` (development), `vite.config.prod.ts` (production).
+
+### Web App (Next.js)
+
+```bash
+# Development (port 3000)
+npm run web:dev
+
+# Production build
+npm run web:build
+
+# Production start (port 3000)
+npm run web:start
+```
+
+Or run directly in `packages/web-app/`:
+```bash
+cd packages/web-app
+npm run dev
+npm run build
+npm run start
+```
 
 <!-- GSD:stack-start source:research/STACK.md -->
 ## Technology Stack
@@ -53,10 +80,12 @@ After running `npm run dev`, load the extension from `packages/extension/dist/` 
 | Chrome Extension Manifest V3 | - | Extension platform |
 | Vite + @crxjs/vite-plugin | 6.x / 2.x | Build tool with CRX bundler |
 | React | 19.x | UI framework |
-| Zustand | 5.x | State management (popup only) |
-| Radix UI primitives | - | UI components (popup dialogs) |
-| Tailwind CSS | 3.x | Styling (popup only) |
+| Zustand | 5.x | State management (popup/sidepanel) |
+| Radix UI primitives | - | UI components (dialogs, dropdowns) |
+| Tailwind CSS | 3.x | Styling (popup/sidepanel) |
+| Supabase | 2.x | Cloud sync backend |
 | chrome.storage.local | - | Data persistence |
+| @dnd-kit | 6.x/10.x | Drag-and-drop reorder |
 
 ### What NOT to Use
 - Manifest V2 (deprecated)
@@ -94,8 +123,8 @@ packages/
 │   │   │   ├── components/    # Dropdown UI React components
 │   │   │   └── vision-modal-manager.tsx
 │   │   ├── background/   # Service worker (no DOM access)
-│   │   ├── popup/        # Extension popup (React + Tailwind)
-│   │   ├── sidepanel/    # Sidepanel UI
+│   │   ├── popup/        # Quick settings, Vision API provider config
+│   │   ├── sidepanel/    # Main prompt management UI (CRUD, settings, sync)
 │   │   ├── lib/          # Utilities
 │   │   │   ├── store.ts        # Zustand store
 │   │   │   ├── storage.ts      # StorageManager
@@ -107,7 +136,17 @@ packages/
 │   │   ├── hooks/        # React hooks
 │   │   └── data/         # Built-in data
 │   ├── manifest.json
-│   └── vite.config.ts
+│   ├── vite.config.base.ts  # Shared config
+│   ├── vite.config.dev.ts   # Development overrides
+│   └── vite.config.prod.ts  # Production overrides
+│
+├── web-app/            # Web App (Next.js 16)
+│   ├── app/            # Next.js app router pages
+│   ├── components/     # React components
+│   ├── lib/            # Utilities and API clients
+│   ├── supabase/       # Supabase configuration
+│   ├── tests/          # Playwright E2E tests
+│   └── public/         # Static assets
 │
 └── shared/             # Shared types（开源）
     ├── types/
@@ -141,12 +180,15 @@ npm run test
 | Content Script | chrome.runtime.sendMessage | Message to service worker for storage |
 | Service Worker | chrome.storage.local | Direct storage access, message routing |
 | Popup | chrome.storage.local + sendMessage | Direct storage + notify content script |
+| Sidepanel | Port connection + sendMessage | Real-time status from content script |
 | Content ↔ Popup | chrome.tabs.sendMessage | Tab-targeted messaging |
+| Content ↔ Sidepanel | chrome.runtime.Port | Bi-directional connection (input status) |
+| Service Worker ↔ Offscreen | sendToOffscreen() | File system operations, permissions |
 
 ### Data Flow
 
 1. **Storage-First:** All state derives from `chrome.storage.local` via `StorageSchema`
-2. **Message Types:** See `src/shared/messages.ts` for full MessageType enum (25 types including `PING`, `GET_STORAGE`, `SET_STORAGE`, `INSERT_PROMPT`, `BACKUP_TO_FOLDER`, `SAVE_IMAGE`, `READ_IMAGE`, `DELETE_IMAGE`, `GET_FOLDER_HANDLE`, `SAVE_FOLDER_HANDLE`, `GET_SYNC_STATUS`, `SET_UNSYNCED_FLAG`, `SYNC_FAILED`, `OPEN_BACKUP_PAGE`, `REFRESH_DATA`, `CHECK_UPDATE`, `GET_UPDATE_STATUS`, `CLEAR_UPDATE_STATUS`, `OPEN_EXTENSIONS`, `EXPORT_DATA`, `DISMISS_BACKUP_WARNING`, `RESTORE_PERMISSION`, `SET_SETTINGS_ONLY`)
+2. **Message Types:** See `packages/shared/messages.ts` for full MessageType enum (50+ types including storage, sync, vision API, provider config, offscreen, sidepanel communication, and temporary library operations)
 3. **Zustand Sync:** Popup store calls `saveToStorage()` after each CRUD operation, which triggers auto-sync if enabled
 
 ### Platform Configuration
@@ -192,6 +234,48 @@ Uses File System Access API for automatic backup to user-selected folder:
 - `triggerSync()` called after each `saveToStorage()` when sync enabled
 - Version history available via `listBackupVersions()`
 - Restore from any backup version via `restoreFromBackup()`
+
+### Key UI Components
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| Sidepanel | Main prompt management (CRUD, settings, sync) | `packages/extension/src/sidepanel/` |
+| Popup | Quick settings, Vision API provider config | `packages/extension/src/popup/` |
+| Vision Modal | In-page image-to-prompt conversion | `packages/extension/src/content/vision-modal-manager.tsx` |
+| Dropdown | Prompt selection on platform pages | `packages/extension/src/content/components/` |
+
+### Offscreen Document
+
+Critical for file system operations that require DOM context:
+- Handles permission requests (preserves user gesture)
+- Reads/writes backup files via File System Access API
+- Caches folder handle for quick permission checks
+- Communication: Service Worker → `sendToOffscreen()` → Offscreen Document
+
+### Vision API & Provider Config
+
+Multi-provider architecture (replaces legacy single `VisionApiConfig`):
+- `ProviderConfig`: apiKey, apiEndpoint, apiFormat, selectedModel, providerId
+- `ProviderConfigsStorage`: configs array + activeConfigId
+- Supports OpenAI chat_completions and Anthropic messages formats
+- Active config used for image-to-prompt conversion (Vision Modal)
+- Encrypted backup sync via `syncApiConfigToFolder()`
+
+### Temporary Library
+
+Independent storage for Vision-generated prompts:
+- `temporaryPrompts` array in `StorageSchema`
+- Prompts with `categoryId: 'temporary'` (not in category system)
+- Transfer to permanent categories via `TRANSFER_TEMPORARY_PROMPT`
+- Local image storage when folder configured
+
+### Sync Orchestrator
+
+Cloud-first decision matrix for backup sync:
+- `SyncOrchestrator`: coordinates Cloud + Local strategies
+- `CloudSyncStrategy`: Supabase cloud backup (requires auth)
+- `LocalSyncStrategy`: Local folder backup (File System Access API)
+- Status query via `GET_UNIFIED_SYNC_STATUS`
 <!-- GSD:architecture-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
@@ -206,6 +290,7 @@ Uses File System Access API for automatic backup to user-selected folder:
 
 ### Category ID
 - `'all'` is reserved for "show all prompts" filter (not a real category)
+- `'temporary'` is a pseudo-category for Vision-generated prompts (stored in `temporaryPrompts`, not `userData.prompts`)
 
 ### Shadow DOM Isolation
 - Content script UI must use Shadow DOM to prevent host page CSS conflicts

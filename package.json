@@ -16,7 +16,10 @@
     "version": "npm run version --workspace=@oh-my-prompt/extension",
     "release": "npm run release --workspace=@oh-my-prompt/extension",
     "github-release": "npm run github-release --workspace=@oh-my-prompt/extension",
-    "publish": "npm run publish --workspace=@oh-my-prompt/extension"
+    "publish": "npm run publish --workspace=@oh-my-prompt/extension",
+    "web:dev": "npm run dev --workspace=@oh-my-prompt/web-app",
+    "web:start": "npm run start --workspace=@oh-my-prompt/web-app",
+    "web:build": "npm run build --workspace=@oh-my-prompt/web-app"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
