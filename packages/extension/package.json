@@ -3,9 +3,9 @@
   "version": "1.4.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "dev": "vite --config vite.config.dev.ts",
+    "build": "tsc && vite build --config vite.config.prod.ts",
+    "preview": "vite preview --config vite.config.prod.ts",
     "typecheck": "tsc --noEmit",
     "version": "npx tsx ../../.claude/skills/release/scripts/version.ts",
     "release": "npx tsx ../../.claude/skills/release/scripts/release.ts",

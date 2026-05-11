@@ -4,17 +4,12 @@ import { crx } from '@crxjs/vite-plugin'
 import path from 'path'
 import manifest from './manifest.json'
 
-export default defineConfig({
+export const baseConfig = {
   plugins: [
     react(),
     crx({ manifest })
   ],
   base: './',
-  define: {
-    // Web-app URL for development (localhost:3000)
-    // Production builds will use the fallback 'https://oh-my-prompt.com'
-    DEV_WEB_APP_URL: '"http://localhost:3000"'
-  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -65,4 +60,4 @@ export default defineConfig({
       }
     }
   }
-})
+}
