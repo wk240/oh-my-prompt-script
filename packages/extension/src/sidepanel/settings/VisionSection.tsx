@@ -512,7 +512,7 @@ export function VisionSection() {
 
           {/* Hint */}
           <div className="text-xs text-gray-500 pt-4 border-t border-gray-100 mt-4">
-            <p>所有配置仅存储在本地，不会上传到云端</p>
+            <p>所有配置仅存储在本地，不会上传到云端，即使登录了也不会上传</p>
           </div>
         </div>
       )}

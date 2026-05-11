@@ -800,9 +800,7 @@
   bottom: 8px;
   right: 8px;
   display: flex;
-  flex-wrap: wrap;
   gap: 4px;
-  max-width: 60px;
   justify-content: flex-end;
 }
 
