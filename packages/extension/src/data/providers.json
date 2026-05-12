@@ -59,21 +59,6 @@
       "iconColor": "#4285F4"
     },
     {
-      "name": "DeepSeek",
-      "nameCn": "深度求索",
-      "type": "cn_official",
-      "websiteUrl": "https://platform.deepseek.com",
-      "apiKeyUrl": "https://platform.deepseek.com/api_keys",
-      "apiEndpoint": "https://api.deepseek.com",
-      "apiFormat": "chat_completions",
-      "models": [
-        { "id": "deepseek-v4-flash", "visionCapable": true },
-        { "id": "deepseek-v4-pro", "visionCapable": true }
-      ],
-      "icon": "deepseek",
-      "iconColor": "#1E88E5"
-    },
-    {
       "name": "Zhipu GLM (CN)",
       "nameCn": "智谱清言 (国内版)",
       "type": "cn_official",
@@ -209,10 +194,10 @@
     "source": "cc-switch",
     "version": "2.0.0",
     "generatedAt": "2026-05-07",
-    "totalProviders": 12,
+    "totalProviders": 11,
     "categories": {
       "official": "Official API providers (Anthropic, OpenAI, Google)",
-      "cn_official": "Chinese official API providers (DeepSeek, Zhipu, Alibaba, Kimi, Xiaomi, Volcengine)",
+      "cn_official": "Chinese official API providers (Zhipu, Alibaba, Kimi, Xiaomi, Volcengine)",
       "aggregator": "API aggregators (OpenRouter)",
       "third_party": "Third-party partner providers (GitHub Copilot)"
     },

@@ -728,6 +728,17 @@ export function classifyApiError(error: unknown, retryCount = 0): VisionApiError
       }
     }
 
+    // Vision not supported - provider doesn't accept image_url
+    if (errorMessage.includes('image_url') ||
+        errorMessage.includes('unknown variant') ||
+        errorMessage.includes('expected `text`')) {
+      return {
+        type: 'unsupported_vision',
+        message: '该模型不支持图片输入（Vision 功能）。请选择支持 Vision 的模型，如 Claude、GPT-4o、Gemini 等。',
+        action: 'settings'
+      }
+    }
+
     // All other errors: directly show the API error message
     // This includes model_not_found, invalid_api_key, 401, 403, 404, 400, etc.
     // Determine action based on error type

@@ -121,7 +121,7 @@ export interface VisionApiResultData {
 }
 
 // Phase 11: Vision API error classification
-export type VisionApiErrorType = 'invalid_key' | 'network' | 'rate_limit' | 'unsupported_image' | 'timeout'
+export type VisionApiErrorType = 'invalid_key' | 'network' | 'rate_limit' | 'unsupported_image' | 'unsupported_vision' | 'timeout'
 
 // Phase 11: Vision API error payload
 export interface VisionApiErrorPayload {

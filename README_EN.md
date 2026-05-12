@@ -40,7 +40,6 @@ packages/
 |---------|-------------|
 | 🚀 **One-Click Insert** | Save your frequently used prompts and insert them with one click next time - no repetitive typing |
 | 🖼️ **Image to Prompt** | Hover over any image and generate bilingual prompts with one click (requires API configuration) |
-| 📁 **Category Management** | Organize prompts by purpose with drag-and-drop sorting support |
 | 🎨 **Resource Library** | Built-in quality prompt templates, one-click access to community curated content |
 
 **In one sentence:** Save your commonly used prompts, insert them with one click next time, and stop typing the same content over and over.
