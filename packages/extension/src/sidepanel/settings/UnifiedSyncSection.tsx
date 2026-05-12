@@ -16,6 +16,7 @@ import {
   ChevronUp,
   RotateCcw
 } from 'lucide-react'
+import { WEB_APP_URL } from '@/lib/config'
 import { Button } from '@/popup/components/ui/button'
 import {
   Dialog,
@@ -370,6 +371,15 @@ export function UnifiedSyncSection() {
                   <Check className="w-4 h-4" />
                   已登录
                 </span>
+                <a
+                  href={`${WEB_APP_URL}/backup`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  进入Web端
+                </a>
+                <span className="text-sm text-gray-300">|</span>
                 <Button
                   variant="ghost"
                   size="sm"
