@@ -64,7 +64,8 @@
   "host_permissions": [
     "https://raw.githubusercontent.com/*",
     "https://api.github.com/*",
-    "https://*/*"
+    "https://*/*",
+    "http://localhost:3000/*"
   ],
   "web_accessible_resources": [
     {
