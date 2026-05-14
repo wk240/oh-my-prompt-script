@@ -19,6 +19,7 @@ import { ToastNotification } from '@/sidepanel/components/ToastNotification'
 import { queueImageLoad } from '@/lib/sync/image-loader-queue'
 import { downloadImageFromUrl, saveImage } from '@/lib/sync/image-sync'
 import { getFolderHandle } from '@/lib/sync/indexeddb'
+import { useAutoPermissionRestore } from '@/sidepanel/hooks/useAutoPermissionRestore'
 
 // Lazy load modal components
 const PromptPreviewModal = lazy(() => import('@/content/components/PromptPreviewModal').then(m => ({ default: m.PromptPreviewModal })))
@@ -605,6 +606,10 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     })
   }, [])
 
+  // Auto-restore folder permission on first user interaction
+  // This is needed when openPanelOnActionClick: true (Chrome auto-opens sidepanel, no gesture from icon click)
+  useAutoPermissionRestore()
+
   // Input availability detection (Port-based real-time connection)
   type InputStatus = 'checking' | 'available' | 'unavailable'
   const [inputStatus, setInputStatus] = useState<InputStatus>('checking')
@@ -1054,10 +1059,16 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
   // Listen for storage changes to detect sync failures
   useEffect(() => {
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
-      // Check if settings changed and hasUnsyncedChanges became true
+      // Check if settings changed and hasUnsyncedChanges BECAME true (not was already true)
       if (changes['prompt_script_data']) {
+        const oldValue = changes['prompt_script_data'].oldValue
         const newValue = changes['prompt_script_data'].newValue
-        if (newValue?.settings?.hasUnsyncedChanges && !modalStates.showBackupReminder) {
+
+        // Only show reminder if hasUnsyncedChanges changed from false/null to true
+        // (not when it was already true and other settings changed)
+        if (newValue?.settings?.hasUnsyncedChanges === true &&
+            oldValue?.settings?.hasUnsyncedChanges !== true &&
+            !modalStates.showBackupReminder) {
           // Check permission status before showing reminder
           // Don't show for 'prompt' status - it's recoverable via permission restore
           chrome.runtime.sendMessage({ type: MessageType.GET_SYNC_STATUS }, (response) => {

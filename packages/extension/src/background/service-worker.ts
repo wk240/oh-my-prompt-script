@@ -50,9 +50,11 @@ initialSync().catch(err => console.error('[Oh My Prompt] Initial sync error:', e
 chrome.runtime.onStartup.addListener(async () => {
   console.log('[Oh My Prompt] Extension started, running orchestrator initial sync...')
 
-  // CRITICAL: Explicitly disable openPanelOnActionClick on startup
-  // Chrome may persist the previous behavior across sessions
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(err => {
+  // Enable Chrome's built-in toggle behavior for sidepanel
+  // Clicking extension icon will toggle sidepanel open/close
+  // Permission restore is handled by useAutoPermissionRestore hook in sidepanel
+  // (triggered on first user interaction inside sidepanel)
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(err => {
     console.warn('[Oh My Prompt] Failed to set sidePanel behavior on startup:', err)
   })
 
@@ -69,10 +71,11 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('[Oh My Prompt] Extension installed/updated:', details.reason)
   createContextMenu()
 
-  // CRITICAL: Explicitly disable openPanelOnActionClick to ensure action.onClicked fires
-  // Without this, Chrome may auto-open sidepanel on icon click (if user previously opened it manually)
-  // This would bypass action.onClicked and break permission restore (no user gesture)
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(err => {
+  // Enable Chrome's built-in toggle behavior for sidepanel
+  // Clicking extension icon will toggle sidepanel open/close
+  // Permission restore is handled by useAutoPermissionRestore hook in sidepanel
+  // (triggered on first user interaction inside sidepanel)
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(err => {
     console.warn('[Oh My Prompt] Failed to set sidePanel behavior:', err)
   })
 
@@ -89,40 +92,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   // Note: initialSync() above already creates offscreen document, no need to call again
 })
 
-// Handle extension icon click: restore folder permission + open sidepanel
-// This is the PRIMARY handler (not a fallback) - we removed openPanelOnActionClick to enable permission restore
-// CRITICAL: User gesture from icon click propagates through message chain for permission request
-// We must send permission request in SYNC path BEFORE any async operation (sidePanel.open)
-chrome.action.onClicked.addListener((tab) => {
-  // Check tab.id is valid (>= 0, not TAB_ID_NONE which is -1)
-  if (tab.id !== undefined && tab.id >= 0) {
-    // CRITICAL: Send permission request BEFORE any async operation
-    // chrome.runtime.sendMessage() preserves user gesture in sync path
-    // The message goes directly to offscreen document which has cached handle
-    console.log('[Oh My Prompt] Extension icon clicked, sending permission request...')
-    chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_REQUEST_PERMISSION })
-      .then((response) => {
-        if (response?.success) {
-          console.log('[Oh My Prompt] Permission auto-restored from extension icon click')
-          // Update settings to enable sync
-          storageManager.updateSettings({ syncEnabled: true, hasUnsyncedChanges: false })
-            .catch(err => console.warn('[Oh My Prompt] Failed to update settings:', err))
-        } else {
-          console.log('[Oh My Prompt] Permission restore skipped:', response?.error)
-        }
-      })
-      .catch(err => {
-        console.warn('[Oh My Prompt] Permission request failed:', err)
-      })
-
-    // Open sidepanel (async, but permission request already sent in sync path)
-    chrome.sidePanel.open({ tabId: tab.id })
-      .then(() => {
-        console.log('[Oh My Prompt] Sidepanel opened from extension icon click')
-      })
-      .catch((error) => console.error('[Oh My Prompt] Side panel open error:', error))
-  }
-})
+// NOTE: action.onClicked listener removed - Chrome auto-toggles sidepanel when
+// openPanelOnActionClick: true. Permission restore is handled by useAutoPermissionRestore
+// hook in sidepanel (triggered on first user interaction).
 
 const storageManager = StorageManager.getInstance()
 
