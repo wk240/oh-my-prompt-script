@@ -191,13 +191,24 @@ function extractAndSaveTokens(): boolean {
       console.warn('[Oh My Prompt] Failed to notify background:', err)
     })
 
-    // Show success message
-    createStyledPage({
-      iconStroke: '#81ecff',
-      title: '登录成功',
-      description: '云端同步已激活',
-      iconType: 'success'
-    })
+    // Check route type - auto-close for sync route, show UI for callback route
+    const isSyncRoute = window.location.pathname.includes('/auth/extension/sync')
+
+    if (isSyncRoute) {
+      // Auto-close after 500ms delay (allow message to send)
+      setTimeout(() => {
+        console.log('[Oh My Prompt] Auto-closing sync tab')
+        window.close()
+      }, 500)
+    } else {
+      // OAuth callback - show success page with manual close button
+      createStyledPage({
+        iconStroke: '#81ecff',
+        title: '登录成功',
+        description: '云端同步已激活',
+        iconType: 'success'
+      })
+    }
   })
 
   return true
