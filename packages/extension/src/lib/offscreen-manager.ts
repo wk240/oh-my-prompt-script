@@ -182,5 +182,10 @@ export async function sendToOffscreen<T = unknown>(
     payload
   })
 
+  // Handle null/undefined response when offscreen document not ready
+  if (!response) {
+    return { success: false, error: 'OFFSCREEN_UNAVAILABLE' }
+  }
+
   return response as MessageResponse<T>
 }
