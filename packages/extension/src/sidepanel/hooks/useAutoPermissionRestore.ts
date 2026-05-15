@@ -14,6 +14,7 @@
 
 import { useEffect, useRef } from 'react'
 import { MessageType } from '@oh-my-prompt/shared/messages'
+import { ensureOffscreenDocument } from '@/lib/offscreen-manager'
 
 /**
  * Hook to auto-restore folder permission on first user interaction
@@ -24,17 +25,24 @@ export function useAutoPermissionRestore() {
   const isInitialized = useRef(false)
 
   useEffect(() => {
-    // Step 1: Pre-cache folder handle (no user gesture needed for this)
-    // This ensures handle is available for sync permission request on user click
+    // Step 1: Ensure offscreen document exists and pre-cache folder handle
+    // This MUST happen BEFORE any user click to preserve gesture in sync path
     if (!isInitialized.current) {
       isInitialized.current = true
-      chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_CHECK_PERMISSION })
-        .then((response) => {
-          if (response?.success && response?.data?.hasFolder) {
-            console.log('[Oh My Prompt] Folder handle pre-cached:', response.data.folderName)
-          }
+      ensureOffscreenDocument()
+        .then(() => {
+          // Now send message to cache handle (offscreen document is ready)
+          chrome.runtime.sendMessage({ type: MessageType.OFFSCREEN_CHECK_PERMISSION })
+            .then((response) => {
+              if (response?.success && response?.data?.hasFolder) {
+                console.log('[Oh My Prompt] Folder handle pre-cached:', response.data.folderName)
+              }
+            })
+            .catch(() => {})
         })
-        .catch(() => {})
+        .catch((err) => {
+          console.warn('[Oh My Prompt] Failed to ensure offscreen document:', err)
+        })
     }
 
     // Step 2: Listen for user interaction to restore permission
