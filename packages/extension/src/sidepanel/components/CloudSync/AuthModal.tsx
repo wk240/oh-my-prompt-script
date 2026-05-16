@@ -83,7 +83,7 @@ export function AuthModal({ open, onClose, onSuccess }: AuthModalProps) {
         <DialogHeader>
           <DialogTitle>云端同步登录</DialogTitle>
           <DialogDescription>
-            登录后可云端备份提示词，多设备同步
+            登录后可云端备份提示词
           </DialogDescription>
         </DialogHeader>
 

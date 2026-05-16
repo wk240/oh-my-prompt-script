@@ -18,7 +18,7 @@ type SettingsTab = 'sync' | 'vision' | 'import-export'
 
 const tabLabels: Record<SettingsTab, string> = {
   sync: '同步与备份',
-  vision: 'AI识图',
+  vision: '图片转提示词',
   'import-export': '导入导出'
 }
 
