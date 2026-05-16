@@ -230,6 +230,7 @@ export class Injector {
     this.hostElement = document.createElement('span')
     this.hostElement.id = HOST_ID
     this.hostElement.setAttribute('data-testid', 'oh-my-prompt-trigger')
+    this.hostElement.style.cssText = 'display: inline-flex; align-items: center; justify-content: center; height: 32px; flex-shrink: 0;'
 
     this.shadowRoot = this.hostElement.attachShadow({ mode: 'open' })
 
@@ -314,9 +315,9 @@ export class Injector {
         border: none;
         padding: 0;
         cursor: pointer;
-        border-radius: 20px;
-        min-width: 32px;
-        min-height: 32px;
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
         transition: background-color 0.15s ease;
       }
 
