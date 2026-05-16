@@ -27,3 +27,4 @@ test-results
 .gstack/
 # GSD workflow planning files
 .planning/
+.vercel
