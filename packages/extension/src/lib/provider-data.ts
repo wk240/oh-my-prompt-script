@@ -80,7 +80,8 @@ export function loadSupportedProviders(): Provider[] {
         iconColor: p.iconColor,
         websiteUrl: p.websiteUrl,
         apiKeyUrl: p.apiKeyUrl,
-        isPartner: p.isPartner
+        isPartner: p.isPartner,
+        requiresAuth: p.requiresAuth
       })
     } else {
       unsupported.push({ name: p.name, format: p.apiFormat })
