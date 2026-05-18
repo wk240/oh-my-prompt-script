@@ -174,13 +174,17 @@ chrome.runtime.onMessage.addListener(
       // When Service Worker calls sendToOffscreen, the message comes back to Service Worker
       // and gets dropped by default case. Handle it directly here instead.
       case MessageType.OFFSCREEN_CHECK_PERMISSION:
+        console.log('[Oh My Prompt] Service Worker received OFFSCREEN_CHECK_PERMISSION')
         getFolderHandle()
           .then(async (handle) => {
+            console.log('[Oh My Prompt] getFolderHandle result:', handle ? handle.name : 'null')
             if (!handle) {
+              console.log('[Oh My Prompt] OFFSCREEN_CHECK_PERMISSION: no folder, returning hasFolder=false')
               sendResponse({ success: true, data: { hasFolder: false } })
               return
             }
             const permission = await checkFolderPermission(handle, 'readwrite')
+            console.log('[Oh My Prompt] OFFSCREEN_CHECK_PERMISSION: folderName=', handle.name, 'permission=', permission)
             sendResponse({
               success: true,
               data: {

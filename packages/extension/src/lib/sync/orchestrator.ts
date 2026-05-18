@@ -2,8 +2,6 @@ import { CloudSyncStrategy } from './strategies/cloud'
 import { LocalSyncStrategy } from './strategies/local'
 import { executeLocalSync } from './local-sync-executor'
 import { getFolderHandle, checkFolderPermission } from './indexeddb'
-import { ensureOffscreenDocument, sendToOffscreen } from '../offscreen-manager'
-import { MessageType } from '@oh-my-prompt/shared/messages'
 import {
   FullBackupData,
   MergeResult,
@@ -311,7 +309,17 @@ export class SyncOrchestrator {
 
   /**
    * Get unified sync status.
-   * Uses offscreen document for permission checks to ensure consistent state across contexts.
+   *
+   * IMPORTANT: When called from Service Worker context (handling GET_UNIFIED_SYNC_STATUS message),
+   * we MUST NOT use sendToOffscreen() because it causes a deadlock:
+   * - Service Worker is processing a message (inside switch statement)
+   * - sendToOffscreen sends another message (OFFSCREEN_CHECK_PERMISSION)
+   * - New message gets queued waiting for current message to complete
+   * - But current message is waiting for sendToOffscreen response
+   * - DEADLOCK!
+   *
+   * Solution: Call getFolderHandle/checkFolderPermission directly in Service Worker context.
+   * These functions work in Service Worker because IndexedDB is available.
    */
   async getStatus(): Promise<UnifiedSyncStatus> {
     // Single API call: getStatus() already checks availability
@@ -320,29 +328,25 @@ export class SyncOrchestrator {
 
     const settings = await this.getSyncStatus()
 
-    // Get folder name and permission status via offscreen document
-    // This ensures consistent permission state across Service Worker and Sidepanel contexts
+    // Get folder name and permission status directly (avoid message deadlock)
     let folderName: string | undefined = undefined
     let permissionStatus: 'granted' | 'prompt' | 'denied' | undefined = undefined
 
     if (localStatus.enabled) {
       try {
-        await ensureOffscreenDocument()
-        const permResult = await sendToOffscreen<{ hasFolder: boolean; permission?: 'granted' | 'prompt' | 'denied'; folderName?: string }>(MessageType.OFFSCREEN_CHECK_PERMISSION)
-
-        if (permResult.success && permResult.data?.hasFolder) {
-          folderName = permResult.data.folderName
-          permissionStatus = permResult.data.permission
-        }
-      } catch (err) {
-        console.warn('[Oh My Prompt] Failed to get permission status via offscreen:', err)
-        // Fallback: try direct access (may fail in Service Worker)
+        console.log('[Oh My Prompt] getStatus: localStatus.enabled=true, calling getFolderHandle directly')
         const handle = await getFolderHandle()
+        console.log('[Oh My Prompt] getStatus: getFolderHandle result=', handle ? handle.name : 'null')
         if (handle) {
           folderName = handle.name
-          permissionStatus = await checkFolderPermission(handle)
+          permissionStatus = await checkFolderPermission(handle, 'readwrite')
+          console.log('[Oh My Prompt] getStatus: folderName=', folderName, 'permissionStatus=', permissionStatus)
         }
+      } catch (err) {
+        console.warn('[Oh My Prompt] Failed to get permission status:', err)
       }
+    } else {
+      console.log('[Oh My Prompt] getStatus: localStatus.enabled=false')
     }
 
     return {

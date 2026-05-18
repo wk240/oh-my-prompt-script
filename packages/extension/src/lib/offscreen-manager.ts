@@ -175,15 +175,18 @@ export async function sendToOffscreen<T = unknown>(
   type: MessageType,
   payload?: unknown
 ): Promise<MessageResponse<T>> {
+  console.log('[Oh My Prompt] sendToOffscreen: sending message type=', type)
   await ensureOffscreenDocument()
 
   const response = await chrome.runtime.sendMessage({
     type,
     payload
   })
+  console.log('[Oh My Prompt] sendToOffscreen: received response=', JSON.stringify(response))
 
   // Handle null/undefined response when offscreen document not ready
   if (!response) {
+    console.warn('[Oh My Prompt] sendToOffscreen: no response received')
     return { success: false, error: 'OFFSCREEN_UNAVAILABLE' }
   }
 

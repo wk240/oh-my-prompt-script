@@ -74,8 +74,6 @@ export function UnifiedSyncSection() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [showUploadDialog, setShowUploadDialog] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [authModalOpen, setAuthModalOpen] = useState(false)
 
   // Auto-sync state - prevent multiple sync attempts per sidepanel session
@@ -284,30 +282,6 @@ export function UnifiedSyncSection() {
   }
 
   /**
-   * Handle upload local-only items
-   */
-  const handleUploadLocalOnly = async () => {
-    setUploading(true)
-    setError(null)
-
-    try {
-      const response = await chrome.runtime.sendMessage({ type: MessageType.UPLOAD_LOCAL_ONLY })
-      if (response?.success) {
-        setSuccess('上传成功')
-        setShowUploadDialog(false)
-        await loadStatus()
-      } else {
-        setError(response?.error || '上传失败')
-      }
-    } catch (err) {
-      console.error('[Oh My Prompt] Upload local-only failed:', err)
-      setError('上传失败')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  /**
    * Open AuthModal for cloud sync login
    */
   const handleLogin = () => {
@@ -363,13 +337,6 @@ export function UnifiedSyncSection() {
     if (status.permissionStatus !== 'granted') return 'yellow'
     return 'green'
   }
-
-  // Count local-only items
-  const localOnlyCount = status?.localOnlyItems
-    ? (status.localOnlyItems.promptIds.length +
-       status.localOnlyItems.categoryIds.length +
-       status.localOnlyItems.temporaryPromptIds.length)
-    : 0
 
   return (
     <div className="w-full space-y-4 p-4">
@@ -713,79 +680,10 @@ export function UnifiedSyncSection() {
         )}
       </div>
 
-      {/* Pending Upload Warning */}
-      {status?.pendingUpload && localOnlyCount > 0 && (
-        <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-            <div className="space-y-2">
-              <p className="text-sm text-yellow-800">
-                发现 {localOnlyCount} 个本地独有的数据未上传到云端
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowUploadDialog(true)}
-                className="h-9 border-yellow-400 text-yellow-700 hover:bg-yellow-100"
-              >
-                查看并上传
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Info text */}
       <p className="text-xs text-gray-500 px-1">
         云端同步会在数据变更时自动触发，本地备份仅在配置文件夹后生效
       </p>
-
-      {/* Upload Local-Only Items Dialog */}
-      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>本地独有数据</DialogTitle>
-            <DialogDescription>
-              以下数据仅存在于本地，是否上传到云端？
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="p-3 bg-gray-50 rounded text-sm space-y-2">
-            {status?.localOnlyItems?.promptIds && status.localOnlyItems.promptIds.length > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">提示词</span>
-                <span className="text-gray-900">{status.localOnlyItems.promptIds.length} 个</span>
-              </div>
-            )}
-            {status?.localOnlyItems?.categoryIds && status.localOnlyItems.categoryIds.length > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">分类</span>
-                <span className="text-gray-900">{status.localOnlyItems.categoryIds.length} 个</span>
-              </div>
-            )}
-            {status?.localOnlyItems?.temporaryPromptIds && status.localOnlyItems.temporaryPromptIds.length > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">临时提示词</span>
-                <span className="text-gray-900">{status.localOnlyItems.temporaryPromptIds.length} 个</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 p-2 bg-blue-50 rounded text-sm text-blue-800">
-            <span>💡</span>
-            <span>上传后云端将包含完整数据</span>
-          </div>
-
-          <DialogFooter className="py-3 pt-2">
-            <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
-              取消
-            </Button>
-            <Button onClick={handleUploadLocalOnly} disabled={uploading}>
-              {uploading ? '上传中...' : '上传'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Restore Backup Dialog */}
       <Dialog open={restoreDialog.open} onOpenChange={(isOpen) => !isOpen && setRestoreDialog({ open: false, version: null })}>
