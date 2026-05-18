@@ -73,11 +73,9 @@ export function useAutoPermissionRestore() {
         .then((response) => {
           if (response?.success) {
             console.log('[Oh My Prompt] Permission restored/confirmed:', response?.data?.permission)
-            // Update settings to enable sync
-            chrome.runtime.sendMessage({
-              type: MessageType.SET_SETTINGS_ONLY,
-              payload: { settings: { syncEnabled: true } }
-            }).catch(() => {})
+            // Trigger sync to clear any pending unsynced changes
+            // This will also set syncEnabled: true and hasUnsyncedChanges: false if sync succeeds
+            chrome.runtime.sendMessage({ type: MessageType.TRIGGER_SYNC }).catch(() => {})
           } else {
             console.log('[Oh My Prompt] Permission request result:', response?.error)
             // GESTURE_LOST or PERMISSION_DENIED - user needs to click restore button manually

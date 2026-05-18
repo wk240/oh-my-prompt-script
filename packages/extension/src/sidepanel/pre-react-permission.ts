@@ -33,18 +33,17 @@
     if (handle) {
       const permission = await handle.queryPermission({ mode: 'readwrite' });
       if (permission === 'prompt') {
+        // Try to request permission (may fail due to no user gesture at sidepanel open)
         const result = await handle.requestPermission({ mode: 'readwrite' });
         if (result === 'granted') {
-          chrome.runtime.sendMessage({
-            type: 'SET_SETTINGS_ONLY',
-            payload: { settings: { syncEnabled: true, hasUnsyncedChanges: false } }
-          }).catch(() => {});
+          // Permission restored - trigger sync to clear pending unsynced data
+          chrome.runtime.sendMessage({ type: 'TRIGGER_SYNC' }).catch(() => {});
         }
       } else if (permission === 'granted') {
-        chrome.runtime.sendMessage({
-          type: 'SET_SETTINGS_ONLY',
-          payload: { settings: { syncEnabled: true } }
-        }).catch(() => {});
+        // Permission already granted - trigger sync to clear any pending unsynced changes
+        // This handles the case where permission was 'prompt' before, sync failed,
+        // but permission is now 'granted' (Chrome remembered user's previous grant)
+        chrome.runtime.sendMessage({ type: 'TRIGGER_SYNC' }).catch(() => {});
       }
     }
 
