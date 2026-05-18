@@ -1,7 +1,7 @@
 import { MessageType, MessageResponse } from '@oh-my-prompt/shared/messages'
 import type { StorageSchema, SyncSettings, VisionApiConfig, InsertPromptPayload, InsertResultPayload, SaveTemporaryPromptPayload, UpdateTemporaryPromptFormatPayload, Prompt, ProviderConfig, ProviderConfigsStorage } from '@oh-my-prompt/shared/types'
 import { StorageManager } from '../lib/storage'
-import { saveFolderHandle, getFolderHandle } from '../lib/sync/indexeddb'
+import { saveFolderHandle, getFolderHandle, checkFolderPermission } from '../lib/sync/indexeddb'
 import { getSyncStatus, triggerSync, restorePermission, initialSync, triggerProviderConfigsSync } from '../lib/sync/sync-manager'
 import { createSyncOrchestrator } from '../lib/sync'
 import { syncApiConfigToFolder } from '../lib/sync/api-config-sync'
@@ -151,6 +151,32 @@ chrome.runtime.onMessage.addListener(
       case MessageType.PING:
         sendResponse({ success: true, data: 'pong' } as MessageResponse<string>)
         break
+
+      // Handle OFFSCREEN_CHECK_PERMISSION directly in Service Worker
+      // When Service Worker calls sendToOffscreen, the message comes back to Service Worker
+      // and gets dropped by default case. Handle it directly here instead.
+      case MessageType.OFFSCREEN_CHECK_PERMISSION:
+        getFolderHandle()
+          .then(async (handle) => {
+            if (!handle) {
+              sendResponse({ success: true, data: { hasFolder: false } })
+              return
+            }
+            const permission = await checkFolderPermission(handle, 'readwrite')
+            sendResponse({
+              success: true,
+              data: {
+                hasFolder: true,
+                folderName: handle.name,
+                permission
+              }
+            })
+          })
+          .catch(error => {
+            console.error('[Oh My Prompt] OFFSCREEN_CHECK_PERMISSION error:', error)
+            sendResponse({ success: false, error: String(error) })
+          })
+        return true // Required for async response
 
       case MessageType.GET_STORAGE:
         storageManager.getData()
