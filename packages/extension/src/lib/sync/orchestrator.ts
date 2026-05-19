@@ -7,8 +7,18 @@ import { MessageType } from '@oh-my-prompt/shared/messages'
 import {
   FullBackupData,
   MergeResult,
-  UnifiedSyncStatus
+  UnifiedSyncStatus,
+  SyncResult
 } from './types'
+
+/**
+ * Local sync result from executeLocalSync.
+ */
+interface LocalSyncResult {
+  success: boolean
+  syncedAt?: number
+  error?: string
+}
 
 const STORAGE_KEY = 'prompt_script_data'
 
@@ -21,12 +31,16 @@ const STORAGE_KEY = 'prompt_script_data'
  * - Local sync via sync-manager (offscreen document for Service Worker)
  * - Tracks pending state (pendingCloudSync, pendingUpload)
  * - Merge logic: cloud wins same ID, local-only preserved
+ * - Automatic retry with exponential backoff via RetryManager
  */
 export class SyncOrchestrator {
   private cloudStrategy: CloudSyncStrategy
   private localStrategy: LocalSyncStrategy
   private cloudRetryManager: RetryManager | null = null
   private localRetryManager: RetryManager | null = null
+  // Store last sync results for access after RetryManager.execute()
+  private lastCloudSyncResult: SyncResult | null = null
+  private lastLocalSyncResult: LocalSyncResult | null = null
 
   constructor(cloudStrategy: CloudSyncStrategy, localStrategy: LocalSyncStrategy) {
     this.cloudStrategy = cloudStrategy
@@ -35,10 +49,13 @@ export class SyncOrchestrator {
 
   /**
    * Create retry callback for cloud sync.
+   * Stores result in lastCloudSyncResult for later access.
    */
   private createCloudRetryCallback(data: FullBackupData): () => Promise<{ success: boolean; error?: string }> {
     return async () => {
       const result = await this.cloudStrategy.sync(data)
+      // Store full result for access after RetryManager.execute()
+      this.lastCloudSyncResult = result
       return {
         success: result.success,
         error: result.error
@@ -48,10 +65,13 @@ export class SyncOrchestrator {
 
   /**
    * Create retry callback for local sync.
+   * Stores result in lastLocalSyncResult for later access.
    */
   private createLocalRetryCallback(data: FullBackupData): () => Promise<{ success: boolean; error?: string }> {
     return async () => {
       const result = await executeLocalSync(data)
+      // Store full result for access after RetryManager.execute()
+      this.lastLocalSyncResult = result
       return {
         success: result.success,
         error: result.error
@@ -120,8 +140,18 @@ export class SyncOrchestrator {
       console.log('[Oh My Prompt] Local sync not available, skipping sync')
       // Still try cloud sync if available
       if (cloudAvailable) {
-        const cloudResult = await this.cloudStrategy.sync(data)
-        if (cloudResult.success) {
+        // Reset stored result
+        this.lastCloudSyncResult = null
+        // Instantiate retry manager for cloud sync
+        this.cloudRetryManager = new RetryManager(
+          this.createCloudRetryCallback(data),
+          (state) => this.notifyRetryProgress('cloud', state),
+          (success) => this.notifyBackupComplete('cloud', success)
+        )
+        const retryResult = await this.cloudRetryManager.execute()
+        const cloudResult = this.lastCloudSyncResult!
+
+        if (retryResult.success && cloudResult.success) {
           await this.updateSyncStatus({
             lastCloudSyncTime: cloudResult.syncedAt,
             hasUnsyncedChanges: false,
@@ -155,9 +185,18 @@ export class SyncOrchestrator {
 
     if (!cloudAvailable) {
       // Cloud unavailable: local backup only via offscreen document
-      const localResult = await executeLocalSync(data)
+      // Reset stored result
+      this.lastLocalSyncResult = null
+      // Instantiate retry manager for local sync
+      this.localRetryManager = new RetryManager(
+        this.createLocalRetryCallback(data),
+        (state) => this.notifyRetryProgress('local', state),
+        (success) => this.notifyBackupComplete('local', success)
+      )
+      const retryResult = await this.localRetryManager.execute()
+      const localResult = this.lastLocalSyncResult!
 
-      if (localResult.success) {
+      if (retryResult.success && localResult.success) {
         await this.updateSyncStatus({
           lastLocalSyncTime: localResult.syncedAt || Date.now(),
           hasUnsyncedChanges: true,
@@ -179,19 +218,43 @@ export class SyncOrchestrator {
       }
     }
 
-    // Cloud available: parallel sync
-    // Cloud sync directly, local sync via offscreen document
-    const [cloudResult, localResult] = await Promise.all([
-      this.cloudStrategy.sync(data),
-      executeLocalSync(data)
+    // Cloud available: parallel sync with retry managers
+    // Reset stored results
+    this.lastCloudSyncResult = null
+    this.lastLocalSyncResult = null
+
+    // Instantiate retry managers for both syncs
+    this.cloudRetryManager = new RetryManager(
+      this.createCloudRetryCallback(data),
+      (state) => this.notifyRetryProgress('cloud', state),
+      (success) => this.notifyBackupComplete('cloud', success)
+    )
+    this.localRetryManager = new RetryManager(
+      this.createLocalRetryCallback(data),
+      (state) => this.notifyRetryProgress('local', state),
+      (success) => this.notifyBackupComplete('local', success)
+    )
+
+    // Execute both syncs in parallel with retry support
+    const [cloudRetryResult, localRetryResult] = await Promise.all([
+      this.cloudRetryManager.execute(),
+      this.localRetryManager.execute()
     ])
+
+    // Access stored results (set by callbacks during execute)
+    const cloudResult = this.lastCloudSyncResult!
+    const localResult = this.lastLocalSyncResult!
+
+    // Determine success using retry results (accounts for retry mechanism)
+    const cloudSuccess = cloudRetryResult.success && cloudResult.success
+    const localSuccess = localRetryResult.success && localResult.success
 
     // Handle skipped sync (data unchanged)
     if (cloudResult.skipped) {
       console.log('[Oh My Prompt] Cloud sync skipped: data unchanged')
     }
 
-    if (cloudResult.success && localResult.success) {
+    if (cloudSuccess && localSuccess) {
       await this.updateSyncStatus({
         lastCloudSyncTime: cloudResult.syncedAt,
         lastLocalSyncTime: Date.now(),
@@ -205,8 +268,8 @@ export class SyncOrchestrator {
         },
         cloudSyncing: false,
         localSyncing: false,
-        cloudRetryCount: 0,
-        localRetryCount: 0,
+        cloudRetryCount: cloudRetryResult.retryCount,
+        localRetryCount: localRetryResult.retryCount,
         cloudError: undefined,
         localError: undefined
       })
@@ -216,14 +279,14 @@ export class SyncOrchestrator {
         syncedAt: cloudResult.syncedAt,
         skipped: cloudResult.skipped
       }
-    } else if (localResult.success) {
+    } else if (localSuccess) {
       // Local success, cloud failed
       await this.updateSyncStatus({
         lastLocalSyncTime: Date.now(),
         hasUnsyncedChanges: true,
         pendingCloudSync: true,
         localSyncing: false,
-        localRetryCount: 0,
+        localRetryCount: localRetryResult.retryCount,
         localError: undefined,
         cloudError: cloudResult.error
       })
@@ -232,7 +295,7 @@ export class SyncOrchestrator {
         localSynced: true,
         cloudError: cloudResult.error
       }
-    } else if (cloudResult.success) {
+    } else if (cloudSuccess) {
       // Cloud success, local failed
       await this.updateSyncStatus({
         lastCloudSyncTime: cloudResult.syncedAt,
@@ -244,7 +307,7 @@ export class SyncOrchestrator {
           temporaryPromptIds: []
         },
         cloudSyncing: false,
-        cloudRetryCount: 0,
+        cloudRetryCount: cloudRetryResult.retryCount,
         cloudError: undefined,
         localError: localResult.error
       })
