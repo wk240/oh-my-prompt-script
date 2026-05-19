@@ -45,14 +45,45 @@ export interface MergeResult {
   }
 }
 
+/**
+ * Backup status for each backup target (cloud/local).
+ * Used for transparent auto-backup - user sees two independent status rows.
+ */
+export interface BackupTargetStatus {
+  enabled: boolean // 是否启用此备份方式
+  loggedIn?: boolean // 是否已登录（仅云端）
+  lastSyncTime: number | null // 上次成功备份时间戳
+  syncing: boolean // 当前是否正在同步中
+  error: string | null // 失败原因（用于错误提示）
+  retryCount: number // 连续失败次数（用于显示重试状态）
+  retryScheduledAt?: number // 下次重试时间（用于显示倒计时）
+  permissionStatus?: 'granted' | 'prompt' | 'denied' // 权限状态（仅本地）
+  folderName?: string // 文件夹名称（仅本地）
+}
+
+/**
+ * Combined backup status storage.
+ * Stored in chrome.storage.local under 'backupStatus' key.
+ */
+export interface BackupStatusStorage {
+  cloud: BackupTargetStatus
+  local: BackupTargetStatus
+}
+
 export interface UnifiedSyncStatus {
   cloudEnabled: boolean
   cloudLoggedIn: boolean
   lastCloudSyncTime?: number
   cloudError?: string
+  cloudSyncing?: boolean // 正在同步中
+  cloudRetryCount?: number // 连续失败次数
+  cloudRetryScheduledAt?: number // 下次重试时间
   localEnabled: boolean
   lastLocalSyncTime?: number
   localError?: string
+  localSyncing?: boolean // 正在同步中
+  localRetryCount?: number // 连续失败次数
+  localRetryScheduledAt?: number // 下次重试时间
   folderName?: string
   permissionStatus?: 'granted' | 'prompt' | 'denied'
   hasUnsyncedChanges: boolean
