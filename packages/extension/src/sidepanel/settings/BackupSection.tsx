@@ -632,27 +632,31 @@ export function BackupSection() {
       />
 
       {/* Restore Decision Modal - Step 1 */}
-      <RestoreDecisionModal
-        open={decisionModalOpen}
-        onClose={() => {
-          setDecisionModalOpen(false)
-          setExistingBackup(null)
-        }}
-        onRestore={handleDecisionRestore}
-        onContinue={handleDecisionContinue}
-        onReselect={handleDecisionReselect}
-        existingBackup={existingBackup!}
-      />
+      {decisionModalOpen && existingBackup && (
+        <RestoreDecisionModal
+          open={decisionModalOpen}
+          onClose={() => {
+            setDecisionModalOpen(false)
+            setExistingBackup(null)
+          }}
+          onRestore={handleDecisionRestore}
+          onContinue={handleDecisionContinue}
+          onReselect={handleDecisionReselect}
+          existingBackup={existingBackup}
+        />
+      )}
 
       {/* Merge Conflict Modal - Step 2 */}
-      <MergeConflictModal
-        open={conflictModalOpen}
-        onClose={handleConflictClose}
-        currentData={currentDataInfo!}
-        backupData={backupDataInfo!}
-        onMerge={handleMergeData}
-        onReplace={handleReplaceData}
-      />
+      {conflictModalOpen && currentDataInfo && backupDataInfo && (
+        <MergeConflictModal
+          open={conflictModalOpen}
+          onClose={handleConflictClose}
+          currentData={currentDataInfo}
+          backupData={backupDataInfo}
+          onMerge={handleMergeData}
+          onReplace={handleReplaceData}
+        />
+      )}
       </div>
     </div>
   )
