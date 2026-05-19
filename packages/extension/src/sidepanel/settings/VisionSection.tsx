@@ -89,7 +89,8 @@ export function VisionSection() {
   useEffect(() => {
     const loadedProviders = loadSupportedProviders()
     setProviders(loadedProviders)
-    setProviderGroups(groupProvidersByType(loadedProviders))
+    // Exclude official providers in third-party config section
+    setProviderGroups(groupProvidersByType(loadedProviders, true))
     loadConfigs()
     loadVisionSetting()
   }, [])

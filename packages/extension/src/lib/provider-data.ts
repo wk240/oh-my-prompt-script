@@ -97,11 +97,18 @@ export function loadSupportedProviders(): Provider[] {
 
 /**
  * Group providers by type for UI display
+ * @param providers - List of providers to group
+ * @param excludeOfficial - If true, excludes omp_official and official types (for third-party config section)
  */
-export function groupProvidersByType(providers: Provider[]): ProviderGroup[] {
+export function groupProvidersByType(providers: Provider[], excludeOfficial = false): ProviderGroup[] {
   const groups: Map<Provider['type'], Provider[]> = new Map()
 
-  for (const provider of providers) {
+  // Filter out official types if requested
+  const filteredProviders = excludeOfficial
+    ? providers.filter(p => p.type !== 'omp_official' && p.type !== 'official')
+    : providers
+
+  for (const provider of filteredProviders) {
     const existing = groups.get(provider.type) || []
     groups.set(provider.type, [...existing, provider])
   }
