@@ -95,6 +95,12 @@ export enum MessageType {
   UPLOAD_LOCAL_ONLY = 'UPLOAD_LOCAL_ONLY',  // Upload local-only items to cloud
   DOWNLOAD_AND_MERGE = 'DOWNLOAD_AND_MERGE',  // Download cloud data and merge with local
 
+  // Backup progress notifications (transparent auto-backup)
+  BACKUP_PROGRESS = 'BACKUP_PROGRESS',  // SW → UI: Notify backup in progress
+  BACKUP_RETRY = 'BACKUP_RETRY',  // SW → UI: Notify retry attempt (with count)
+  BACKUP_COMPLETE = 'BACKUP_COMPLETE',  // SW → UI: Notify backup completed (success or failure)
+  EMERGENCY_EXPORT = 'EMERGENCY_EXPORT',  // UI → SW: Export all data when all backups failed
+
   // Official Vision API
   GET_VISION_QUOTA = 'GET_VISION_QUOTA',           // 获取 Vision 额度状态
   ACTIVATE_OFFICIAL_CONFIG = 'ACTIVATE_OFFICIAL_CONFIG', // 激活官方配置
