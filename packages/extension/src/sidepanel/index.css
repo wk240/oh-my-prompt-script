@@ -1359,3 +1359,12 @@
   font-size: 13px;
   color: #64748B;
 }
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

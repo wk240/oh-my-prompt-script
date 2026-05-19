@@ -105,8 +105,8 @@ export function HistoryModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[80vh] mx-4 !p-6 overflow-y-auto scrollbar-hide">
+        <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5" />
             备份历史
@@ -142,12 +142,12 @@ export function HistoryModal({
 
         {/* Version list */}
         {!loading && !showConfirm && versions.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-3 px-1 py-2">
             {versions.map((version) => (
               <button
                 key={version.filename}
                 onClick={() => handleSelectVersion(version)}
-                className="w-full p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors text-left"
+                className="w-full p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors text-left"
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-900">
@@ -175,9 +175,9 @@ export function HistoryModal({
 
         {/* Restore confirmation */}
         {showConfirm && selectedVersion && (
-          <div className="space-y-4">
+          <div className="space-y-4 px-1 py-2">
             {/* Warning */}
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-yellow-800">
                 <p className="font-medium mb-1">恢复将替换当前所有数据</p>
@@ -186,7 +186,7 @@ export function HistoryModal({
             </div>
 
             {/* Selected version info */}
-            <div className="p-3 bg-blue-50 rounded-lg">
+            <div className="p-4 bg-blue-50 rounded-lg">
               <div className="text-sm font-medium text-blue-900 mb-1">
                 将恢复到此版本：
               </div>
@@ -205,12 +205,12 @@ export function HistoryModal({
 
             {/* Error message */}
             {restoreError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                 <span className="text-sm text-red-800">{restoreError}</span>
               </div>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="pt-4">
               <Button variant="outline" onClick={handleCancelConfirm} disabled={restoreLoading}>
                 取消
               </Button>
@@ -224,7 +224,7 @@ export function HistoryModal({
 
         {/* Close button for version list */}
         {!loading && !showConfirm && versions.length > 0 && (
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <Button variant="outline" onClick={onClose}>
               关闭
             </Button>
