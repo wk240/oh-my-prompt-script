@@ -663,11 +663,23 @@ export async function getBackupVersions(): Promise<{ versions: BackupVersion[]; 
 /**
  * Restore data from specific backup version (including temporary prompts)
  * Uses offscreen document for file operations
+ *
+ * @param filename - Backup filename to restore
+ * @param backupFirst - Whether to backup current data before restoring (default: true)
+ * @param mode - 'replace' replaces all data, 'merge' merges with current data (default: 'replace')
+ * @returns Success status with merge counts if mode='merge'
  */
 export async function restoreFromBackup(
   filename: string,
-  backupFirst: boolean = true
-): Promise<{ success: boolean; error?: string }> {
+  backupFirst: boolean = true,
+  mode: 'replace' | 'merge' = 'replace'
+): Promise<{
+  success: boolean
+  error?: string
+  addedCount?: number
+  updatedCount?: number
+  addedCategories?: number
+}> {
   try {
     await ensureOffscreenDocument()
 
@@ -692,7 +704,54 @@ export async function restoreFromBackup(
       await sendToOffscreen(MessageType.OFFSCREEN_SYNC, { backupData: currentBackupData, version })
     }
 
-    // Restore backup data (including temporary prompts)
+    // Handle merge mode
+    if (mode === 'merge') {
+      const storageManager = StorageManager.getInstance()
+      const currentData = await storageManager.getData()
+
+      const { mergePromptData } = await import('./merge-data')
+      const merged = mergePromptData(
+        currentData.userData.prompts,
+        backupData.prompts,
+        currentData.userData.categories,
+        backupData.categories
+      )
+
+      await storageManager.updateUserData({
+        prompts: merged.prompts,
+        categories: merged.categories
+      })
+
+      // Handle temporary prompts: keep current + add new from backup
+      const currentTempIds = new Set(currentData.temporaryPrompts?.map(p => p.id) || [])
+      const mergedTemporaryPrompts = [
+        ...(currentData.temporaryPrompts || []),
+        ...(backupData.temporaryPrompts?.filter(p => !currentTempIds.has(p.id)) || [])
+      ]
+      if (mergedTemporaryPrompts.length > 0) {
+        await storageManager.updateTemporaryPrompts(mergedTemporaryPrompts)
+      }
+
+      await storageManager.updateSettings({ lastSyncTime: Date.now() })
+
+      // Sync merged data to latest backup
+      const version = chrome.runtime.getManifest().version
+      const mergedBackupData: FullBackupData = {
+        prompts: merged.prompts,
+        categories: merged.categories,
+        temporaryPrompts: mergedTemporaryPrompts
+      }
+      await sendToOffscreen(MessageType.OFFSCREEN_SYNC, { backupData: mergedBackupData, version })
+
+      return {
+        success: true,
+        addedCount: merged.addedPrompts,
+        updatedCount: merged.updatedPrompts,
+        addedCategories: merged.addedCategories
+      }
+    }
+
+    // Replace mode: Restore backup data (including temporary prompts)
     const storageManager = StorageManager.getInstance()
     await storageManager.updateUserData({
       prompts: backupData.prompts,
