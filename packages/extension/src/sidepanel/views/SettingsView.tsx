@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import { UnifiedSyncSection } from '../settings/UnifiedSyncSection'
+import { BackupSection } from '../settings/BackupSection'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 
 const VisionSection = lazy(() =>
@@ -60,7 +60,7 @@ export default function SettingsView({ onBack }: SettingsViewProps) {
       {/* Keep all tabs mounted but hidden to avoid re-querying on tab switch */}
       <div className="flex-1 w-full overflow-y-auto">
         <div className={activeTab === 'sync' ? 'block' : 'hidden'}>
-          <UnifiedSyncSection />
+          <BackupSection />
         </div>
         <div className={activeTab === 'vision' ? 'block' : 'hidden'}>
           <Suspense fallback={<LoadingSpinner className="py-8" />}>
