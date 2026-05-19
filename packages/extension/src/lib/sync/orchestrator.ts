@@ -336,9 +336,9 @@ export class SyncOrchestrator {
 
   /**
    * Download from cloud and merge with local.
-   * Cloud wins on conflict, local-only items preserved.
+   * Now uses bidirectional merge (keeps latest version based on updatedAt).
    */
-  async downloadAndMerge(): Promise<MergeResult> {
+  async downloadAndMerge(): Promise<MergeResult & { conflicts?: Array<{ type: 'prompt' | 'category'; cloud: unknown; local: unknown }> }> {
     const cloudData = await this.cloudStrategy.restore()
     const localData = await this.getLocalData()
 
@@ -350,55 +350,60 @@ export class SyncOrchestrator {
       }
     }
 
-    // Merge with cloud priority
-    const mergedPrompts = this.mergeById(cloudData.prompts, localData.prompts)
-    const mergedCategories = this.mergeById(cloudData.categories, localData.categories)
-    const mergedTemporaryPrompts = this.mergeById(
-      cloudData.temporaryPrompts,
-      localData.temporaryPrompts
+    // Bidirectional merge - keeps latest version based on updatedAt
+    const promptMerge = this.mergeBidirectional(
+      cloudData.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
+      localData.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
     )
 
-    // Find local-only items
-    const cloudPromptIds = new Set(cloudData.prompts.map(p => p.id))
-    const cloudCategoryIds = new Set(cloudData.categories.map(c => c.id))
-    const cloudTempIds = new Set(cloudData.temporaryPrompts.map(p => p.id))
+    const categoryMerge = this.mergeBidirectional(
+      cloudData.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 })),
+      localData.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 }))
+    )
 
-    const localOnlyPrompts = localData.prompts.filter(p => !cloudPromptIds.has(p.id))
-    const localOnlyCategories = localData.categories.filter(c => !cloudCategoryIds.has(c.id))
-    const localOnlyTemporaryPrompts = localData.temporaryPrompts.filter(p => !cloudTempIds.has(p.id))
+    const tempMerge = this.mergeBidirectional(
+      cloudData.temporaryPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
+      localData.temporaryPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
+    )
 
     const result: MergeResult = {
       data: {
-        prompts: mergedPrompts,
-        categories: mergedCategories,
-        temporaryPrompts: mergedTemporaryPrompts,
+        prompts: promptMerge.merged as typeof cloudData.prompts,
+        categories: categoryMerge.merged as typeof cloudData.categories,
+        temporaryPrompts: tempMerge.merged as typeof cloudData.temporaryPrompts,
         timestamp: Date.now()
       },
       localOnlyItems: {
-        prompts: localOnlyPrompts,
-        categories: localOnlyCategories,
-        temporaryPrompts: localOnlyTemporaryPrompts
+        prompts: promptMerge.localOnly as typeof cloudData.prompts,
+        categories: categoryMerge.localOnly as typeof cloudData.categories,
+        temporaryPrompts: tempMerge.localOnly as typeof cloudData.temporaryPrompts
       }
     }
 
     // Apply merged data to storage
     await this.applyData(result.data)
 
-    // Mark pending upload if local-only items exist
-    if (localOnlyPrompts.length > 0 ||
-        localOnlyCategories.length > 0 ||
-        localOnlyTemporaryPrompts.length > 0) {
+    // Mark pending upload if local items newer than cloud
+    if (promptMerge.localOnly.length > 0 ||
+        categoryMerge.localOnly.length > 0 ||
+        tempMerge.localOnly.length > 0) {
       await this.updateSyncStatus({
         pendingUpload: true,
         localOnlyItems: {
-          promptIds: localOnlyPrompts.map(p => p.id),
-          categoryIds: localOnlyCategories.map(c => c.id),
-          temporaryPromptIds: localOnlyTemporaryPrompts.map(p => p.id)
+          promptIds: promptMerge.localOnly.map(p => p.id),
+          categoryIds: categoryMerge.localOnly.map(c => c.id),
+          temporaryPromptIds: tempMerge.localOnly.map(p => p.id)
         }
       })
     }
 
-    return result
+    return {
+      ...result,
+      conflicts: [
+        ...promptMerge.conflicts.map(c => ({ type: 'prompt' as const, cloud: c.cloud, local: c.local })),
+        ...categoryMerge.conflicts.map(c => ({ type: 'category' as const, cloud: c.cloud, local: c.local }))
+      ]
+    }
   }
 
   /**
@@ -587,25 +592,68 @@ export class SyncOrchestrator {
   }
 
   /**
-   * Merge arrays by ID with cloud priority.
-   * Same ID: cloud item wins.
-   * Local only: preserved.
+   * Bidirectional merge - keeps latest version based on updatedAt.
+   * This is TRUE multi-device sync (not cloud-wins-all).
    */
-  private mergeById<T extends { id: string }>(cloud: T[], local: T[]): T[] {
+  private mergeBidirectional<T extends { id: string; updatedAt?: number }>(
+    cloud: T[],
+    local: T[],
+    onConflict?: (cloudItem: T, localItem: T) => T
+  ): {
+    merged: T[]
+    cloudOnly: T[]
+    localOnly: T[]
+    conflicts: Array<{ cloud: T; local: T }>
+  } {
     const merged = new Map<string, T>()
+    const cloudOnly: T[] = []
+    const localOnly: T[] = []
+    const conflicts: Array<{ cloud: T; local: T }> = []
 
-    // Cloud data takes priority
-    for (const item of cloud) {
-      merged.set(item.id, item)
-    }
+    const cloudMap = new Map(cloud.map(item => [item.id, item]))
+    const localMap = new Map(local.map(item => [item.id, item]))
 
-    // Add local-only items
-    for (const item of local) {
-      if (!merged.has(item.id)) {
-        merged.set(item.id, item)
+    // Process all items
+    for (const [id, cloudItem] of cloudMap) {
+      const localItem = localMap.get(id)
+
+      if (!localItem) {
+        // Cloud only
+        cloudOnly.push(cloudItem)
+        merged.set(id, cloudItem)
+      } else {
+        // Both exist - compare updatedAt
+        const cloudUpdated = cloudItem.updatedAt || 0
+        const localUpdated = localItem.updatedAt || 0
+
+        if (cloudUpdated > localUpdated) {
+          merged.set(id, cloudItem)
+        } else if (localUpdated > cloudUpdated) {
+          merged.set(id, localItem)
+          localOnly.push(localItem) // Track for upload
+        } else {
+          // Same timestamp - conflict
+          conflicts.push({ cloud: cloudItem, local: localItem })
+          // Default: use conflict resolver or keep cloud
+          const resolved = onConflict?.(cloudItem, localItem) ?? cloudItem
+          merged.set(id, resolved)
+        }
       }
     }
 
-    return Array.from(merged.values())
+    // Add local-only items
+    for (const [id, localItem] of localMap) {
+      if (!cloudMap.has(id)) {
+        localOnly.push(localItem)
+        merged.set(id, localItem)
+      }
+    }
+
+    return {
+      merged: Array.from(merged.values()),
+      cloudOnly,
+      localOnly,
+      conflicts
+    }
   }
 }

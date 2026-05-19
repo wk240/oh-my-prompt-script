@@ -9,6 +9,7 @@ export interface Prompt {
   description?: string // Optional description for display in selection UI
   descriptionEn?: string // English description for bilingual support
   order: number // 分类内排序顺序
+  updatedAt?: number // Timestamp for last modification (used for bidirectional sync)
   // Image support fields (optional)
   localImage?: string // Local image relative path, e.g. "images/{id}.jpg"
   remoteImageUrl?: string // Original network URL (record source, optional)
@@ -20,6 +21,7 @@ export interface Category {
   name: string
   nameEn?: string // English name for bilingual support
   order: number
+  updatedAt?: number // Timestamp for last modification (used for bidirectional sync)
 }
 
 // User data container - all prompts and categories owned by user
