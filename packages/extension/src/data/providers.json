@@ -59,23 +59,8 @@
       "iconColor": "#00A67E"
     },
     {
-      "name": "Google Gemini",
-      "type": "official",
-      "websiteUrl": "https://ai.google.dev/",
-      "apiKeyUrl": "https://aistudio.google.com/apikey",
-      "apiEndpoint": "https://generativelanguage.googleapis.com",
-      "apiFormat": "gemini_native",
-      "models": [
-        { "id": "gemini-3.1-pro", "visionCapable": true },
-        { "id": "gemini-3-flash", "visionCapable": true },
-        { "id": "gemini-2.5-flash-lite", "visionCapable": true }
-      ],
-      "icon": "gemini",
-      "iconColor": "#4285F4"
-    },
-    {
-      "name": "Zhipu GLM (CN)",
-      "nameCn": "智谱清言 (国内版)",
+      "name": "Zhipu GLM",
+      "nameCn": "智谱清言",
       "type": "cn_official",
       "websiteUrl": "https://open.bigmodel.cn",
       "apiKeyUrl": "https://www.bigmodel.cn/claude-code?ic=RRVJPB5SII",
@@ -170,59 +155,23 @@
       ],
       "icon": "volcengine",
       "iconColor": "#FF6A00"
-    },
-    {
-      "name": "OpenRouter",
-      "type": "aggregator",
-      "websiteUrl": "https://openrouter.ai",
-      "apiKeyUrl": "https://openrouter.ai/keys",
-      "apiEndpoint": "https://openrouter.ai/api/v1",
-      "apiFormat": "chat_completions",
-      "models": [
-        { "id": "anthropic/claude-opus-4-7", "visionCapable": true },
-        { "id": "anthropic/claude-sonnet-4-6", "visionCapable": true },
-        { "id": "anthropic/claude-haiku-4-5", "visionCapable": true },
-        { "id": "openai/gpt-5.4", "visionCapable": true },
-        { "id": "google/gemini-3-pro", "visionCapable": true }
-      ],
-      "icon": "openrouter",
-      "iconColor": "#6566F1"
-    },
-    {
-      "name": "GitHub Copilot",
-      "type": "third_party",
-      "websiteUrl": "https://github.com/features/copilot",
-      "apiKeyUrl": "https://github.com/settings/copilot",
-      "apiEndpoint": "https://api.githubcopilot.com",
-      "apiFormat": "openai_chat",
-      "models": [
-        { "id": "claude-sonnet-4-6", "visionCapable": true },
-        { "id": "claude-haiku-4-5", "visionCapable": true }
-      ],
-      "icon": "github",
-      "iconColor": "#000000",
-      "requiresOAuth": true,
-      "providerType": "github_copilot"
     }
   ],
   "metadata": {
     "source": "cc-switch",
     "version": "2.0.0",
     "generatedAt": "2026-05-07",
-    "totalProviders": 12,
+    "totalProviders": 9,
     "categories": {
       "omp_official": "Oh My Prompt official Vision API service (requires membership)",
-      "official": "Official API providers (Anthropic, OpenAI, Google)",
-      "cn_official": "Chinese official API providers (Zhipu, Alibaba, Kimi, Xiaomi, Volcengine)",
-      "aggregator": "API aggregators (OpenRouter)",
-      "third_party": "Third-party partner providers (GitHub Copilot)"
+      "official": "Official API providers (Anthropic, OpenAI)",
+      "cn_official": "Chinese official API providers (Zhipu, Alibaba, Kimi, Xiaomi, Volcengine)"
     },
     "apiFormats": {
       "anthropic_messages": "Anthropic Messages API format - direct Claude API",
       "chat_completions": "OpenAI Chat Completions format - compatible format",
       "openai_responses": "OpenAI Responses API format - Codex style",
-      "openai_chat": "OpenAI Chat format - for GitHub Copilot",
-      "gemini_native": "Google Gemini Native API format - direct Gemini API"
+      "omp_official": "Oh My Prompt official Vision API format"
     },
     "notes": {
       "visionCapabilities": "All models listed support vision/multimodal input (image understanding)."

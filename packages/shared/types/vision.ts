@@ -26,7 +26,7 @@ export interface Provider {
   id: string                              // Generated from name (slug)
   name: string                            // Display name (English/international)
   nameCn?: string                         // Chinese name for cn_official providers
-  type: 'official' | 'cn_official' | 'aggregator' | 'third_party' | 'omp_official'
+  type: 'official' | 'cn_official' | 'omp_official'
   apiEndpoint: string                     // Default API URL
   apiFormat: 'anthropic_messages' | 'chat_completions' | 'openai_responses' | 'omp_official'
   models: ModelInfo[]                     // Available models with vision info
