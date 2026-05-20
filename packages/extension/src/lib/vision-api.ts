@@ -752,15 +752,53 @@ async function executeOfficialVisionApiCall(
 
     clearTimeout(timeoutId)
 
+    // Check HTTP status first before parsing JSON
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `HTTP ${response.status}`)
+      // Try to parse error from response body
+      let errorMessage = `HTTP ${response.status}`
+      try {
+        const errorData = await response.json()
+        // API returns: { success: false, error: 'ERROR_CODE', message?: '...' }
+        if (errorData && errorData.error) {
+          // Map error codes to user-friendly messages
+          const errorMessages: Record<string, string> = {
+            'NOT_LOGGED_IN': '请先登录',
+            'NOT_MEMBER': '此功能需要会员订阅',
+            'SUBSCRIPTION_INACTIVE': '订阅已过期',
+            'QUOTA_EXCEEDED': '本月额度已用完',
+            'INVALID_REQUEST': '请求格式无效',
+            'INVALID_IMAGE': '图片格式无效',
+            'VISION_API_ERROR': errorData.message || 'Vision API 错误'
+          }
+          errorMessage = errorMessages[errorData.error] || errorData.error
+        }
+      } catch {
+        // Failed to parse error body (HTML error page, etc.)
+        // Use HTTP status code as error message
+      }
+      throw new Error(errorMessage)
     }
 
-    const result = await response.json()
+    // Parse JSON response (only after response.ok is confirmed)
+    let result: { success?: boolean; data?: VisionApiResultData; error?: string; message?: string }
+    try {
+      result = await response.json()
+    } catch (parseError) {
+      // JSON parse failed - response body is not valid JSON (e.g., HTML, empty, truncated)
+      console.error('[Oh My Prompt] Vision API JSON parse error:', parseError)
+      throw new Error('API 返回格式异常（非JSON格式）')
+    }
 
+    // Validate result structure
+    if (!result) {
+      throw new Error('API 返回空响应')
+    }
+
+    // Check success flag and data presence
     if (!result.success || !result.data) {
-      throw new Error(result.error || 'Vision API returned invalid response')
+      // API explicitly returned error in JSON format
+      const errorMessage = result.error || result.message || 'Vision API 返回无效响应'
+      throw new Error(errorMessage)
     }
 
     return result.data as VisionApiResultData
