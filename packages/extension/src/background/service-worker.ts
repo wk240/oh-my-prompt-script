@@ -306,10 +306,11 @@ chrome.runtime.onMessage.addListener(
           .then((savedData: StorageSchema) => {
             // Trigger debounced sync with full backup data (including temporary prompts)
             // Use debounced version to batch rapid updates (e.g., drag reorder)
-            const backupData = {
+            const backupData: FullBackupData = {
               prompts: savedData.userData.prompts,
               categories: savedData.userData.categories,
-              temporaryPrompts: savedData.temporaryPrompts || []
+              temporaryPrompts: savedData.temporaryPrompts || [],
+              timestamp: Date.now()
             }
             return debouncedTriggerSync(backupData).then(syncResult => {
               if (!syncResult.success) {

@@ -62,7 +62,9 @@ export function OfficialVisionCard({
   }
 
   // Get quota info from subscription
-  const quota = subscription.optimizationQuota || { remaining: 0, limit: 50 }
+  // Dynamic limit based on plan type (team=200, pro=50, free=0)
+  const planLimits: Record<string, number> = { free: 0, pro: 50, team: 200 }
+  const quota = subscription.optimizationQuota || { remaining: 0, limit: planLimits[plan] || 50 }
   const plan = subscription.planType
   const isTeam = plan === 'team'
 

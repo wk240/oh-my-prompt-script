@@ -67,7 +67,12 @@ export async function syncFromWebApp(options?: { background?: boolean }): Promis
  */
 let cachedSyncStatus: {
   user?: { id: string; email?: string }
-  subscription?: unknown
+  subscription?: {
+    planType: 'free' | 'pro' | 'team'
+    status: 'active' | 'inactive' | 'expired' | 'canceled'
+    currentPeriodEnd?: number
+    optimizationQuota?: { used: number; remaining: number; limit: number }
+  }
   lastSyncAt?: number
   timestamp: number
 } | null = null
@@ -154,15 +159,24 @@ export async function getAuthState(): Promise<CloudAuthState> {
       }
     }
 
-    const statusData = await statusRes.json()
+    const statusData = await statusRes.json() as {
+      user: { id: string; email?: string }
+      subscription?: {
+        planType: 'free' | 'pro' | 'team'
+        status: 'active' | 'inactive' | 'expired' | 'canceled'
+        currentPeriodEnd?: number
+      }
+      optimizationQuota?: { used: number; remaining: number; limit: number }
+      lastSyncedAt?: number
+    }
 
     // Cache the result
     cachedSyncStatus = {
       user: statusData.user,
-      subscription: {
+      subscription: statusData.subscription ? {
         ...statusData.subscription,
         optimizationQuota: statusData.optimizationQuota
-      },
+      } : undefined,
       lastSyncAt: statusData.lastSyncedAt,
       timestamp: nowMs
     }

@@ -697,20 +697,36 @@ async function executeOfficialVisionApiCall(
   imageData: string,
   signal?: AbortSignal
 ): Promise<VisionApiResultData> {
-  // 1. Get Supabase session token
+  // 1. Get Supabase client (may be null if cleared after logout)
   const supabase = getSupabaseClient()
-  const { data: { session } } = await supabase.auth.getSession()
 
-  if (!session) {
+  if (!supabase) {
     throw new Error('NOT_LOGGED_IN: 请先登录')
   }
 
-  // 2. Validate image data
+  // 2. Get Supabase session token
+  let sessionResult: { data: { session: { access_token: string } | null }; error: unknown }
+  try {
+    sessionResult = await supabase.auth.getSession()
+  } catch (sessionError) {
+    // Session fetch failed (network, storage, or client not initialized)
+    console.error('[Oh My Prompt] Failed to get Supabase session:', sessionError)
+    throw new Error('NOT_LOGGED_IN: 请先登录')
+  }
+
+  // Check for session errors or missing session
+  if (sessionResult.error || !sessionResult.data.session || !sessionResult.data.session.access_token) {
+    throw new Error('NOT_LOGGED_IN: 请先登录')
+  }
+
+  const session = sessionResult.data.session
+
+  // 3. Validate image data
   if (!imageData.startsWith('data:image/')) {
     throw new Error('Image must be a valid data URL')
   }
 
-  // 3. Call official API
+  // 4. Call official API
   const abortController = new AbortController()
   const timeoutId = setTimeout(() => abortController.abort(), API_TIMEOUT_MS)
 
