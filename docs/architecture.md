@@ -241,6 +241,8 @@ Message types defined in `packages/shared/messages.ts` (MessageType enum, 50+ ty
 - **Toolchain:** Next.js 16
 - **Output:** `packages/web-app/.next/` (dev), deployed to Vercel
 - **API:** Server-side routes for sync and auth
+- **Repo:** `packages/web-app` is a git submodule (`wk240/oh-my-prompt-web-app`)
+- **Deployment:** Manual (`vercel deploy --prod`), auto-deploy disabled via `vercel.json`
 
 ### Shared
 - **TypeScript:** Shared types imported by both Extension and Web App
@@ -248,4 +250,4 @@ Message types defined in `packages/shared/messages.ts` (MessageType enum, 50+ ty
 
 ---
 
-*Last updated: 2026-05-12*
+*Last updated: 2026-05-20*

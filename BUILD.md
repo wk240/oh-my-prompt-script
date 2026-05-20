@@ -70,6 +70,41 @@ In `chrome://extensions/` with Developer mode enabled:
 
 **Important:** Keep the generated `.pem` private key secure for future updates. Losing it prevents extension updates.
 
+## Web App Deployment
+
+`packages/web-app` 是一个 **git submodule**，指向独立仓库 `wk240/oh-my-prompt-web-app`：
+
+```
+# 查看 submodule 配置
+cat .gitmodules
+```
+
+**Vercel 配置：**
+- Vercel 项目关联的是 submodule 仓库（`wk240/oh-my-prompt-web-app`）
+- 自动部署已禁用（`packages/web-app/vercel.json` 中 `deploymentEnabled: false`）
+- 需手动部署
+
+**手动部署流程：**
+```bash
+cd packages/web-app
+vercel deploy --prod
+```
+
+**更新 submodule 后同步到主仓库：**
+```bash
+# 在 submodule 提交并推送
+cd packages/web-app
+git add <files>
+git commit -m "your message"
+git push
+
+# 回到主仓库，更新 submodule 引用
+cd ..
+git add packages/web-app
+git commit -m "chore: update web-app submodule"
+git push
+```
+
 ## Version Update Process
 
 For future releases:
