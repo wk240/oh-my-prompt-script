@@ -254,9 +254,18 @@ export async function signOut(): Promise<{ success: boolean }> {
   }
 
   clearSupabaseClient()
+  invalidateSyncStatusCache() // Clear auth state cache
 
   // Clear stored session from chrome.storage.local with correct key format
   await chrome.storage.local.remove([SUPABASE_AUTH_KEY])
+
+  // Broadcast logout to all extension contexts (sidepanel, popup)
+  chrome.runtime.sendMessage({
+    type: 'AUTH_STATUS_UPDATE',
+    payload: { success: true, logout: true }
+  }).catch(() => {
+    // Other contexts may not be open, ignore error
+  })
 
   return { success: true }
 }

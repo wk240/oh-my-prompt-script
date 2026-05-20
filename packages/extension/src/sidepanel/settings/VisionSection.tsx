@@ -100,6 +100,17 @@ export function VisionSection() {
     getAuthState().then(setAuthState)
   }, [])
 
+  // Listen for auth status updates (broadcast by service-worker after AUTH_CALLBACK_COMPLETE)
+  useEffect(() => {
+    const handleMessage = (message: { type: string }) => {
+      if (message.type === MessageType.AUTH_STATUS_UPDATE) {
+        getAuthState().then(setAuthState)
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
+  }, [])
+
   // Load vision enabled setting from storage
   const loadVisionSetting = async () => {
     chrome.storage.local.get('prompt_script_data', (result) => {
