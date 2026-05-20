@@ -16,7 +16,7 @@ import { getSupabaseClient } from '@/lib/cloud-sync/supabase-client'
  */
 async function getActiveProviderConfig(): Promise<ProviderConfig | null> {
   const response = await chrome.runtime.sendMessage({ type: MessageType.GET_ACTIVE_CONFIG })
-  return response.success ? response.data : null
+  return response?.success ? response.data : null
 }
 
 /**
@@ -589,13 +589,20 @@ export async function executeVisionApiCall(
 /**
  * Execute Vision API call using active ProviderConfig
  * New multi-provider architecture
+ * @param imageData - Image data (base64 or URL)
+ * @param format - 'url' or 'base64'
+ * @param signal - Optional AbortSignal for cancellation
+ * @param providedConfig - Optional config passed directly (avoids nested messaging in service worker)
  */
 export async function executeVisionApiCallWithProviderConfig(
   imageData: string,
   format: 'url' | 'base64' = 'base64',
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  providedConfig?: ProviderConfig | null
 ): Promise<VisionApiResultData> {
-  const config = await getActiveProviderConfig()
+  // Use provided config if available (service worker passes it directly)
+  // Otherwise fetch from storage (content script context)
+  const config = providedConfig ?? await getActiveProviderConfig()
   if (!config) {
     throw new Error('NO_CONFIG: 请先配置 Vision API')
   }

@@ -1217,7 +1217,8 @@ chrome.runtime.onMessage.addListener(
               }
 
               // Use new function that correctly handles omp_official format
-              const resultData = await executeVisionApiCallWithProviderConfig(base64Image, 'base64')
+              // Pass activeConfig directly to avoid nested messaging (GET_ACTIVE_CONFIG inside VISION_API_CALL)
+              const resultData = await executeVisionApiCallWithProviderConfig(base64Image, 'base64', undefined, activeConfig)
               const languagePreference = await getLanguagePreference()
               const primaryPrompt = languagePreference === 'en' ? resultData.en.prompt : resultData.zh.prompt
               sendResponse({ success: true, data: { prompt: primaryPrompt, fullData: resultData } })
