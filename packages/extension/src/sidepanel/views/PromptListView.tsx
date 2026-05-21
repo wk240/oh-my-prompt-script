@@ -1009,6 +1009,18 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     }
   }, [loadFromStorage, refreshStatus])
 
+  // Listen for extracted text from Content Script (Agent mode)
+  useEffect(() => {
+    const handler = (message: { type: string; payload?: { inputText: string } }) => {
+      if (message.type === MessageType.AGENT_EXTRACT_FROM_CS && message.payload?.inputText) {
+        _setAgentExtractedText(message.payload.inputText)
+        setAgentViewMode('agent')
+      }
+    }
+    chrome.runtime.onMessage.addListener(handler)
+    return () => chrome.runtime.onMessage.removeListener(handler)
+  }, [])
+
   // Listen for storage changes directly (robust fallback for any storage mutation)
   useEffect(() => {
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
