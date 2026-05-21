@@ -16,6 +16,9 @@ export const runninghubConfig: PlatformConfig = {
 
   inputDetection: {
     selectors: [
+      // RHTV config-panel (temporary popup): mention-editor for image prompt
+      '.mention-editor[contenteditable="true"]',
+      '.image-input-prompt__textarea[contenteditable="true"]',
       // RHTV agent interface (canvas page): ap-textarea contenteditable
       '.ap-textarea-wrap .ap-textarea[contenteditable="true"]',
       '.ap-input-row .ap-textarea[contenteditable="true"]',
@@ -46,6 +49,12 @@ export const runninghubConfig: PlatformConfig = {
 
   // Legacy and agent interface injections
   secondaryInjections: [
+    {
+      // RHTV config-panel (temporary popup): inject in config-left prepend
+      inputSelector: '.mention-editor[contenteditable="true"]',
+      anchorSelector: '.config-panel-wrap .config-left',
+      position: 'prepend',
+    },
     {
       // RHTV agent canvas page: inject before Agent mode dropdown
       inputSelector: '.ap-textarea[contenteditable="true"]',
