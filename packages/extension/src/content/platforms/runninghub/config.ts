@@ -16,6 +16,9 @@ export const runninghubConfig: PlatformConfig = {
 
   inputDetection: {
     selectors: [
+      // RHTV config-panel (temporary popup): llm-input textarea
+      '.llm-input-area .llm-input',
+      '.llm-input',
       // RHTV config-panel (temporary popup): mention-editor for image prompt
       '.mention-editor[contenteditable="true"]',
       '.image-input-prompt__textarea[contenteditable="true"]',
@@ -50,7 +53,13 @@ export const runninghubConfig: PlatformConfig = {
   // Legacy and agent interface injections
   secondaryInjections: [
     {
-      // RHTV config-panel (temporary popup): inject in config-left prepend
+      // RHTV config-panel (llm-input textarea): inject in controls-left prepend
+      inputSelector: '.llm-input',
+      anchorSelector: '.config-panel-wrap .controls-left',
+      position: 'prepend',
+    },
+    {
+      // RHTV config-panel (mention-editor): inject in config-left prepend
       inputSelector: '.mention-editor[contenteditable="true"]',
       anchorSelector: '.config-panel-wrap .config-left',
       position: 'prepend',
