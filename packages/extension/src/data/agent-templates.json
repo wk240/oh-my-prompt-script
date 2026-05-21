@@ -1,0 +1,50 @@
+[
+  {
+    "id": "ecommerce",
+    "name": "电商套图",
+    "nameEn": "E-commerce",
+    "keywords": ["产品主体突出", "白底/渐变背景", "光影质感", "商业摄影", "多角度展示", "细节呈现", "高级质感"],
+    "description": "适用于电商产品展示，强调产品主体与商业质感",
+    "descriptionEn": "For e-commerce product display, emphasizing product focus and commercial quality"
+  },
+  {
+    "id": "poster",
+    "name": "海报图",
+    "nameEn": "Poster",
+    "keywords": ["视觉冲击力", "主题鲜明", "构图创意", "色彩对比", "排版设计", "信息层次", "吸引眼球"],
+    "description": "适用于宣传海报，强调视觉冲击与信息传达",
+    "descriptionEn": "For promotional posters, emphasizing visual impact and message delivery"
+  },
+  {
+    "id": "illustration",
+    "name": "插画",
+    "nameEn": "Illustration",
+    "keywords": ["艺术风格", "手绘质感", "创意表达", "色彩搭配", "叙事元素", "情感渲染", "独特画风"],
+    "description": "适用于艺术插画，强调创意表达与情感渲染",
+    "descriptionEn": "For artistic illustrations, emphasizing creative expression and emotional rendering"
+  },
+  {
+    "id": "logo",
+    "name": "Logo",
+    "nameEn": "Logo",
+    "keywords": ["简洁识别", "品牌元素", "符号化", "负空间", "几何造型", "视觉记忆", "品牌调性"],
+    "description": "适用于品牌Logo，强调简洁识别与品牌调性",
+    "descriptionEn": "For brand logos, emphasizing simplicity and brand identity"
+  },
+  {
+    "id": "ui",
+    "name": "UI界面",
+    "nameEn": "UI Interface",
+    "keywords": ["现代界面", "交互设计", "用户体验", "响应式", "Material/Fluent风格", "信息架构", "视觉一致性"],
+    "description": "适用于UI界面，强调现代设计与用户体验",
+    "descriptionEn": "For UI interfaces, emphasizing modern design and user experience"
+  },
+  {
+    "id": "3d",
+    "name": "3D渲染",
+    "nameEn": "3D Render",
+    "keywords": ["三维建模", "材质纹理", "光影渲染", "场景搭建", "Blender/Cinema4D风格", "透视准确", "真实感"],
+    "description": "适用于3D渲染，强调三维质感与光影效果",
+    "descriptionEn": "For 3D renders, emphasizing 3D quality and lighting effects"
+  }
+]
