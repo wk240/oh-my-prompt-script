@@ -627,9 +627,8 @@ chrome.runtime.onMessage.addListener(
         break
 
       case 'CLOSE_AUTH_TAB':
-        // Content script requests closing the auth sync tab
-        // Find the tab with auth/extension/sync URL and close it
-        chrome.tabs.query({ url: ['http://localhost:3000/auth/extension/sync*', 'https://oh-my-prompt.com/auth/extension/sync*'] })
+        // Content script requests closing the auth tab
+        chrome.tabs.query({ url: ['http://localhost:3000/auth/callback*', 'https://oh-my-prompt.com/auth/callback*'] })
           .then(tabs => {
             if (tabs.length > 0) {
               chrome.tabs.remove(tabs[0].id!)

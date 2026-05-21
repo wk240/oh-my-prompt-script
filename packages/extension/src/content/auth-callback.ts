@@ -191,24 +191,13 @@ function extractAndSaveTokens(): boolean {
       console.warn('[Oh My Prompt] Failed to notify background:', err)
     })
 
-    // Check route type - auto-close for sync route, show UI for callback route
-    const isSyncRoute = window.location.pathname.includes('/auth/extension/sync')
-
-    if (isSyncRoute) {
-      // Auto-close after 500ms delay (allow message to send)
-      setTimeout(() => {
-        console.log('[Oh My Prompt] Auto-closing sync tab')
-        window.close()
-      }, 500)
-    } else {
-      // OAuth callback - show success page with manual close button
-      createStyledPage({
-        iconStroke: '#81ecff',
-        title: '登录成功',
-        description: '云端同步已激活',
-        iconType: 'success'
-      })
-    }
+    // Show success page with manual close button
+    createStyledPage({
+      iconStroke: '#81ecff',
+      title: '登录成功',
+      description: '云端同步已激活',
+      iconType: 'success'
+    })
   })
 
   return true
@@ -220,10 +209,6 @@ if (extractAndSaveTokens()) {
 } else {
   // Hash not ready yet, wait for it
   console.log('[Oh My Prompt] Waiting for tokens in hash...')
-
-  // Check if this is the sync page - it may redirect to login if no session
-  const isSyncRoute = window.location.pathname.includes('/auth/extension/sync')
-  const initialUrl = window.location.href
 
   // Listen for hashchange event (when web-app's JavaScript sets the hash)
   const handleHashChange = () => {
@@ -247,29 +232,10 @@ if (extractAndSaveTokens()) {
 
   window.addEventListener('hashchange', handleHashChange)
 
-  // For sync page: monitor URL changes - if redirected to login, stop polling silently
-  // This is expected behavior when user is not logged in
-  let redirected = false
-  if (isSyncRoute) {
-    const checkRedirect = () => {
-      if (window.location.href !== initialUrl && window.location.pathname.includes('/auth/login')) {
-        console.log('[Oh My Prompt] Sync page redirected to login - stopping token polling')
-        redirected = true
-        clearInterval(pollInterval)
-        window.removeEventListener('hashchange', handleHashChange)
-      }
-    }
-    // Check URL every 100ms along with polling
-    setInterval(checkRedirect, 100)
-  }
-
   // Also poll periodically as fallback (in case hashchange doesn't fire)
   let pollCount = 0
   const maxPolls = 50 // Poll for up to 5 seconds (100ms interval)
   const pollInterval = setInterval(() => {
-    // If already redirected (for sync page), don't show timeout
-    if (redirected) return
-
     pollCount++
     if (extractAndSaveTokens()) {
       clearInterval(pollInterval)

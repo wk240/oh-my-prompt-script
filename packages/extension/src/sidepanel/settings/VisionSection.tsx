@@ -405,7 +405,7 @@ export function VisionSection() {
   }
 
   const handleLogin = () => {
-    chrome.tabs.create({ url: `${WEB_APP_URL}/auth/extension/sync` })
+    chrome.tabs.create({ url: `${WEB_APP_URL}/auth/callback?source=extension` })
   }
 
   const handleUpgrade = () => {

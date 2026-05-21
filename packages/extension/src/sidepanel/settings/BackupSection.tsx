@@ -151,10 +151,10 @@ export function BackupSection() {
   }, [loadBackupStatus])
 
   /**
-   * Handle cloud login - open Web App sync URL
+   * Handle cloud login - open Web App callback URL
    */
   const handleLogin = () => {
-    chrome.tabs.create({ url: `${WEB_APP_URL}/auth/extension/sync` })
+    chrome.tabs.create({ url: `${WEB_APP_URL}/auth/callback?source=extension` })
   }
 
   /**

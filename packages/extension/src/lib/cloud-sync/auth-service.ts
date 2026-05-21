@@ -37,22 +37,22 @@ export async function checkWebAppSession(): Promise<{
 }
 
 /**
- * Open Web App sync page to transfer session to Extension.
+ * Open Web App callback page to transfer session to Extension.
  *
  * Flow:
  * 1. Extension opens this URL in new tab (foreground or background)
  * 2. Web App detects existing session, returns tokens in hash
  * 3. Extension content script extracts tokens and saves to chrome.storage
- * 4. For sync route: tab auto-closes after success
+ * 4. Tab auto-closes after success (via hashchange listener)
  *
  * @param options.background - If true, open tab in background (active: false)
  * @returns Success status
  */
 export async function syncFromWebApp(options?: { background?: boolean }): Promise<{ success: boolean }> {
   try {
-    // Open sync page in new tab (background if specified)
+    // Open callback page with source=extension in new tab
     chrome.tabs.create({
-      url: `${WEB_APP_URL}/auth/extension/sync`,
+      url: `${WEB_APP_URL}/auth/callback?source=extension`,
       active: !options?.background
     })
     return { success: true }
@@ -207,7 +207,7 @@ export function invalidateSyncStatusCache(): void {
  * 2. Extension opens URL in new tab (chrome.tabs.create)
  * 3. User completes OAuth on provider site
  * 4. Provider redirects to web-app callback
- * 5. Web-app exchanges code for session
+ * 5. Web-app exchanges code for session and returns HTML with tokens (for extension)
  * 6. Extension polls waitForAuthCallback() until session detected
  *
  * @param provider - 'google' or 'github'
@@ -217,12 +217,11 @@ export async function signInWithOAuth(provider: 'google' | 'github'): Promise<{ 
   const supabase = getSupabaseClient()
 
   try {
-    // Use dedicated extension callback path to avoid query param matching issues
-    // Supabase's redirect URL matching is exact - query params must match exactly
+    // Use unified callback path with source=extension query param
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${WEB_APP_URL}/auth/extension/callback`,
+        redirectTo: `${WEB_APP_URL}/auth/callback?source=extension`,
         skipBrowserRedirect: true // We open in new tab manually
       }
     })
