@@ -16,6 +16,10 @@ export const runninghubConfig: PlatformConfig = {
 
   inputDetection: {
     selectors: [
+      // RHTV agent interface (canvas page): ap-textarea contenteditable
+      '.ap-textarea-wrap .ap-textarea[contenteditable="true"]',
+      '.ap-input-row .ap-textarea[contenteditable="true"]',
+      '.ap-textarea[contenteditable="true"]',
       // RHTV new interface: home page input (contenteditable)
       '.home-input-box .composer-input[contenteditable="true"]',
       '.home-input-stage .composer-input[contenteditable="true"]',
@@ -40,8 +44,14 @@ export const runninghubConfig: PlatformConfig = {
     position: 'prepend',
   },
 
-  // Legacy interface injections
+  // Legacy and agent interface injections
   secondaryInjections: [
+    {
+      // RHTV agent canvas page: inject before Agent mode dropdown
+      inputSelector: '.ap-textarea[contenteditable="true"]',
+      anchorSelector: '.ap-toolbar-left .ap-mode-dropdown-wrap',
+      position: 'before',
+    },
     {
       // Legacy Image panel: inject before the first parameter button
       inputSelector: '.qc-create-image .prompt-para[contenteditable="true"]',
