@@ -106,6 +106,11 @@ export enum MessageType {
   // Official Vision API
   GET_VISION_QUOTA = 'GET_VISION_QUOTA',           // 获取 Vision 额度状态
   ACTIVATE_OFFICIAL_CONFIG = 'ACTIVATE_OFFICIAL_CONFIG', // 激活官方配置
+
+  // Agent: Prompt enhancement feature
+  AGENT_GENERATE = 'AGENT_GENERATE',           // Request Agent generation
+  AGENT_GENERATE_RESULT = 'AGENT_GENERATE_RESULT', // Response with generated prompt
+  AGENT_EXTRACT_FROM_CS = 'AGENT_EXTRACT_FROM_CS', // Content Script extract input to Sidepanel
 }
 
 export interface Message<T = unknown> {
