@@ -229,7 +229,8 @@ export default function EcommerceView({
     aspectRatio,
     sellingPoints,
     setStructure,
-  }), [platform, market, language, aspectRatio, sellingPoints, setStructure])
+    customCounts: setStructure === 'custom' ? customCounts : undefined,
+  }), [platform, market, language, aspectRatio, sellingPoints, setStructure, customCounts])
 
   // Handle generate
   const handleGenerate = useCallback(async () => {
@@ -293,6 +294,7 @@ export default function EcommerceView({
 
       if (parsedResult) {
         setResult(parsedResult)
+        setViewMode('result')  // Switch to result view on success
       } else {
         setError('生成结果为空')
       }
