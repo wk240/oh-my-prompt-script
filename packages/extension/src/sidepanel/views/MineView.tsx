@@ -1,18 +1,12 @@
 // packages/extension/src/sidepanel/views/MineView.tsx
 import { useState, useEffect } from 'react'
-import { User, LogIn, Check, Sparkles, ExternalLink } from 'lucide-react'
+import { User, LogIn, Check, Sparkles, ExternalLink, ArrowRight } from 'lucide-react'
 import { Button } from '@/popup/components/ui/button'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import type { ProviderConfig, CloudAuthState, Provider, ProviderGroup } from '@oh-my-prompt/shared/types'
 import { getAuthState, signOut } from '@/lib/cloud-sync/auth-service'
 import { clearSupabaseClient } from '@/lib/cloud-sync/supabase-client'
 import { WEB_APP_URL } from '@/lib/config'
-import { CollapsibleSection } from '@/popup/components/CollapsibleSection'
-import { ProviderSelect } from '@/popup/components/ProviderSelect'
-import { ModelSelect } from '@/popup/components/ModelSelect'
-import { SavedConfigsList } from '@/popup/components/SavedConfigsList'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/popup/components/ui/dialog'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/popup/components/ui/tabs'
 import { loadSupportedProviders, groupProvidersByType } from '@/lib/provider-data'
 
 export default function MineView() {
@@ -400,41 +394,65 @@ export default function MineView() {
     <div className="w-full p-4 space-y-4">
       {/* 账号状态区 */}
       <div className="p-4 bg-white rounded-lg border border-gray-200">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-            <User className="w-5 h-5 text-gray-500" />
-          </div>
-          <div className="flex-1">
-            {authState?.status === 'logged_in' ? (
-              <>
-                <p className="text-sm font-medium text-gray-900">
-                  已登录
+        {authState?.status === 'logged_in' ? (
+          <>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-semibold"
+                style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+              >
+                {(authState.user?.email?.split('@')[0]?.charAt(0)?.toUpperCase() || 'U')}
+              </div>
+              <div className="flex-1">
+                <p className="text-[15px] font-semibold text-gray-900 leading-[1.4]">
+                  {authState.user?.email?.split('@')[0] || '已登录'}
                   {authState.subscription?.planType && (
-                    <span className="ml-2 text-xs text-amber-600">· {authState.subscription.planType === 'pro' ? '会员' : authState.subscription.planType}</span>
+                    <span className="ml-1.5 text-[11px] text-amber-600 font-medium">
+                      {authState.subscription.planType === 'pro' ? '会员' : authState.subscription.planType}
+                    </span>
                   )}
                 </p>
-                <button
-                  onClick={handleLogout}
-                  disabled={loading}
-                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {loading ? '退出中...' : '退出登录'}
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-medium text-gray-900">未登录</p>
-                <Button
-                  onClick={handleLogin}
-                  className="mt-2 h-8 text-xs"
-                >
-                  <LogIn className="w-3 h-3" />
-                  登录
-                </Button>
-              </>
-            )}
+                {authState.user?.email && (
+                  <p className="text-[11px] text-gray-400 mt-0.5">{authState.user.email}</p>
+                )}
+              </div>
+            </div>
+            <div className="mt-2.5 flex justify-between items-center">
+              <a
+                href={`${WEB_APP_URL}/dashboard`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-gray-500 hover:text-gray-600 transition-colors inline-flex items-center gap-1"
+              >
+                进入Web端
+                <ArrowRight className="w-2.5 h-2.5" />
+              </a>
+              <button
+                onClick={handleLogout}
+                disabled={loading}
+                className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {loading ? '退出中...' : '退出登录'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+              <User className="w-5 h-5 text-gray-500" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">未登录</p>
+              <Button
+                onClick={handleLogin}
+                className="mt-2 h-8 text-xs"
+              >
+                <LogIn className="w-3 h-3" />
+                登录
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 官方服务区 - 登录后显示 */}
@@ -443,7 +461,7 @@ export default function MineView() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-sm font-medium text-gray-900">Oh My Prompt 官方服务</p>
-              <p className="text-xs text-gray-500 mt-1">激活后云端备份、Agent生成、图片转提示词均可使用</p>
+              <p className="text-xs text-gray-500 mt-1">登录后云端备份、Agent生成、图片转提示词均可使用</p>
             </div>
           </div>
           {activeConfigId === officialConfigId ? (
