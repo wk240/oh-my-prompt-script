@@ -364,6 +364,24 @@ export default function EcommerceView({
     handleGenerate()
   }, [handleGenerate])
 
+  // Handle insert - copy to clipboard and show toast
+  const handleInsert = useCallback((text: string) => {
+    navigator.clipboard.writeText(text)
+    showToast('已复制，请在输入框中粘贴')
+  }, [showToast])
+
+  // Handle back to form
+  const handleBackToForm = useCallback(() => {
+    setViewMode('form')
+  }, [])
+
+  // Handle regenerate: go back to form and auto-trigger
+  const handleRegenerate = useCallback(() => {
+    setViewMode('form')
+    setResult(null)
+    setTimeout(() => handleGenerate(), 0)
+  }, [handleGenerate])
+
   // Is generate button disabled
   const isGenerateDisabled = !sellingPoints.trim() || isLoading
 
