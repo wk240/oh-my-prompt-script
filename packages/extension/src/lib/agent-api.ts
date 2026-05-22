@@ -7,9 +7,9 @@
  * to avoid needing a separate deployed route.
  */
 
-import type { ProviderConfig, AgentGeneratePayload, AgentGenerateResult } from '@oh-my-prompt/shared/types'
+import type { ProviderConfig, AgentGeneratePayload, AgentGenerateResult, EcommerceGenerateResult } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { buildAgentSystemPrompt } from './agent-templates'
+import { buildAgentSystemPrompt, buildEcommerceSystemPrompt } from './agent-templates'
 import { extractBase64Data } from './image-utils'
 import { WEB_APP_URL } from '@/lib/config'
 import { getSupabaseClient } from '@/lib/cloud-sync/supabase-client'
@@ -96,7 +96,8 @@ function buildOpenAIRequest(
   systemPrompt: string,
   userText: string,
   modelName: string,
-  imageData?: string
+  imageData?: string,
+  productImage?: string
 ): object {
   // Build user content with system prompt prefix
   const userContent: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = []
@@ -106,6 +107,16 @@ function buildOpenAIRequest(
     type: 'text',
     text: `${systemPrompt}\n\n用户描述：${userText}`
   })
+
+  // Add single product image for ecommerce
+  if (productImage) {
+    userContent.push({
+      type: 'image_url',
+      image_url: {
+        url: productImage
+      }
+    })
+  }
 
   // Add image if provided
   if (imageData) {
@@ -205,8 +216,10 @@ export async function executeAgentApiCallWithProviderConfig(
   }
 
   // Build system prompt
-  const hasImage = !!payload.imageData
-  const systemPrompt = buildAgentSystemPrompt(payload.templateCategory, hasImage)
+  const isEcommerce = payload.templateCategory === 'ecommerce' && payload.ecommerceConfig
+  const systemPrompt = isEcommerce
+    ? buildEcommerceSystemPrompt(payload.ecommerceConfig!, !!(payload.productImage || payload.imageData))
+    : buildAgentSystemPrompt(payload.templateCategory, !!payload.imageData)
 
   // Get full endpoint URL
   const endpointUrl = getFullEndpoint(config.apiEndpoint, config.apiFormat as 'anthropic_messages' | 'chat_completions')
@@ -222,6 +235,17 @@ export async function executeAgentApiCallWithProviderConfig(
       type: 'text',
       text: payload.inputText
     })
+
+    // Add single product image for ecommerce before single imageData
+    if (payload.productImage) {
+      const base64Data = extractBase64Data(payload.productImage)
+      if (base64Data) {
+        userContent.push({
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/jpeg', data: base64Data }
+        })
+      }
+    }
 
     if (payload.imageData) {
       // Extract pure base64 (without data URL prefix) for Anthropic
@@ -239,7 +263,7 @@ export async function executeAgentApiCallWithProviderConfig(
     requestBody = buildAnthropicRequest(systemPrompt, userContent, config.selectedModel)
   } else {
     // OpenAI: system prompt in user message prefix
-    requestBody = buildOpenAIRequest(systemPrompt, payload.inputText, config.selectedModel, payload.imageData)
+    requestBody = buildOpenAIRequest(systemPrompt, payload.inputText, config.selectedModel, payload.imageData, payload.productImage)
   }
 
   // Build headers
@@ -301,9 +325,30 @@ export async function executeAgentApiCallWithProviderConfig(
       throw new Error('API 返回空内容')
     }
 
+    // Parse ecommerce structured result
+    let ecommercePrompts: EcommerceGenerateResult | undefined
+    if (isEcommerce) {
+      try {
+        // Try to extract JSON from the response text
+        const jsonMatch = promptText.match(/\{[\s\S]*"prompts"[\s\S]*\}/)
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0])
+          if (parsed.prompts && Array.isArray(parsed.prompts)) {
+            ecommercePrompts = {
+              prompts: parsed.prompts,
+              templateCategory: 'ecommerce'
+            }
+          }
+        }
+      } catch {
+        // JSON parsing failed, return as plain text result
+      }
+    }
+
     return {
       prompt: promptText,
-      templateCategory: payload.templateCategory
+      templateCategory: payload.templateCategory,
+      ecommercePrompts
     }
 
   } catch (error) {
@@ -395,7 +440,9 @@ async function executeOfficialAgentApiCall(
         mode: 'agent',
         inputText: payload.inputText,
         imageData: payload.imageData,
-        templateCategory: payload.templateCategory
+        templateCategory: payload.templateCategory,
+        ...(payload.ecommerceConfig && { ecommerceConfig: payload.ecommerceConfig }),
+        ...(payload.productImage && { productImage: payload.productImage }),
       }),
       signal: abortController.signal
     })
