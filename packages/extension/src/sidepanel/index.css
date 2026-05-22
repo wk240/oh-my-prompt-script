@@ -1782,22 +1782,22 @@
   align-items: center;
   gap: 4px;
   padding: 5px 10px;
-  border: 1px solid #E5E5E5;
+  border: none;
   border-radius: 6px;
-  background: white;
+  background: #171717;
   font-size: 12px;
-  color: #A16207;
+  color: #ffffff;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .ecommerce-ai-write-btn:hover {
-  background: #FFFBEB;
-  border-color: #A16207;
+  background: #404040;
 }
 
 .ecommerce-ai-write-btn:disabled {
-  opacity: 0.5;
+  background: #A3A3A3;
+  color: #ffffff;
   cursor: not-allowed;
 }
 

@@ -1142,22 +1142,22 @@ export const DROPDOWN_STYLES = `
     align-items: center;
     gap: 4px;
     padding: 4px 8px;
-    border: 1px solid #E5E5E5;
+    border: none;
     border-radius: 6px;
-    background: white;
+    background: #171717;
     font-size: 11px;
-    color: #A16207;
+    color: #ffffff;
     cursor: pointer;
     transition: all 0.15s;
   }
 
   .ecommerce-panel-ai-write-btn:hover {
-    background: #FFFBEB;
-    border-color: #A16207;
+    background: #404040;
   }
 
   .ecommerce-panel-ai-write-btn:disabled {
-    opacity: 0.5;
+    background: #A3A3A3;
+    color: #ffffff;
     cursor: not-allowed;
   }
 
@@ -1298,6 +1298,10 @@ export const DROPDOWN_STYLES = `
 
   .ecommerce-panel-generate-btn {
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 10px 16px;
     background: #171717;
     color: white;
@@ -1326,7 +1330,6 @@ export const DROPDOWN_STYLES = `
     border-top-color: white;
     border-radius: 50%;
     animation: omp-spin 0.6s linear infinite;
-    margin-right: 6px;
     vertical-align: middle;
   }
 

@@ -17,19 +17,51 @@ import type {
   EcommerceCustomCounts,
   EcommerceGenerateResult,
   Category,
+  ProviderConfig,
 } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn, ArrowLeft } from 'lucide-react'
+import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn, ArrowLeft, ArrowUpRight } from 'lucide-react'
 import { showToast } from './ToastNotification'
 import { CategorySelectDialog } from './CategorySelectDialog'
 import { WEB_APP_URL } from '../../lib/config'
 import ecommerceConfigData from '@/data/ecommerce-config.json'
+
+export interface EcommercePersistedState {
+  productImage: string | null
+  productImageName: string
+  platform: string
+  market: string
+  language: string
+  aspectRatio: string
+  sellingPoints: string
+  setStructure: 'smart' | 'custom'
+  customCounts: EcommerceCustomCounts
+  result: EcommerceGenerateResult | null
+  viewMode: 'form' | 'result'
+}
+
+const DEFAULT_PERSISTED_STATE: EcommercePersistedState = {
+  productImage: null,
+  productImageName: '',
+  platform: 'amazon',
+  market: 'china',
+  language: 'zh',
+  aspectRatio: '1:1',
+  sellingPoints: '',
+  setStructure: 'smart',
+  customCounts: { whiteBg: 1, scene: 2, sellingPoint: 2, other: 2 },
+  result: null,
+  viewMode: 'form',
+}
 
 interface EcommercePanelProps {
   selectedTemplate: AgentTemplateCategory
   extractedText?: string
   categories: Category[]
   onSave: (prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => void
+  onInsert?: (text: string) => void
+  persistedState?: EcommercePersistedState
+  onPersistStateChange?: (state: EcommercePersistedState) => void
 }
 
 // Type helpers for ecommerce config JSON
@@ -48,40 +80,48 @@ interface EcommerceConfigData {
 
 const config = ecommerceConfigData as EcommerceConfigData
 
-const DEFAULT_CUSTOM_COUNTS: EcommerceCustomCounts = {
-  whiteBg: 1,
-  scene: 2,
-  sellingPoint: 2,
-  other: 2,
-}
-
 export function EcommercePanel({
   selectedTemplate,
   extractedText,
   categories,
   onSave,
+  onInsert,
+  persistedState,
+  onPersistStateChange,
 }: EcommercePanelProps) {
+  const initState = persistedState ?? DEFAULT_PERSISTED_STATE
   // Form state
-  const [productImage, setProductImage] = useState<string | null>(null)
-  const [productImageName, setProductImageName] = useState('')
-  const [platform, setPlatform] = useState<EcommercePlatform>('amazon')
-  const [market, setMarket] = useState<EcommerceMarket>('china')
-  const [language, setLanguage] = useState<EcommerceLanguage>('zh')
-  const [aspectRatio, setAspectRatio] = useState<EcommerceAspectRatio>('1:1')
-  const [sellingPoints, setSellingPoints] = useState('')
-  const [setStructure, setSetStructure] = useState<'smart' | 'custom'>('smart')
-  const [customCounts, setCustomCounts] = useState<EcommerceCustomCounts>({ ...DEFAULT_CUSTOM_COUNTS })
+  const [productImage, setProductImage] = useState<string | null>(initState.productImage)
+  const [productImageName, setProductImageName] = useState(initState.productImageName)
+  const [platform, setPlatform] = useState<EcommercePlatform>(initState.platform as EcommercePlatform)
+  const [market, setMarket] = useState<EcommerceMarket>(initState.market as EcommerceMarket)
+  const [language, setLanguage] = useState<EcommerceLanguage>(initState.language as EcommerceLanguage)
+  const [aspectRatio, setAspectRatio] = useState<EcommerceAspectRatio>(initState.aspectRatio as EcommerceAspectRatio)
+  const [sellingPoints, setSellingPoints] = useState(initState.sellingPoints)
+  const [setStructure, setSetStructure] = useState<'smart' | 'custom'>(initState.setStructure)
+  const [customCounts, setCustomCounts] = useState<EcommerceCustomCounts>(initState.customCounts)
 
   // UI state
   const [isAiWriting, setIsAiWriting] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [viewMode, setViewMode] = useState<'form' | 'result'>('form')
-  const [ecommerceResult, setEcommerceResult] = useState<EcommerceGenerateResult | null>(null)
+  const [viewMode, setViewMode] = useState<'form' | 'result'>(initState.viewMode)
+  const [result, setResult] = useState<EcommerceGenerateResult | null>(initState.result)
   const [error, setError] = useState<string | null>(null)
   const [hasConfig, setHasConfig] = useState<boolean | null>(null) // null = checking
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [savePromptIndex, setSavePromptIndex] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Helper to build persisted state snapshot
+  const buildPersistedState = useCallback((): EcommercePersistedState => ({
+    productImage, productImageName, platform, market, language, aspectRatio,
+    sellingPoints, setStructure, customCounts, result, viewMode,
+  }), [productImage, productImageName, platform, market, language, aspectRatio, sellingPoints, setStructure, customCounts, result, viewMode])
+
+  // Persist state to parent whenever it changes
+  useEffect(() => {
+    onPersistStateChange?.(buildPersistedState())
+  }, [buildPersistedState, onPersistStateChange])
 
   // Pre-fill selling points from extracted text
   useEffect(() => {
@@ -95,13 +135,33 @@ export function EcommercePanel({
     chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
       .then(response => {
         if (response?.success && response?.data) {
-          const { configs, activeConfigId } = response.data
-          setHasConfig(configs.length > 0 && activeConfigId !== null)
+          const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
+          setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
         } else {
           setHasConfig(false)
         }
       })
       .catch(() => setHasConfig(false))
+  }, [])
+
+  // Listen for auth status updates (login/logout) to refresh config check
+  useEffect(() => {
+    const handleMessage = (message: { type: string; payload?: { logout?: boolean } }) => {
+      if (message.type === MessageType.AUTH_STATUS_UPDATE) {
+        chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
+          .then(response => {
+            if (response?.success && response?.data) {
+              const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
+              setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+            } else {
+              setHasConfig(false)
+            }
+          })
+          .catch(() => setHasConfig(false))
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
   }, [])
 
   // Handle product image upload
@@ -150,7 +210,7 @@ export function EcommercePanel({
       if (!response?.success) {
         throw new Error(response?.error || 'AI帮写失败')
       }
-      const text = response.data?.text || response.data?.sellingPoints || ''
+      const text = typeof response.data === 'string' ? response.data : (response.data?.text || response.data?.sellingPoints || '')
       if (text) {
         setSellingPoints(prev => prev ? prev + '\n' + text : text)
         showToast('AI帮写完成')
@@ -179,7 +239,7 @@ export function EcommercePanel({
     if (isLoading) return
     setIsLoading(true)
     setError(null)
-    setEcommerceResult(null)
+    setResult(null)
     setViewMode('form')
 
     try {
@@ -235,7 +295,7 @@ export function EcommercePanel({
       }
 
       if (result) {
-        setEcommerceResult(result)
+        setResult(result)
         setViewMode('result')
       } else {
         setError('生成结果为空')
@@ -270,8 +330,8 @@ export function EcommercePanel({
 
   // Handle copy all prompts
   const handleCopyAll = useCallback(async () => {
-    if (!ecommerceResult) return
-    const allText = ecommerceResult.prompts
+    if (!result) return
+    const allText = result.prompts
       .map(p => `[${p.type}]\n${p.prompt}`)
       .join('\n\n---\n\n')
     try {
@@ -280,7 +340,7 @@ export function EcommercePanel({
     } catch {
       showToast('复制失败')
     }
-  }, [ecommerceResult])
+  }, [result])
 
   // Handle save single prompt
   const handleSavePrompt = useCallback((index: number) => {
@@ -289,20 +349,20 @@ export function EcommercePanel({
   }, [])
 
   const handleSaveConfirm = useCallback((categoryId: string) => {
-    if (savePromptIndex === null || !ecommerceResult) return
-    const prompt = ecommerceResult.prompts[savePromptIndex]
+    if (savePromptIndex === null || !result) return
+    const prompt = result.prompts[savePromptIndex]
     if (prompt) {
       onSave(prompt.prompt, categoryId, selectedTemplate)
       showToast('已保存到分类')
     }
     setShowSaveDialog(false)
     setSavePromptIndex(null)
-  }, [savePromptIndex, ecommerceResult, selectedTemplate, onSave])
+  }, [savePromptIndex, result, selectedTemplate, onSave])
 
   // Handle regenerate: go back to form and auto-trigger
   const handleRegenerate = useCallback(() => {
     setViewMode('form')
-    setEcommerceResult(null)
+    setResult(null)
     // Auto-trigger after state settles
     setTimeout(() => handleGenerate(), 0)
   }, [handleGenerate])
@@ -342,7 +402,7 @@ export function EcommercePanel({
           <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5, marginBottom: 20 }}>使用电商套图生成前，需要登录官方服务或配置第三方 API</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
             <button
-              onClick={() => window.open(`${WEB_APP_URL}/auth/login`, '_blank')}
+              onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: '#7C3AED', color: 'white', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer' }}
             >
               <LogIn style={{ width: 16, height: 16 }} />
@@ -571,7 +631,7 @@ export function EcommercePanel({
               </>
             ) : (
               <>
-                <Sparkles style={{ width: 14, height: 14, marginRight: 6 }} />
+                <Sparkles style={{ width: 14, height: 14 }} />
                 <span>生成套图提示词</span>
               </>
             )}
@@ -595,7 +655,7 @@ export function EcommercePanel({
       )}
 
       {/* Result View - full-screen overlay */}
-      {viewMode === 'result' && ecommerceResult && (
+      {viewMode === 'result' && result && (
         <div className="ecommerce-panel-result-view">
           {/* Header */}
           <div className="ecommerce-panel-result-header">
@@ -604,13 +664,13 @@ export function EcommercePanel({
             </button>
             <span className="ecommerce-panel-result-title">套图生成结果</span>
             <span className="ecommerce-panel-result-count">
-              共 {ecommerceResult.prompts.length} 张
+              共 {result.prompts.length} 张
             </span>
           </div>
 
           {/* Body: prompt cards */}
           <div className="ecommerce-panel-result-body">
-            {ecommerceResult.prompts.map((p, i) => (
+            {result.prompts.map((p, i) => (
               <div key={i} className="ecommerce-panel-result-card">
                 <div className="ecommerce-panel-result-card-header">
                   <span className="ecommerce-panel-result-type-tag">{p.type}</span>
@@ -618,6 +678,11 @@ export function EcommercePanel({
                 </div>
                 <div className="ecommerce-panel-result-text">{p.prompt}</div>
                 <div className="ecommerce-panel-result-actions">
+                  {onInsert && (
+                    <button className="ecommerce-panel-action-btn" onClick={() => { onInsert(p.prompt); showToast('已插入提示词') }} title="插入到输入框" style={{ color: '#7C3AED' }}>
+                      <ArrowUpRight style={{ width: 14, height: 14 }} />
+                    </button>
+                  )}
                   <button className="ecommerce-panel-action-btn" onClick={() => handleCopy(p.prompt)} title="复制">
                     <Copy style={{ width: 14, height: 14 }} />
                   </button>
