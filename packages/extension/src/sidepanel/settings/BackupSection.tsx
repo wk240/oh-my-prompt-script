@@ -211,6 +211,13 @@ export function BackupSection() {
   }
 
   /**
+   * Navigate to mine tab when user clicks "未登录"
+   */
+  const handleNavigateToMine = () => {
+    chrome.storage.session.set({ sidepanelIntent: 'mine' })
+  }
+
+  /**
    * Handle local permission restore
    */
   const handleRestorePermission = async () => {
@@ -580,6 +587,7 @@ export function BackupSection() {
           status={status?.cloud ?? null}
           onLogin={handleLogin}
           onClickError={() => setShowMoreOptions(true)}
+          onNavigateToMine={handleNavigateToMine}
         />
         <BackupStatusRow
           target="local"
