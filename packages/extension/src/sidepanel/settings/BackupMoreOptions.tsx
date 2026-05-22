@@ -123,7 +123,7 @@ export function BackupMoreOptions({
           </div>
 
           <p className="text-sm text-gray-600 leading-relaxed">
-            合并云端数据可将其他设备的数据合并到本地，保留本地独有数据。
+            合并云端数据可将云端的数据合并到本地，保留本地独有数据。
           </p>
 
           <div className="flex gap-2">
