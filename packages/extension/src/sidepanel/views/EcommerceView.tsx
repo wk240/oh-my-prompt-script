@@ -393,8 +393,8 @@ export default function EcommerceView({
       {/* Setup Guide — shown when no provider config available */}
       {hasConfig === false && (
         <div className="flex flex-col items-center justify-center flex-1 px-6 py-8 text-center">
-          <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-4">
-            <Settings className="w-6 h-6 text-purple-500" />
+          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-4">
+            <Settings className="w-6 h-6 text-amber-600" />
           </div>
           <h3 className="text-sm font-medium text-gray-900 mb-1">尚未配置 API</h3>
           <p className="text-xs text-gray-500 mb-5 leading-relaxed">
@@ -403,7 +403,7 @@ export default function EcommerceView({
           <div className="flex flex-col gap-2 w-full max-w-[240px]">
             <button
               onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
-              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
             >
               <LogIn className="w-4 h-4" />
               登录官方服务
@@ -522,20 +522,12 @@ export default function EcommerceView({
 
         {/* Selling Points Textarea with AI Write */}
         <div className="ecommerce-panel-section">
-          <label className="ecommerce-panel-label">
-            卖点描述<span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>
-          </label>
-          <div className="ecommerce-panel-textarea-section">
-            <textarea
-              className="ecommerce-panel-textarea"
-              placeholder="描述商品核心卖点，例如：无线蓝牙耳机、主动降噪、30小时续航..."
-              value={sellingPoints}
-              onChange={(e) => setSellingPoints(e.target.value)}
-              disabled={isLoading}
-              rows={4}
-            />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <label className="ecommerce-panel-label">
+              卖点描述<span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>
+            </label>
             <button
-              className="ecommerce-panel-ai-write-btn"
+              className="ecommerce-panel-ai-write-btn ecommerce-panel-ai-write-btn-inline"
               onClick={handleAiWrite}
               disabled={isAiWriting || !productImage}
             >
@@ -552,6 +544,14 @@ export default function EcommerceView({
               )}
             </button>
           </div>
+          <textarea
+            className="ecommerce-panel-textarea"
+            placeholder="描述商品核心卖点，例如：无线蓝牙耳机、主动降噪、30小时续航..."
+            value={sellingPoints}
+            onChange={(e) => setSellingPoints(e.target.value)}
+            disabled={isLoading}
+            rows={4}
+          />
         </div>
 
         {/* Structure Config: Smart vs Custom */}
@@ -648,7 +648,7 @@ export default function EcommerceView({
               <button
                 className="agent-error-retry"
                 onClick={() => { setError(null); setErrorAction(null); onOpenSettings() }}
-                style={{ background: '#7C3AED', color: 'white', marginLeft: 8 }}
+                style={{ background: '#A16207', color: 'white', marginLeft: 8 }}
               >
                 <Settings style={{ width: 12, height: 12 }} />
                 <span>去设置</span>

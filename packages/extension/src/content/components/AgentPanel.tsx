@@ -193,15 +193,15 @@ export function AgentPanel({
       {/* Setup Guide — shown when no provider config available */}
       {hasConfig === false && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '24px 16px', textAlign: 'center' }}>
-          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-            <Settings style={{ width: 24, height: 24, color: '#7C3AED' }} />
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Settings style={{ width: 24, height: 24, color: '#A16207' }} />
           </div>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#171717', marginBottom: 4 }}>尚未配置 API</div>
           <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5, marginBottom: 20 }}>使用 Agent 生成提示词前，需要登录官方服务或配置第三方 API</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
             <button
               onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: '#7C3AED', color: 'white', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: '#171717', color: 'white', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer' }}
             >
               <LogIn style={{ width: 16, height: 16 }} />
               登录官方服务
@@ -290,7 +290,7 @@ export function AgentPanel({
             <button
               className="agent-panel-error-retry"
               onClick={() => { setError(null); setErrorAction(null); chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_SETTINGS }) }}
-              style={{ background: '#7C3AED', color: 'white' }}
+              style={{ background: '#A16207', color: 'white' }}
             >
               <Settings style={{ width: 12, height: 12 }} />
               <span>去设置</span>
@@ -310,7 +310,7 @@ export function AgentPanel({
           <div className="agent-panel-result-content">{result}</div>
           <div className="agent-panel-result-actions">
             {onInsert && (
-              <button className="agent-panel-action-btn agent-panel-insert-btn" onClick={() => { onInsert(result); showToast('已插入提示词') }} title="插入到输入框" style={{ color: '#7C3AED' }}>
+              <button className="agent-panel-action-btn agent-panel-insert-btn" onClick={() => { onInsert(result); showToast('已插入提示词') }} title="插入到输入框" style={{ color: '#A16207' }}>
                 <ArrowUpRight style={{ width: 14, height: 14 }} />
               </button>
             )}

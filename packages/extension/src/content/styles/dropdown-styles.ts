@@ -1161,6 +1161,19 @@ export const DROPDOWN_STYLES = `
     cursor: not-allowed;
   }
 
+  /* Inline version - next to label */
+  .ecommerce-panel-ai-write-btn-inline {
+    position: static;
+    padding: 4px 8px;
+    font-size: 11px;
+    gap: 3px;
+  }
+
+  .ecommerce-panel-ai-write-btn-inline svg {
+    width: 11px;
+    height: 11px;
+  }
+
   .ecommerce-panel-structure-card {
     border: 1.5px solid #E5E5E5;
     border-radius: 8px;

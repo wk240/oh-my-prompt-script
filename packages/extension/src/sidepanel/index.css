@@ -1960,7 +1960,7 @@
 }
 
 .ecommerce-panel-upload-area:hover {
-  border-color: #7C3AED;
+  border-color: #A16207;
 }
 
 .ecommerce-panel-upload-placeholder {
@@ -2059,7 +2059,7 @@
 }
 
 .ecommerce-panel-select:focus {
-  border-color: #7C3AED;
+  border-color: #A16207;
 }
 
 .ecommerce-panel-textarea-section {
@@ -2081,7 +2081,7 @@
 }
 
 .ecommerce-panel-textarea:focus {
-  border-color: #7C3AED;
+  border-color: #A16207;
 }
 
 .ecommerce-panel-ai-write-btn {
@@ -2111,6 +2111,19 @@
   cursor: not-allowed;
 }
 
+/* Inline version - next to label */
+.ecommerce-panel-ai-write-btn-inline {
+  position: static;
+  padding: 4px 8px;
+  font-size: 11px;
+  gap: 3px;
+}
+
+.ecommerce-panel-ai-write-btn-inline svg {
+  width: 11px;
+  height: 11px;
+}
+
 /* 结构选择卡片 */
 .ecommerce-panel-structure-card {
   border: 1px solid #E5E7EB;
@@ -2126,8 +2139,8 @@
 }
 
 .ecommerce-panel-structure-card.active {
-  border: 2px solid #7C3AED;
-  background: #F9FAFB;
+  border: 2px solid #A16207;
+  background: #FFFBEB;
 }
 
 .ecommerce-panel-structure-card-header {
@@ -2150,8 +2163,8 @@
 }
 
 .ecommerce-panel-structure-card-checkbox.checked {
-  background: #7C3AED;
-  border-color: #7C3AED;
+  background: #A16207;
+  border-color: #A16207;
   color: white;
 }
 
@@ -2198,8 +2211,8 @@
 
 .ecommerce-panel-counter-ai-tag {
   padding: 2px 6px;
-  background: #F3E8FF;
-  color: #7C3AED;
+  background: #FFFBEB;
+  color: #A16207;
   border-radius: 4px;
   font-size: 10px;
   font-weight: 500;
@@ -2227,8 +2240,8 @@
 }
 
 .ecommerce-panel-counter-btn:hover:not(:disabled) {
-  background: #F3E8FF;
-  border-color: #7C3AED;
+  background: #FFFBEB;
+  border-color: #A16207;
 }
 
 .ecommerce-panel-counter-btn:disabled {
@@ -2252,7 +2265,7 @@
   justify-content: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #7C3AED;
+  background: #171717;
   color: white;
   border: none;
   border-radius: 8px;
@@ -2263,7 +2276,7 @@
 }
 
 .ecommerce-panel-generate-btn:hover:not(:disabled) {
-  background: #6D28D9;
+  background: #404040;
 }
 
 .ecommerce-panel-generate-btn:disabled {
@@ -2330,8 +2343,8 @@
 }
 
 .ecommerce-panel-result-back-btn:hover {
-  background: #F3E8FF;
-  color: #7C3AED;
+  background: #FFFBEB;
+  color: #A16207;
 }
 
 .ecommerce-panel-result-title {
@@ -2373,8 +2386,8 @@
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  background: #F3E8FF;
-  color: #7C3AED;
+  background: #FFFBEB;
+  color: #A16207;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
@@ -2410,8 +2423,8 @@
 }
 
 .ecommerce-panel-action-btn:hover {
-  color: #7C3AED;
-  border-color: #7C3AED;
+  color: #A16207;
+  border-color: #A16207;
 }
 
 .ecommerce-panel-action-btn:disabled {
@@ -2420,7 +2433,7 @@
 }
 
 .ecommerce-panel-insert-btn {
-  color: #7C3AED;
+  color: #A16207;
 }
 
 .ecommerce-panel-result-footer {
@@ -2434,7 +2447,7 @@
 .ecommerce-panel-result-footer-btn-primary {
   flex: 1;
   padding: 10px 16px;
-  background: #7C3AED;
+  background: #171717;
   color: white;
   border: none;
   border-radius: 6px;
@@ -2444,7 +2457,7 @@
 }
 
 .ecommerce-panel-result-footer-btn-primary:hover:not(:disabled) {
-  background: #6D28D9;
+  background: #404040;
 }
 
 .ecommerce-panel-result-footer-btn-primary:disabled {

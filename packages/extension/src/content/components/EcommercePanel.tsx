@@ -395,15 +395,15 @@ export function EcommercePanel({
       {/* Setup Guide - shown when no provider config available */}
       {hasConfig === false && viewMode === 'form' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '24px 16px', textAlign: 'center' }}>
-          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-            <Settings style={{ width: 24, height: 24, color: '#7C3AED' }} />
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Settings style={{ width: 24, height: 24, color: '#A16207' }} />
           </div>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#171717', marginBottom: 4 }}>尚未配置 API</div>
           <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5, marginBottom: 20 }}>使用电商套图生成前，需要登录官方服务或配置第三方 API</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
             <button
               onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: '#7C3AED', color: 'white', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: '#171717', color: 'white', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer' }}
             >
               <LogIn style={{ width: 16, height: 16 }} />
               登录官方服务
@@ -522,20 +522,12 @@ export function EcommercePanel({
 
           {/* Selling Points Textarea with AI Write */}
           <div className="ecommerce-panel-section">
-            <label className="ecommerce-panel-label">
-              卖点描述<span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>
-            </label>
-            <div className="ecommerce-panel-textarea-section">
-              <textarea
-                className="ecommerce-panel-textarea"
-                placeholder="描述商品核心卖点，例如：无线蓝牙耳机、主动降噪、30小时续航..."
-                value={sellingPoints}
-                onChange={(e) => setSellingPoints(e.target.value)}
-                disabled={isLoading}
-                rows={4}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label className="ecommerce-panel-label">
+                卖点描述<span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>
+              </label>
               <button
-                className="ecommerce-panel-ai-write-btn"
+                className="ecommerce-panel-ai-write-btn ecommerce-panel-ai-write-btn-inline"
                 onClick={handleAiWrite}
                 disabled={isAiWriting || !productImage}
               >
@@ -552,6 +544,14 @@ export function EcommercePanel({
                 )}
               </button>
             </div>
+            <textarea
+              className="ecommerce-panel-textarea"
+              placeholder="描述商品核心卖点，例如：无线蓝牙耳机、主动降噪、30小时续航..."
+              value={sellingPoints}
+              onChange={(e) => setSellingPoints(e.target.value)}
+              disabled={isLoading}
+              rows={4}
+            />
           </div>
 
           {/* Structure Config: Smart vs Custom */}
@@ -679,7 +679,7 @@ export function EcommercePanel({
                 <div className="ecommerce-panel-result-text">{p.prompt}</div>
                 <div className="ecommerce-panel-result-actions">
                   {onInsert && (
-                    <button className="ecommerce-panel-action-btn" onClick={() => { onInsert(p.prompt); showToast('已插入提示词') }} title="插入到输入框" style={{ color: '#7C3AED' }}>
+                    <button className="ecommerce-panel-action-btn" onClick={() => { onInsert(p.prompt); showToast('已插入提示词') }} title="插入到输入框" style={{ color: '#A16207' }}>
                       <ArrowUpRight style={{ width: 14, height: 14 }} />
                     </button>
                   )}

@@ -204,8 +204,8 @@ export default function AgentView({
       {/* Setup Guide — shown when no provider config available */}
       {hasConfig === false && (
         <div className="flex flex-col items-center justify-center flex-1 px-6 py-8 text-center">
-          <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-4">
-            <Settings className="w-6 h-6 text-purple-500" />
+          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-4">
+            <Settings className="w-6 h-6 text-amber-600" />
           </div>
           <h3 className="text-sm font-medium text-gray-900 mb-1">尚未配置 API</h3>
           <p className="text-xs text-gray-500 mb-5 leading-relaxed">
@@ -214,7 +214,7 @@ export default function AgentView({
           <div className="flex flex-col gap-2 w-full max-w-[240px]">
             <button
               onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
-              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
             >
               <LogIn className="w-4 h-4" />
               登录官方服务
@@ -304,7 +304,7 @@ export default function AgentView({
           <AlertTriangle className="agent-error-icon" />
           <span className="agent-error-text">{error}</span>
           {errorAction === 'settings' && onOpenSettings && (
-            <button className="agent-error-retry" onClick={() => { setError(null); setErrorAction(null); onOpenSettings() }} style={{ background: '#7C3AED', color: 'white' }}>
+            <button className="agent-error-retry" onClick={() => { setError(null); setErrorAction(null); onOpenSettings() }} style={{ background: '#A16207', color: 'white' }}>
               <Settings style={{ width: 12, height: 12 }} />
               <span>去设置</span>
             </button>
