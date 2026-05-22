@@ -13,7 +13,9 @@ import type {
   EcommerceAspectRatio,
   EcommerceConfig,
   EcommerceGenerateResult,
+  EcommerceCustomCounts,
   Category,
+  ProviderConfig,
 } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn } from 'lucide-react'
@@ -49,8 +51,6 @@ interface EcommerceViewProps {
   onOpenSettings?: () => void
 }
 
-const MAX_IMAGES = 3
-
 export default function EcommerceView({
   selectedTemplate,
   extractedText,
@@ -59,27 +59,35 @@ export default function EcommerceView({
   onOpenSettings
 }: EcommerceViewProps) {
   // Form state
-  const [productImages, setProductImages] = useState<string[]>([])
+  const [productImage, setProductImage] = useState<string | null>(null)
+  const [productImageName, setProductImageName] = useState('')
   const [platform, setPlatform] = useState<EcommercePlatform>('amazon')
   const [market, setMarket] = useState<EcommerceMarket>('china')
   const [language, setLanguage] = useState<EcommerceLanguage>('zh')
   const [aspectRatio, setAspectRatio] = useState<EcommerceAspectRatio>('1:1')
   const [sellingPoints, setSellingPoints] = useState('')
   const [setStructure, setSetStructure] = useState<'smart' | 'custom'>('smart')
+  const [customCounts, setCustomCounts] = useState<EcommerceCustomCounts>({
+    whiteBg: 1,
+    scene: 2,
+    sellingPoint: 2,
+    other: 2,
+  })
 
   // UI state
   const [isAiWriting, setIsAiWriting] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<'form' | 'result'>('form')
   const [result, setResult] = useState<EcommerceGenerateResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [errorAction, setErrorAction] = useState<'settings' | null>(null)
-  const [hasConfig, setHasConfig] = useState<boolean | null>(null) // null = checking
+  const [hasConfig, setHasConfig] = useState<boolean | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [savePromptIndex, setSavePromptIndex] = useState<number | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // Refs for 3 file input slots
-  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null])
+  // Refs
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Helper for toast notifications
   const showToast = useCallback((msg: string) => {
@@ -99,13 +107,33 @@ export default function EcommerceView({
     chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
       .then(response => {
         if (response?.success && response?.data) {
-          const { configs, activeConfigId } = response.data
-          setHasConfig(configs.length > 0 && activeConfigId !== null)
+          const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
+          setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
         } else {
           setHasConfig(false)
         }
       })
       .catch(() => setHasConfig(false))
+  }, [])
+
+  // Listen for auth status updates (login/logout) to refresh config check
+  useEffect(() => {
+    const handleMessage = (message: { type: string; payload?: { logout?: boolean } }) => {
+      if (message.type === MessageType.AUTH_STATUS_UPDATE) {
+        chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
+          .then(response => {
+            if (response?.success && response?.data) {
+              const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
+              setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+            } else {
+              setHasConfig(false)
+            }
+          })
+          .catch(() => setHasConfig(false))
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
   }, [])
 
   // Handle image upload for a specific slot
@@ -171,7 +199,7 @@ export default function EcommerceView({
       if (!response?.success) {
         throw new Error(response?.error || 'AI帮写失败')
       }
-      const text = response.data?.text || response.data?.sellingPoints || ''
+      const text = typeof response.data === 'string' ? response.data : (response.data?.text || response.data?.sellingPoints || '')
       if (text) {
         setSellingPoints(prev => prev ? prev + '\n' + text : text)
         showToast('AI帮写完成')
@@ -342,7 +370,7 @@ export default function EcommerceView({
           </p>
           <div className="flex flex-col gap-2 w-full max-w-[240px]">
             <button
-              onClick={() => window.open(`${WEB_APP_URL}/auth/login`, '_blank')}
+              onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
               className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
             >
               <LogIn className="w-4 h-4" />
