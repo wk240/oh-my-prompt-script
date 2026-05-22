@@ -64,7 +64,7 @@ export function ThirdPartyApiDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>第三方 API 配置</DialogTitle>
           <DialogDescription>配置后可使用 Agent 和图片转提示词功能</DialogDescription>
