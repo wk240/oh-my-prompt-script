@@ -136,8 +136,8 @@ export default function EcommerceView({
     return () => chrome.runtime.onMessage.removeListener(handleMessage)
   }, [])
 
-  // Handle image upload for a specific slot
-  const handleImageUpload = useCallback((slotIndex: number) => (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image upload
+  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -155,11 +155,8 @@ export default function EcommerceView({
     const reader = new FileReader()
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string
-      setProductImages(prev => {
-        const next = [...prev]
-        next[slotIndex] = dataUrl
-        return next
-      })
+      setProductImage(dataUrl)
+      setProductImageName(file.name)
     }
     reader.onerror = () => {
       showToast('图片读取失败')
@@ -170,28 +167,24 @@ export default function EcommerceView({
     event.target.value = ''
   }, [showToast])
 
-  // Handle remove image from a specific slot
-  const handleRemoveImage = useCallback((slotIndex: number) => () => {
-    setProductImages(prev => {
-      const next = [...prev]
-      next.splice(slotIndex, 1)
-      return next
-    })
-    // Reset the file input ref
-    if (fileInputRefs.current[slotIndex]) {
-      fileInputRefs.current[slotIndex]!.value = ''
+  // Handle remove image
+  const handleRemoveImage = useCallback(() => {
+    setProductImage(null)
+    setProductImageName('')
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
   }, [])
 
   // AI write selling points
   const handleAiWrite = useCallback(async () => {
-    if (isAiWriting || productImages.length === 0) return
+    if (isAiWriting || !productImage) return
     setIsAiWriting(true)
     try {
       const response = await chrome.runtime.sendMessage({
         type: MessageType.AGENT_ECOMMERCE_AI_WRITE,
         payload: {
-          imageData: productImages[0],
+          imageData: productImage,
           platform,
           language,
         },
@@ -210,7 +203,7 @@ export default function EcommerceView({
     } finally {
       setIsAiWriting(false)
     }
-  }, [isAiWriting, productImages, platform, language, showToast])
+  }, [isAiWriting, productImage, platform, language, showToast])
 
   // Build ecommerce config
   const buildEcommerceConfig = useCallback((): EcommerceConfig => ({
@@ -235,7 +228,7 @@ export default function EcommerceView({
         type: MessageType.AGENT_GENERATE,
         payload: {
           inputText: sellingPoints,
-          productImage: productImages[0] || undefined,
+          productImage: productImage || undefined,
           templateCategory: 'ecommerce',
           ecommerceConfig: buildEcommerceConfig(),
         },
@@ -305,7 +298,7 @@ export default function EcommerceView({
     } finally {
       setIsLoading(false)
     }
-  }, [isLoading, sellingPoints, productImages, buildEcommerceConfig, aspectRatio])
+  }, [isLoading, sellingPoints, productImage, buildEcommerceConfig, aspectRatio])
 
   // Handle copy single prompt
   const handleCopy = useCallback(async (text: string) => {
@@ -390,45 +383,42 @@ export default function EcommerceView({
       {/* Main Ecommerce UI — shown when config exists or still checking */}
       {(hasConfig === true || hasConfig === null) && (
       <div className="ecommerce-view">
-        {/* Product Image Upload - 3-slot grid */}
+        {/* Product Image Upload - Single image */}
         <div className="ecommerce-section">
           <label className="ecommerce-label">
             商品原图<span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>
           </label>
           <div className="ecommerce-image-grid">
-            {Array.from({ length: MAX_IMAGES }).map((_, i) => (
-              productImages[i] ? (
-                <div key={i} className="ecommerce-image-slot has-image">
-                  <img src={productImages[i]} alt={`商品图 ${i + 1}`} className="ecommerce-image-thumb" />
-                  <button
-                    className="ecommerce-image-remove"
-                    onClick={handleRemoveImage(i)}
-                    aria-label="移除图片"
-                  >
-                    <X style={{ width: 12, height: 12 }} />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  key={i}
-                  className="ecommerce-image-slot"
-                  onClick={() => fileInputRefs.current[i]?.click()}
+            {productImage ? (
+              <div className="ecommerce-image-slot has-image">
+                <img src={productImage} alt="商品图" className="ecommerce-image-thumb" />
+                <button
+                  className="ecommerce-image-remove"
+                  onClick={handleRemoveImage}
+                  aria-label="移除图片"
                 >
-                  <input
-                    ref={el => { fileInputRefs.current[i] = el }}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload(i)}
-                    style={{ display: 'none' }}
-                    disabled={isLoading}
-                  />
-                  <div className="ecommerce-upload-icon">
-                    <Upload style={{ width: 16, height: 16 }} />
-                    <span>{i === 0 ? '主图' : `图${i + 1}`}</span>
-                  </div>
+                  <X style={{ width: 12, height: 12 }} />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="ecommerce-image-slot"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={{ display: 'none' }}
+                  disabled={isLoading}
+                />
+                <div className="ecommerce-upload-icon">
+                  <Upload style={{ width: 16, height: 16 }} />
+                  <span>上传商品图</span>
                 </div>
-              )
-            ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -514,7 +504,7 @@ export default function EcommerceView({
             <button
               className="ecommerce-ai-write-btn"
               onClick={handleAiWrite}
-              disabled={isAiWriting || productImages.length === 0}
+              disabled={isAiWriting || !productImage}
             >
               {isAiWriting ? (
                 <>
