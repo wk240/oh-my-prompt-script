@@ -1,6 +1,6 @@
 // packages/extension/src/sidepanel/views/MineView.tsx
 import { useState, useEffect } from 'react'
-import { User, LogIn, Check, Sparkles, ArrowRight } from 'lucide-react'
+import { User, LogIn, Sparkles, ArrowRight } from 'lucide-react'
 import { Button } from '@/popup/components/ui/button'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import type { ProviderConfig, CloudAuthState, Provider, ProviderGroup } from '@oh-my-prompt/shared/types'
@@ -381,8 +381,18 @@ export default function MineView() {
                 <p className="text-[15px] font-semibold text-gray-900 leading-[1.4]">
                   {authState.user?.email?.split('@')[0] || '已登录'}
                   {authState.subscription?.planType && (
-                    <span className="ml-1.5 text-[11px] text-amber-600 font-medium">
-                      {authState.subscription.planType === 'pro' ? '会员' : authState.subscription.planType}
+                    <span
+                      className="ml-2 px-3 py-0.5 rounded-xl text-[10px] font-bold tracking-wide"
+                      style={{
+                        background: authState.subscription.planType === 'pro' ? '#C9A962'
+                          : authState.subscription.planType === 'team' ? '#1a1a1a'
+                          : '#f5f5f5',
+                        color: authState.subscription.planType === 'pro' ? '#111'
+                          : authState.subscription.planType === 'team' ? '#fff'
+                          : '#888',
+                      }}
+                    >
+                      {authState.subscription.planType.toUpperCase()}
                     </span>
                   )}
                 </p>
@@ -429,31 +439,25 @@ export default function MineView() {
         )}
       </div>
 
-      {/* 官方服务区 - 登录后显示 */}
-      {authState?.status === 'logged_in' && (
-        <div className="p-4 bg-white rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-sm font-medium text-gray-900">Oh My Prompt 官方服务</p>
-              <p className="text-xs text-gray-500 mt-1">登录后云端备份、Agent生成、图片转提示词均可使用</p>
-            </div>
-          </div>
-          {activeConfigId === officialConfigId ? (
-            <div className="flex items-center gap-2 text-sm text-green-600">
-              <Check className="w-4 h-4" />
-              已激活
-            </div>
-          ) : (
-            <Button
-              onClick={handleActivateOfficial}
-              disabled={loading}
-              className="w-full h-9"
-            >
-              {loading ? '激活中...' : '激活官方服务'}
-            </Button>
-          )}
-        </div>
-      )}
+      {/* API配置列表 */}
+      <div className="p-4 bg-white rounded-lg border border-gray-200">
+        <SavedConfigsList
+          configs={configs}
+          activeConfigId={activeConfigId}
+          onActivate={handleActivate}
+          onActivateOfficial={handleActivateOfficial}
+          onDelete={handleDeleteClick}
+          onEdit={handleEdit}
+          providers={providers}
+          providerGroups={providerGroups}
+          loading={loading}
+          onSaveQuickConfig={handleSaveQuickConfig}
+          onSaveCustomConfig={handleSaveCustomConfig}
+          error={error}
+          success={success}
+          authState={authState}
+        />
+      </div>
 
       {/* 功能开关区 */}
       <div className="p-4 bg-white rounded-lg border border-gray-200">
@@ -481,26 +485,6 @@ export default function MineView() {
           </button>
         </div>
       </div>
-
-      {/* API配置列表 */}
-      {visionEnabled && (
-        <div className="p-4 bg-white rounded-lg border border-gray-200">
-          <SavedConfigsList
-            configs={configs}
-            activeConfigId={activeConfigId}
-            onActivate={handleActivate}
-            onDelete={handleDeleteClick}
-            onEdit={handleEdit}
-            providers={providers}
-            providerGroups={providerGroups}
-            loading={loading}
-            onSaveQuickConfig={handleSaveQuickConfig}
-            onSaveCustomConfig={handleSaveCustomConfig}
-            error={error}
-            success={success}
-          />
-        </div>
-      )}
 
       {/* Edit dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
