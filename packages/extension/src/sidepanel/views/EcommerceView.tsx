@@ -424,42 +424,36 @@ export default function EcommerceView({
       {(hasConfig === true || hasConfig === null) && (
       <div className="ecommerce-view">
         {/* Product Image Upload - Single image */}
-        <div className="ecommerce-section">
-          <label className="ecommerce-label">
+        <div className="ecommerce-panel-section">
+          <label className="ecommerce-panel-label">
             商品原图<span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>
           </label>
-          <div className="ecommerce-image-grid">
-            {productImage ? (
-              <div className="ecommerce-image-slot has-image">
-                <img src={productImage} alt="商品图" className="ecommerce-image-thumb" />
-                <button
-                  className="ecommerce-image-remove"
-                  onClick={handleRemoveImage}
-                  aria-label="移除图片"
-                >
-                  <X style={{ width: 12, height: 12 }} />
+          {productImage ? (
+            <div className="ecommerce-panel-upload-area" style={{ borderStyle: 'solid', borderColor: '#E5E7EB' }}>
+              <div className="ecommerce-panel-upload-preview">
+                <img src={productImage} alt="商品图" className="ecommerce-panel-upload-thumb" />
+                <span className="ecommerce-panel-upload-info">{productImageName}</span>
+                <button className="ecommerce-panel-upload-remove" onClick={handleRemoveImage} aria-label="移除图片">
+                  <X style={{ width: 14, height: 14 }} />
                 </button>
               </div>
-            ) : (
-              <div
-                className="ecommerce-image-slot"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  style={{ display: 'none' }}
-                  disabled={isLoading}
-                />
-                <div className="ecommerce-upload-icon">
-                  <Upload style={{ width: 16, height: 16 }} />
-                  <span>上传商品图</span>
-                </div>
+            </div>
+          ) : (
+            <div className="ecommerce-panel-upload-area" onClick={() => fileInputRef.current?.click()}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                style={{ display: 'none' }}
+                disabled={isLoading}
+              />
+              <div className="ecommerce-panel-upload-placeholder">
+                <Upload style={{ width: 18, height: 18 }} />
+                <span>上传商品原图（5MB以内）</span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Selectors: Platform + Market */}
@@ -561,24 +555,69 @@ export default function EcommerceView({
           </div>
         </div>
 
-        {/* Structure Config: Smart vs Custom (button toggle) */}
-        <div className="ecommerce-section">
-          <label className="ecommerce-label">套图结构</label>
-          <div className="ecommerce-structure-row">
-            <button
-              className={`ecommerce-structure-option ${setStructure === 'smart' ? 'active' : ''}`}
+        {/* Structure Config: Smart vs Custom */}
+        <div className="ecommerce-panel-section">
+          <label className="ecommerce-panel-label">套图结构</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Smart card */}
+            <div
+              className={`ecommerce-panel-structure-card ${setStructure === 'smart' ? 'active' : ''}`}
               onClick={() => setSetStructure('smart')}
-              disabled={isLoading}
             >
-              智能匹配
-            </button>
-            <button
-              className={`ecommerce-structure-option ${setStructure === 'custom' ? 'active' : ''}`}
+              <div className="ecommerce-panel-structure-card-header">
+                <div className={`ecommerce-panel-structure-card-checkbox ${setStructure === 'smart' ? 'checked' : ''}`}>
+                  ✓
+                </div>
+                <div>
+                  <div className="ecommerce-panel-structure-card-title">智能配图</div>
+                  <div className="ecommerce-panel-structure-card-desc">AI 自动规划套图数量与类型</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Custom card */}
+            <div
+              className={`ecommerce-panel-structure-card ${setStructure === 'custom' ? 'active' : ''}`}
               onClick={() => setSetStructure('custom')}
-              disabled={isLoading}
             >
-              自定义配置
-            </button>
+              <div className="ecommerce-panel-structure-card-header">
+                <div className={`ecommerce-panel-structure-card-checkbox ${setStructure === 'custom' ? 'checked' : ''}`}>
+                  ✓
+                </div>
+                <div>
+                  <div className="ecommerce-panel-structure-card-title">自定义配图</div>
+                  <div className="ecommerce-panel-structure-card-desc">手动设置各类型图片数量</div>
+                </div>
+              </div>
+              {setStructure === 'custom' && (
+                <div className="ecommerce-panel-structure-card-body">
+                  {counterRows.map(row => (
+                    <div key={row.key} className="ecommerce-panel-counter-row">
+                      <span className="ecommerce-panel-counter-label">{row.label}</span>
+                      <span className="ecommerce-panel-counter-desc">{row.desc}</span>
+                      {row.aiTag && <span className="ecommerce-panel-counter-ai-tag">AI</span>}
+                      <div className="ecommerce-panel-counter-controls">
+                        <button
+                          className="ecommerce-panel-counter-btn"
+                          onClick={(e) => { e.stopPropagation(); adjustCount(row.key, -1) }}
+                          disabled={customCounts[row.key] <= 0}
+                        >
+                          -
+                        </button>
+                        <span className="ecommerce-panel-counter-value">{customCounts[row.key]}</span>
+                        <button
+                          className="ecommerce-panel-counter-btn"
+                          onClick={(e) => { e.stopPropagation(); adjustCount(row.key, 1) }}
+                          disabled={customCounts[row.key] >= 10}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
