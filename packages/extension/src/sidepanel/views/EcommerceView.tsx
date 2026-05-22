@@ -205,6 +205,22 @@ export default function EcommerceView({
     }
   }, [isAiWriting, productImage, platform, language, showToast])
 
+  // Custom counts adjustment
+  const adjustCount = useCallback((key: keyof EcommerceCustomCounts, delta: number) => {
+    setCustomCounts(prev => ({
+      ...prev,
+      [key]: Math.max(0, Math.min(10, prev[key] + delta)),
+    }))
+  }, [])
+
+  // Counter row configuration
+  const counterRows: Array<{ key: keyof EcommerceCustomCounts; label: string; desc: string; aiTag?: boolean }> = [
+    { key: 'whiteBg', label: '白底图', desc: '纯白背景商品图' },
+    { key: 'scene', label: '场景图', desc: '生活场景展示', aiTag: true },
+    { key: 'sellingPoint', label: '卖点图', desc: '核心卖点展示', aiTag: true },
+    { key: 'other', label: '其他图', desc: '细节/对比/尺寸等' },
+  ]
+
   // Build ecommerce config
   const buildEcommerceConfig = useCallback((): EcommerceConfig => ({
     platform,
