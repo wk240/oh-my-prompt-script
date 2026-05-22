@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, Suspense, lazy } from 'react'
-import type { AgentTemplateCategory, Category } from '@oh-my-prompt/shared/types'
+import type { AgentTemplateCategory, Category, ProviderConfig } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn } from 'lucide-react'
 import { Tooltip } from '@/content/components/Tooltip'
@@ -59,13 +59,34 @@ export default function AgentView({
     chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
       .then(response => {
         if (response?.success && response?.data) {
-          const { configs, activeConfigId } = response.data
-          setHasConfig(configs.length > 0 && activeConfigId !== null)
+          const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
+          setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
         } else {
           setHasConfig(false)
         }
       })
       .catch(() => setHasConfig(false))
+  }, [])
+
+  // Listen for auth status updates (login/logout) to refresh config check
+  useEffect(() => {
+    const handleMessage = (message: { type: string; payload?: { logout?: boolean } }) => {
+      if (message.type === MessageType.AUTH_STATUS_UPDATE) {
+        // Re-check provider configs after auth change
+        chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
+          .then(response => {
+            if (response?.success && response?.data) {
+              const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
+              setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+            } else {
+              setHasConfig(false)
+            }
+          })
+          .catch(() => setHasConfig(false))
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
   }, [])
 
   // Handle image upload
@@ -192,7 +213,7 @@ export default function AgentView({
           </p>
           <div className="flex flex-col gap-2 w-full max-w-[240px]">
             <button
-              onClick={() => window.open(`${WEB_APP_URL}/auth/login`, '_blank')}
+              onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
               className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
             >
               <LogIn className="w-4 h-4" />

@@ -25,14 +25,34 @@ export async function handleAgentGenerate(
   payload: AgentGeneratePayload,
   sendResponse: (response: MessageResponse<AgentGenerateResult>) => void
 ): Promise<boolean> {
+  // 醒目的开始标记
+  console.log('🔴🔴🔴 [AGENT PERFORMANCE TEST START] 🔴🔴🔴')
+
+  const perfLog = (step: string, startTime?: number) => {
+    const now = performance.now()
+    const elapsed = startTime ? now - startTime : 0
+    console.log(`⏱️ [AGENT] ${step}${startTime ? ` (${elapsed.toFixed(0)}ms)` : ''}`)
+    return now
+  }
+
+  const totalStart = perfLog('START handler total')
+
   try {
     // Read active config directly from storage (same pattern as Vision API handler)
+    const storageStart = perfLog('START read storage (provider config)')
     const result = await chrome.storage.local.get(PROVIDER_CONFIGS_STORAGE_KEY)
+    perfLog('END read storage (provider config)', storageStart)
+
     const storage = result[PROVIDER_CONFIGS_STORAGE_KEY] as ProviderConfigsStorage | undefined
     const activeConfig: ProviderConfig | null =
       (storage?.activeConfigId && storage?.configs?.find(c => c.id === storage.activeConfigId)) || null
 
+    perfLog('START executeAgentApiCallWithProviderConfig')
     const agentResult = await executeAgentApiCallWithProviderConfig(payload, undefined, activeConfig)
+    perfLog('END executeAgentApiCallWithProviderConfig', totalStart)
+
+    perfLog('END handler total', totalStart)
+
     sendResponse({ success: true, data: agentResult })
   } catch (error) {
     console.error('[Oh My Prompt] Agent API error:', error)
@@ -68,6 +88,9 @@ export async function handleEcommerceAiWrite(
       return true
     }
 
+    // Build systemPrompt locally (single source of truth)
+    const systemPrompt = buildEcommerceAiWritePrompt(platform, language)
+
     // For omp_official format, use the official API
     if (activeConfig.apiFormat === 'omp_official') {
       const supabase = getSupabaseClient()
@@ -101,9 +124,7 @@ export async function handleEcommerceAiWrite(
           inputText: '请根据商品图片生成卖点描述',
           imageData,
           templateCategory: 'ecommerce',
-          ecommerceAiWrite: true,
-          ecommercePlatform: platform,
-          ecommerceLanguage: language
+          systemPrompt,
         })
       })
 
@@ -118,7 +139,7 @@ export async function handleEcommerceAiWrite(
     }
 
     // For third-party APIs, construct the call directly
-    const systemPrompt = buildEcommerceAiWritePrompt(platform, language)
+    // systemPrompt already built above
     const base64Data = imageData.includes(',') ? imageData.split(',')[1] : imageData
 
     let requestBody: Record<string, unknown>

@@ -10,7 +10,7 @@
 import type { ProviderConfig, AgentGeneratePayload, AgentGenerateResult, EcommerceGenerateResult } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { buildAgentSystemPrompt, buildEcommerceSystemPrompt } from './agent-templates'
-import { extractBase64Data } from './image-utils'
+import { extractBase64Data, extractMediaType } from './image-utils'
 import { WEB_APP_URL } from '@/lib/config'
 import { getSupabaseClient } from '@/lib/cloud-sync/supabase-client'
 
@@ -193,16 +193,38 @@ export async function executeAgentApiCallWithProviderConfig(
   signal?: AbortSignal,
   providedConfig?: ProviderConfig | null
 ): Promise<AgentGenerateResult> {
+  const perfLog = (step: string, startTime?: number) => {
+    const now = performance.now()
+    const elapsed = startTime ? now - startTime : 0
+    console.log(`[Oh My Prompt] ⏱️ Agent Perf: ${step}${startTime ? ` (${elapsed.toFixed(0)}ms)` : ''}`)
+    return now
+  }
+
+  const totalStart = perfLog('START total flow')
+
   // Use provided config if available (service worker passes it directly)
   // Otherwise fetch from storage (content script / sidepanel context)
+  const configStart = perfLog('START get config')
   const config = providedConfig ?? await getActiveProviderConfig()
+  perfLog('END get config', configStart)
+
   if (!config) {
     throw new Error('NO_CONFIG: 请先配置 API 或登录官方服务')
   }
 
   // Official API: use session token authentication via Vision endpoint
+  // Build systemPrompt locally and send to server (single source of truth)
   if (config.apiFormat === 'omp_official') {
-    return executeOfficialAgentApiCall(payload, signal)
+    const promptStart = perfLog('START build system prompt (official)')
+    const isEcommerce = payload.templateCategory === 'ecommerce' && payload.ecommerceConfig
+    const systemPrompt = isEcommerce
+      ? buildEcommerceSystemPrompt(payload.ecommerceConfig!, !!(payload.productImage || payload.imageData))
+      : buildAgentSystemPrompt(payload.templateCategory, !!payload.imageData)
+    perfLog('END build system prompt (official)', promptStart)
+
+    const result = await executeOfficialAgentApiCall(payload, systemPrompt, signal, perfLog)
+    perfLog('END total flow', totalStart)
+    return result
   }
 
   // Only support anthropic_messages and chat_completions for third-party APIs
@@ -216,15 +238,18 @@ export async function executeAgentApiCallWithProviderConfig(
   }
 
   // Build system prompt
+  const promptStart = perfLog('START build system prompt (third-party)')
   const isEcommerce = payload.templateCategory === 'ecommerce' && payload.ecommerceConfig
   const systemPrompt = isEcommerce
     ? buildEcommerceSystemPrompt(payload.ecommerceConfig!, !!(payload.productImage || payload.imageData))
     : buildAgentSystemPrompt(payload.templateCategory, !!payload.imageData)
+  perfLog('END build system prompt (third-party)', promptStart)
 
   // Get full endpoint URL
   const endpointUrl = getFullEndpoint(config.apiEndpoint, config.apiFormat as 'anthropic_messages' | 'chat_completions')
 
   // Build request body
+  const buildStart = perfLog('START build request body')
   let requestBody: object
 
   if (config.apiFormat === 'anthropic_messages') {
@@ -242,7 +267,7 @@ export async function executeAgentApiCallWithProviderConfig(
       if (base64Data) {
         userContent.push({
           type: 'image',
-          source: { type: 'base64', media_type: 'image/jpeg', data: base64Data }
+          source: { type: 'base64', media_type: extractMediaType(payload.productImage), data: base64Data }
         })
       }
     }
@@ -254,7 +279,7 @@ export async function executeAgentApiCallWithProviderConfig(
         type: 'image',
         source: {
           type: 'base64',
-          media_type: 'image/jpeg',
+          media_type: extractMediaType(payload.imageData),
           data: base64Data
         }
       })
@@ -265,6 +290,7 @@ export async function executeAgentApiCallWithProviderConfig(
     // OpenAI: system prompt in user message prefix
     requestBody = buildOpenAIRequest(systemPrompt, payload.inputText, config.selectedModel, payload.imageData, payload.productImage)
   }
+  perfLog('END build request body', buildStart)
 
   // Build headers
   const headers = buildHeaders(config.apiFormat as 'anthropic_messages' | 'chat_completions', config.apiKey)
@@ -284,6 +310,7 @@ export async function executeAgentApiCallWithProviderConfig(
   }
 
   try {
+    const fetchStart = perfLog('START third-party API fetch')
     const response = await fetch(endpointUrl, {
       method: 'POST',
       headers,
@@ -292,6 +319,8 @@ export async function executeAgentApiCallWithProviderConfig(
     })
 
     clearTimeout(timeoutId)
+
+    perfLog('END third-party API fetch (got response)', fetchStart)
 
     if (!response.ok) {
       // Parse error details from response body
@@ -316,7 +345,9 @@ export async function executeAgentApiCallWithProviderConfig(
       throw new Error(errorDetail)
     }
 
+    const parseStart = perfLog('START parse JSON response (third-party)')
     const data = await response.json()
+    perfLog('END parse JSON response (third-party)', parseStart)
 
     // Extract result
     const promptText = extractTextContent(config.apiFormat as 'anthropic_messages' | 'chat_completions', data)
@@ -344,6 +375,8 @@ export async function executeAgentApiCallWithProviderConfig(
         // JSON parsing failed, return as plain text result
       }
     }
+
+    perfLog('END total flow', totalStart)
 
     return {
       prompt: promptText,
@@ -392,16 +425,26 @@ export async function executeAgentApiCall(
  */
 async function executeOfficialAgentApiCall(
   payload: AgentGeneratePayload,
-  signal?: AbortSignal
+  systemPrompt: string,
+  signal?: AbortSignal,
+  perfLog?: (step: string, startTime?: number) => number
 ): Promise<AgentGenerateResult> {
+  const log = perfLog || ((step: string, start?: number) => {
+    console.log(`[Oh My Prompt] ⏱️ Agent Perf (official): ${step}${start ? ` (${(performance.now() - start).toFixed(0)}ms)` : ''}`)
+    return performance.now()
+  })
+
   // 1. Get Supabase client (may be null if cleared after logout)
+  const clientStart = log('START get supabase client')
   const supabase = getSupabaseClient()
+  log('END get supabase client', clientStart)
 
   if (!supabase) {
     throw new Error('NOT_LOGGED_IN: 请先登录')
   }
 
   // 2. Get Supabase session token
+  const sessionStart = log('START get session token')
   let sessionResult: { data: { session: { access_token: string } | null }; error: unknown }
   try {
     sessionResult = await supabase.auth.getSession()
@@ -413,10 +456,12 @@ async function executeOfficialAgentApiCall(
   if (sessionResult.error || !sessionResult.data.session || !sessionResult.data.session.access_token) {
     throw new Error('NOT_LOGGED_IN: 请先登录')
   }
+  log('END get session token', sessionStart)
 
   const session = sessionResult.data.session
 
   // 3. Call Vision API endpoint with mode='agent'
+  const apiStart = log('START API fetch request')
   const abortController = new AbortController()
   const timeoutId = setTimeout(() => abortController.abort(), API_TIMEOUT_MS)
 
@@ -441,11 +486,14 @@ async function executeOfficialAgentApiCall(
         inputText: payload.inputText,
         imageData: payload.imageData,
         templateCategory: payload.templateCategory,
+        systemPrompt,
         ...(payload.ecommerceConfig && { ecommerceConfig: payload.ecommerceConfig }),
         ...(payload.productImage && { productImage: payload.productImage }),
       }),
       signal: abortController.signal
     })
+
+    log('END API fetch (got response)', apiStart)
 
     clearTimeout(timeoutId)
 
@@ -470,7 +518,9 @@ async function executeOfficialAgentApiCall(
       throw new Error(errorMessage)
     }
 
+    const parseStart = log('START parse JSON response')
     const result = await response.json()
+    log('END parse JSON response', parseStart)
 
     if (!result?.success || !result.data?.prompt) {
       throw new Error(result?.error || 'Agent API 返回无效响应')

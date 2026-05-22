@@ -719,7 +719,7 @@ async function executeOfficialVisionApiCall(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`
       },
-      body: JSON.stringify({ image: imageData }),
+      body: JSON.stringify({ image: imageData, visionSystemPrompt: VISION_SYSTEM_PROMPT }),
       signal: abortController.signal
     })
 

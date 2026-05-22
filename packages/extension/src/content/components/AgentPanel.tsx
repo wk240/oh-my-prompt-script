@@ -5,9 +5,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import type { AgentTemplateCategory, Category } from '@oh-my-prompt/shared/types'
+import type { AgentTemplateCategory, Category, ProviderConfig } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn } from 'lucide-react'
+import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn, ArrowUpRight } from 'lucide-react'
 import { showToast } from './ToastNotification'
 import { CategorySelectDialog } from './CategorySelectDialog'
 import { WEB_APP_URL } from '../../lib/config'
@@ -17,22 +17,49 @@ interface AgentPanelProps {
   extractedText?: string
   categories: Category[]
   onSave: (prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => void
+  onInsert?: (text: string) => void
+  // Persisted state from parent (survives close/reopen)
+  persistedInputText?: string
+  persistedResult?: string | null
+  persistedImageData?: string | null
+  onPersistStateChange?: (state: { inputText: string; result: string | null; imageData: string | null }) => void
 }
 
 export function AgentPanel({
   selectedTemplate,
   extractedText,
   categories,
-  onSave
+  onSave,
+  onInsert,
+  persistedInputText,
+  persistedResult,
+  persistedImageData,
+  onPersistStateChange
 }: AgentPanelProps) {
-  const [inputText, setInputText] = useState('')
-  const [imageData, setImageData] = useState<string | null>(null)
+  const [inputText, setInputTextLocal] = useState(persistedInputText ?? '')
+  const [imageData, setImageDataLocal] = useState<string | null>(persistedImageData ?? null)
   const [isLoading, setIsLoading] = useState(false)
-  const [result, setResult] = useState<string | null>(null)
+  const [result, setResultLocal] = useState<string | null>(persistedResult ?? null)
   const [error, setError] = useState<string | null>(null)
   const [errorAction, setErrorAction] = useState<'settings' | null>(null)
   const [hasConfig, setHasConfig] = useState<boolean | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
+
+  // Sync from persisted state (when parent re-mounts this component after reopen)
+  const setInputText = useCallback((value: string) => {
+    setInputTextLocal(value)
+    onPersistStateChange?.({ inputText: value, result, imageData })
+  }, [result, imageData, onPersistStateChange])
+
+  const setImageData = useCallback((value: string | null) => {
+    setImageDataLocal(value)
+    onPersistStateChange?.({ inputText, result, imageData: value })
+  }, [inputText, result, onPersistStateChange])
+
+  const setResult = useCallback((value: string | null) => {
+    setResultLocal(value)
+    onPersistStateChange?.({ inputText, result: value, imageData })
+  }, [inputText, imageData, onPersistStateChange])
 
   // Pre-fill extracted text
   useEffect(() => {
@@ -46,13 +73,33 @@ export function AgentPanel({
     chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
       .then(response => {
         if (response?.success && response?.data) {
-          const { configs, activeConfigId } = response.data
-          setHasConfig(configs.length > 0 && activeConfigId !== null)
+          const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
+          setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
         } else {
           setHasConfig(false)
         }
       })
       .catch(() => setHasConfig(false))
+  }, [])
+
+  // Listen for auth status updates (login/logout) to refresh config check
+  useEffect(() => {
+    const handleMessage = (message: { type: string; payload?: { logout?: boolean } }) => {
+      if (message.type === MessageType.AUTH_STATUS_UPDATE) {
+        chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
+          .then(response => {
+            if (response?.success && response?.data) {
+              const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
+              setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+            } else {
+              setHasConfig(false)
+            }
+          })
+          .catch(() => setHasConfig(false))
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
   }, [])
 
   // Handle image upload
@@ -153,7 +200,7 @@ export function AgentPanel({
           <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5, marginBottom: 20 }}>使用 Agent 生成提示词前，需要登录官方服务或配置第三方 API</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
             <button
-              onClick={() => window.open(`${WEB_APP_URL}/auth/login`, '_blank')}
+              onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: '#7C3AED', color: 'white', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer' }}
             >
               <LogIn style={{ width: 16, height: 16 }} />
@@ -262,6 +309,11 @@ export function AgentPanel({
           <div style={{ fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 8 }}>生成的提示词</div>
           <div className="agent-panel-result-content">{result}</div>
           <div className="agent-panel-result-actions">
+            {onInsert && (
+              <button className="agent-panel-action-btn agent-panel-insert-btn" onClick={() => { onInsert(result); showToast('已插入提示词') }} title="插入到输入框" style={{ color: '#7C3AED' }}>
+                <ArrowUpRight style={{ width: 14, height: 14 }} />
+              </button>
+            )}
             <button className="agent-panel-action-btn" onClick={handleCopy} title="复制">
               <Copy style={{ width: 14, height: 14 }} />
             </button>

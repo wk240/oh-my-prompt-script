@@ -19,6 +19,57 @@ import { handleAgentGenerate, handleEcommerceAiWrite } from './agent-handler'
 const syncOrchestrator = createSyncOrchestrator()
 
 /**
+ * Ensure the official (omp_official) provider config exists and is active.
+ * Called after successful OAuth login so Agent/Vision features work immediately.
+ */
+async function ensureOfficialConfig(): Promise<void> {
+  const officialConfigId = 'omp-official-default'
+  try {
+    const result = await chrome.storage.local.get(PROVIDER_CONFIGS_STORAGE_KEY)
+    const storage = result[PROVIDER_CONFIGS_STORAGE_KEY] as ProviderConfigsStorage | undefined
+    const configs = storage?.configs || []
+
+    const existingOfficial = configs.find(c => c.id === officialConfigId || c.apiFormat === 'omp_official')
+
+    if (existingOfficial) {
+      // Official config already exists, just make sure it's active
+      if (storage?.activeConfigId !== existingOfficial.id) {
+        const updatedStorage: ProviderConfigsStorage = {
+          ...storage,
+          configs,
+          activeConfigId: existingOfficial.id
+        }
+        await chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: updatedStorage })
+        console.log('[Oh My Prompt] Official config activated')
+      }
+      return
+    }
+
+    // Create official config
+    const officialConfig: ProviderConfig = {
+      id: officialConfigId,
+      providerId: 'omp_official',
+      providerName: 'Oh My Prompt 官方服务',
+      apiKey: '',
+      apiEndpoint: '',
+      apiFormat: 'omp_official',
+      selectedModel: 'auto',
+      configuredAt: Date.now(),
+      isCustom: false
+    }
+
+    const updatedStorage: ProviderConfigsStorage = {
+      configs: [...configs, officialConfig],
+      activeConfigId: officialConfig.id
+    }
+    await chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: updatedStorage })
+    console.log('[Oh My Prompt] Official config created and activated')
+  } catch (error) {
+    console.error('[Oh My Prompt] Failed to ensure official config:', error)
+  }
+}
+
+/**
  * Debounced sync state - batches rapid sync requests from frontend
  */
 let syncTimeout: ReturnType<typeof setTimeout> | null = null
@@ -588,19 +639,54 @@ chrome.runtime.onMessage.addListener(
         // Auth callback content script reports success/failure
         const authPayload = message.payload as { success: boolean; error?: string }
 
-        // Clear Supabase client singleton to ensure fresh session state for subsequent auth checks
-        // This is critical because the client may have cached "no session" state before auth
         if (authPayload.success) {
+          // Clear Supabase client singleton to ensure fresh session state for subsequent auth checks
+          // This is critical because the client may have cached "no session" state before auth
           clearSupabaseClient()
-        }
 
-        // Broadcast to sidepanel if open
-        chrome.runtime.sendMessage({
-          type: 'AUTH_STATUS_UPDATE',
-          payload: authPayload
-        }).catch(() => {
-          // Sidepanel may not be open, ignore error
-        })
+          // Auto-ensure official provider config exists and is active after successful login
+          // This allows Agent/Vision features to work immediately without manual config
+          // Must await before broadcasting so components find the config when they re-check
+          ensureOfficialConfig()
+            .then(() => {
+              // Broadcast AUTH_STATUS_UPDATE to extension pages (sidepanel, popup)
+              chrome.runtime.sendMessage({
+                type: MessageType.AUTH_STATUS_UPDATE,
+                payload: authPayload
+              }).catch(() => {
+                // Extension pages may not be open, ignore error
+              })
+
+              // Broadcast to all content scripts (AgentPanel, EcommercePanel)
+              chrome.tabs.query({}, (tabs) => {
+                tabs.forEach(tab => {
+                  if (tab.id !== undefined && tab.id >= 0) {
+                    chrome.tabs.sendMessage(tab.id, {
+                      type: MessageType.AUTH_STATUS_UPDATE,
+                      payload: authPayload
+                    }).catch(() => { /* Ignore errors */ })
+                  }
+                })
+              })
+            })
+        } else {
+          // Login failed — still broadcast to all contexts
+          chrome.runtime.sendMessage({
+            type: MessageType.AUTH_STATUS_UPDATE,
+            payload: authPayload
+          }).catch(() => {})
+
+          chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+              if (tab.id !== undefined && tab.id >= 0) {
+                chrome.tabs.sendMessage(tab.id, {
+                  type: MessageType.AUTH_STATUS_UPDATE,
+                  payload: authPayload
+                }).catch(() => {})
+              }
+            })
+          })
+        }
 
         sendResponse({ success: true } as MessageResponse)
         break
@@ -616,12 +702,24 @@ chrome.runtime.onMessage.addListener(
           clearSupabaseClient()
         }
 
-        // Rebroadcast to all extension contexts
+        // Rebroadcast to all extension pages (sidepanel, popup)
         chrome.runtime.sendMessage({
           type: MessageType.AUTH_STATUS_UPDATE,
           payload: logoutPayload
         }).catch(() => {
           // Other contexts may not be open, ignore error
+        })
+
+        // Broadcast to all content scripts
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach(tab => {
+            if (tab.id !== undefined && tab.id >= 0) {
+              chrome.tabs.sendMessage(tab.id, {
+                type: MessageType.AUTH_STATUS_UPDATE,
+                payload: logoutPayload
+              }).catch(() => { /* Ignore errors */ })
+            }
+          })
         })
 
         sendResponse({ success: true } as MessageResponse)

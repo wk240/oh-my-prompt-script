@@ -21,6 +21,7 @@ import { showToast } from './ToastNotification'
 import { Tooltip } from './Tooltip'
 import { AgentPanel } from './AgentPanel'
 import { EcommercePanel } from './EcommercePanel'
+import type { EcommercePersistedState } from './EcommercePanel'
 import { getAgentTemplates, getAgentTemplate } from '../../lib/agent-templates'
 // Lazy load Modal components - only loaded when user opens them
 const PromptPreviewModal = lazy(() => import('./PromptPreviewModal').then(m => ({ default: m.PromptPreviewModal })))
@@ -41,6 +42,7 @@ interface DropdownContainerProps {
   categories: Category[]
   onSelect: (prompt: Prompt) => void
   onInjectResource?: (prompt: ResourcePrompt) => void  // Inject resource prompt directly
+  onInsertText?: (text: string) => void  // Insert plain text into input field
   isOpen: boolean
   selectedPromptId: string | null
   onClose?: () => void
@@ -326,6 +328,7 @@ export function DropdownContainer({
   categories: propCategories,
   onSelect,
   onInjectResource,
+  onInsertText,
   isOpen,
   selectedPromptId,
   onClose: _onClose,
@@ -359,6 +362,24 @@ export function DropdownContainer({
   const [agentViewMode, setAgentViewMode] = useState<'default' | 'agent'>('default')
   const [agentSelectedTemplate, setAgentSelectedTemplate] = useState<AgentTemplateCategory>('ecommerce')
   const [agentExtractedText, setAgentExtractedText] = useState<string>('')
+
+  // Persisted state for Agent/Ecommerce panels (survives close/reopen)
+  const [agentPanelState, setAgentPanelState] = useState<{ inputText: string; result: string | null; imageData: string | null }>({
+    inputText: '', result: null, imageData: null
+  })
+  const [ecommercePanelState, setEcommercePanelState] = useState<EcommercePersistedState>({
+    productImage: null, productImageName: '', platform: 'amazon', market: 'china',
+    language: 'zh', aspectRatio: '1:1', sellingPoints: '', setStructure: 'smart',
+    customCounts: { whiteBg: 1, scene: 2, sellingPoint: 2, other: 2 },
+    result: null, viewMode: 'form'
+  })
+
+  const handleAgentStateChange = useCallback((state: { inputText: string; result: string | null; imageData: string | null }) => {
+    setAgentPanelState(state)
+  }, [])
+  const handleEcommerceStateChange = useCallback((state: EcommercePersistedState) => {
+    setEcommercePanelState(state)
+  }, [])
 
   // Listen for extracted text from Content Script (Agent mode)
   useEffect(() => {
@@ -1577,6 +1598,9 @@ export function DropdownContainer({
                   })
                   showToast('已保存到库')
                 }}
+                onInsert={onInsertText}
+                persistedState={ecommercePanelState}
+                onPersistStateChange={handleEcommerceStateChange}
               />
             ) : (
               <AgentPanel
@@ -1593,6 +1617,11 @@ export function DropdownContainer({
                   })
                   showToast('已保存到库')
                 }}
+                onInsert={onInsertText}
+                persistedInputText={agentPanelState.inputText}
+                persistedResult={agentPanelState.result}
+                persistedImageData={agentPanelState.imageData}
+                onPersistStateChange={handleAgentStateChange}
               />
             )
           ) : isLoading ? (
