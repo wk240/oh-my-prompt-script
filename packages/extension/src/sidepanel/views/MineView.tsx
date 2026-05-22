@@ -1,12 +1,12 @@
 // packages/extension/src/sidepanel/views/MineView.tsx
 import { useState, useEffect } from 'react'
-// import { User, LogIn, LogOut, Check, Sparkles, ChevronDown, ChevronUp } from 'lucide-react' // TODO: use in render
-// import { Button } from '@/popup/components/ui/button' // TODO: use in render
+import { User, LogIn } from 'lucide-react'
+import { Button } from '@/popup/components/ui/button'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import type { ProviderConfig, CloudAuthState, Provider, ProviderGroup } from '@oh-my-prompt/shared/types'
-import { getAuthState } from '@/lib/cloud-sync/auth-service'
+import { getAuthState, signOut } from '@/lib/cloud-sync/auth-service'
 import { clearSupabaseClient } from '@/lib/cloud-sync/supabase-client'
-// import { WEB_APP_URL } from '@/lib/config' // TODO: use in render
+import { WEB_APP_URL } from '@/lib/config'
 // import { OfficialVisionCard } from '@/popup/components/OfficialVisionCard' // TODO: use in render
 // import { CollapsibleSection } from '@/popup/components/CollapsibleSection' // TODO: use in render
 // import { ProviderSelect } from '@/popup/components/ProviderSelect' // TODO: use in render
@@ -16,7 +16,7 @@ import { loadSupportedProviders, groupProvidersByType } from '@/lib/provider-dat
 
 export default function MineView() {
   // Auth state
-  const [_authState, setAuthState] = useState<CloudAuthState | null>(null)
+  const [authState, setAuthState] = useState<CloudAuthState | null>(null)
 
   // Vision/API states
   const [_configs, setConfigs] = useState<ProviderConfig[]>([])
@@ -26,9 +26,9 @@ export default function MineView() {
   const [_visionEnabled, setVisionEnabled] = useState(true)
 
   // UI states
-  const [_loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [_error, setError] = useState<string | null>(null)
-  const [_success, _setSuccess] = useState<string | null>(null)
+  const [_success, setSuccess] = useState<string | null>(null)
 
   // Load initial data
   useEffect(() => {
@@ -80,13 +80,72 @@ export default function MineView() {
     })
   }
 
-  // TODO: Implement helper functions and render in next steps
+  const handleLogin = () => {
+    chrome.tabs.create({ url: `${WEB_APP_URL}/auth/callback?source=extension` })
+  }
+
+  const handleLogout = async () => {
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const result = await signOut()
+      if (result.success) {
+        setSuccess('已退出登录')
+        setAuthState({ status: 'not_logged_in' })
+        await loadConfigs()
+      } else {
+        setError('退出失败')
+      }
+    } catch (err) {
+      setError('退出失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="w-full p-4 space-y-4">
-      {/* Placeholder - will implement in next tasks */}
+      {/* 账号状态区 */}
       <div className="p-4 bg-white rounded-lg border border-gray-200">
-        <p className="text-sm text-gray-500">MineView - 待实现</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+            <User className="w-5 h-5 text-gray-500" />
+          </div>
+          <div className="flex-1">
+            {authState?.status === 'logged_in' ? (
+              <>
+                <p className="text-sm font-medium text-gray-900">
+                  已登录
+                  {authState.subscription?.planType && (
+                    <span className="ml-2 text-xs text-amber-600">· {authState.subscription.planType === 'pro' ? '会员' : authState.subscription.planType}</span>
+                  )}
+                </p>
+                <button
+                  onClick={handleLogout}
+                  disabled={loading}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {loading ? '退出中...' : '退出登录'}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-gray-900">未登录</p>
+                <Button
+                  onClick={handleLogin}
+                  className="mt-2 h-8 text-xs"
+                >
+                  <LogIn className="w-3 h-3" />
+                  登录
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* 其他区块将在后续任务实现 */}
     </div>
   )
 }
