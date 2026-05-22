@@ -464,8 +464,8 @@ export function VisionSection() {
       {visionEnabled && (
         <CollapsibleSection
           title="第三方 API 配置"
-          defaultExpanded={false}
-          hint={configs.filter(c => c.apiFormat !== 'omp_official').length > 0 ? `已有 ${configs.filter(c => c.apiFormat !== 'omp_official').length} 个配置` : undefined}
+          defaultExpanded={configs.filter(c => c.apiFormat !== 'omp_official').length === 0}
+          hint={configs.filter(c => c.apiFormat !== 'omp_official').length > 0 ? `已有 ${configs.filter(c => c.apiFormat !== 'omp_official').length} 个配置` : '尚未配置 API，添加后即可使用 Agent 和图片转提示词功能'}
         >
           <Tabs defaultValue="quick">
             <TabsList className="w-full">

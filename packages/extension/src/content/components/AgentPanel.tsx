@@ -7,10 +7,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { AgentTemplateCategory, Category } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload } from 'lucide-react'
-import { getAgentTemplate } from '../../lib/agent-templates'
+import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn } from 'lucide-react'
 import { showToast } from './ToastNotification'
 import { CategorySelectDialog } from './CategorySelectDialog'
+import { WEB_APP_URL } from '../../lib/config'
 
 interface AgentPanelProps {
   selectedTemplate: AgentTemplateCategory
@@ -30,9 +30,9 @@ export function AgentPanel({
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [errorAction, setErrorAction] = useState<'settings' | null>(null)
+  const [hasConfig, setHasConfig] = useState<boolean | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
-
-  const template = getAgentTemplate(selectedTemplate)
 
   // Pre-fill extracted text
   useEffect(() => {
@@ -40,6 +40,20 @@ export function AgentPanel({
       setInputText(extractedText)
     }
   }, [extractedText])
+
+  // Check if provider config exists
+  useEffect(() => {
+    chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
+      .then(response => {
+        if (response?.success && response?.data) {
+          const { configs, activeConfigId } = response.data
+          setHasConfig(configs.length > 0 && activeConfigId !== null)
+        } else {
+          setHasConfig(false)
+        }
+      })
+      .catch(() => setHasConfig(false))
+  }, [])
 
   // Handle image upload
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,6 +83,7 @@ export function AgentPanel({
     if (!inputText.trim() || isLoading) return
     setIsLoading(true)
     setError(null)
+    setErrorAction(null)
     setResult(null)
 
     try {
@@ -88,8 +103,10 @@ export function AgentPanel({
       const errorMessage = err instanceof Error ? err.message : '生成失败'
       if (errorMessage.startsWith('NO_CONFIG:')) {
         setError('请先配置 API 或登录官方服务')
+        setErrorAction('settings')
       } else if (errorMessage.startsWith('NOT_LOGGED_IN:')) {
         setError('请先登录会员账号')
+        setErrorAction('settings')
       } else if (errorMessage.startsWith('UNSUPPORTED_FORMAT:')) {
         setError('不支持当前 API 格式')
       } else if (errorMessage === 'timeout') {
@@ -126,6 +143,36 @@ export function AgentPanel({
 
   return (
     <div className="agent-panel">
+      {/* Setup Guide — shown when no provider config available */}
+      {hasConfig === false && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '24px 16px', textAlign: 'center' }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Settings style={{ width: 24, height: 24, color: '#7C3AED' }} />
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#171717', marginBottom: 4 }}>尚未配置 API</div>
+          <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5, marginBottom: 20 }}>使用 Agent 生成提示词前，需要登录官方服务或配置第三方 API</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
+            <button
+              onClick={() => window.open(`${WEB_APP_URL}/auth/login`, '_blank')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: '#7C3AED', color: 'white', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer' }}
+            >
+              <LogIn style={{ width: 16, height: 16 }} />
+              登录官方服务
+            </button>
+            <button
+              onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_SETTINGS })}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: 'white', color: '#374151', fontSize: 13, fontWeight: 500, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer' }}
+            >
+              <Settings style={{ width: 16, height: 16 }} />
+              配置第三方 API
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Agent UI — shown when config exists or still checking */}
+      {(hasConfig === true || hasConfig === null) && (
+      <>
       {/* Input */}
       <div className="agent-panel-section">
         <label style={{ fontSize: 12, fontWeight: 500, color: '#171717', display: 'block', marginBottom: 6 }}>
@@ -192,6 +239,16 @@ export function AgentPanel({
         <div className="agent-panel-error">
           <AlertTriangle style={{ width: 14, height: 14, color: '#dc2626', flexShrink: 0 }} />
           <span style={{ fontSize: 12, color: '#B91C1C', flex: 1 }}>{error}</span>
+          {errorAction === 'settings' && (
+            <button
+              className="agent-panel-error-retry"
+              onClick={() => { setError(null); setErrorAction(null); chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_SETTINGS }) }}
+              style={{ background: '#7C3AED', color: 'white' }}
+            >
+              <Settings style={{ width: 12, height: 12 }} />
+              <span>去设置</span>
+            </button>
+          )}
           <button className="agent-panel-error-retry" onClick={handleRetry}>
             <RefreshCw style={{ width: 12, height: 12 }} />
             <span>重试</span>
@@ -225,6 +282,8 @@ export function AgentPanel({
         onClose={() => setShowSaveDialog(false)}
         onConfirm={handleSave}
       />
+      </>
+      )}
     </div>
   )
 }

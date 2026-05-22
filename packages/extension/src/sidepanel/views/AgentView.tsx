@@ -7,10 +7,10 @@
 import { useState, useEffect, useCallback, Suspense, lazy } from 'react'
 import type { AgentTemplateCategory, Category } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload } from 'lucide-react'
-import { getAgentTemplate } from '@/lib/agent-templates'
+import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn } from 'lucide-react'
 import { Tooltip } from '@/content/components/Tooltip'
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
+import { WEB_APP_URL } from '@/lib/config'
 
 // Lazy load dialog component
 const CategorySelectDialog = lazy(() => import('@/content/components/CategorySelectDialog').then(m => ({ default: m.CategorySelectDialog })))
@@ -20,13 +20,15 @@ interface AgentViewProps {
   extractedText?: string  // Pre-filled from Content Script
   categories: Category[]
   onSave: (prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => void
+  onOpenSettings?: () => void
 }
 
 export default function AgentView({
   selectedTemplate,
   extractedText,
   categories,
-  onSave
+  onSave,
+  onOpenSettings
 }: AgentViewProps) {
   // State
   const [inputText, setInputText] = useState('')
@@ -34,8 +36,10 @@ export default function AgentView({
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [errorAction, setErrorAction] = useState<'settings' | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [hasConfig, setHasConfig] = useState<boolean | null>(null) // null = checking
 
   // Helper for toast notifications
   const showToast = useCallback((msg: string) => {
@@ -43,15 +47,26 @@ export default function AgentView({
     setTimeout(() => setToastMessage(null), 2000)
   }, [])
 
-  // Get template info
-  const template = getAgentTemplate(selectedTemplate)
-
   // Pre-fill extracted text on mount
   useEffect(() => {
     if (extractedText) {
       setInputText(extractedText)
     }
   }, [extractedText])
+
+  // Check if provider config exists
+  useEffect(() => {
+    chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
+      .then(response => {
+        if (response?.success && response?.data) {
+          const { configs, activeConfigId } = response.data
+          setHasConfig(configs.length > 0 && activeConfigId !== null)
+        } else {
+          setHasConfig(false)
+        }
+      })
+      .catch(() => setHasConfig(false))
+  }, [])
 
   // Handle image upload
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,6 +109,7 @@ export default function AgentView({
 
     setIsLoading(true)
     setError(null)
+        setErrorAction(null)
     setResult(null)
 
     try {
@@ -117,8 +133,10 @@ export default function AgentView({
       // Parse error by code prefix
       if (errorMessage.startsWith('NO_CONFIG:')) {
         setError('请先配置 API 或登录官方服务')
+        setErrorAction('settings')
       } else if (errorMessage.startsWith('NOT_LOGGED_IN:')) {
         setError('请先登录会员账号')
+        setErrorAction('settings')
       } else if (errorMessage.startsWith('UNSUPPORTED_FORMAT:')) {
         setError('不支持当前 API 格式')
       } else if (errorMessage === 'timeout') {
@@ -161,7 +179,39 @@ export default function AgentView({
   const isGenerateDisabled = !inputText.trim() || isLoading
 
   return (
-    <div className="agent-view">
+    <div className="flex flex-col h-full">
+      {/* Setup Guide — shown when no provider config available */}
+      {hasConfig === false && (
+        <div className="flex flex-col items-center justify-center flex-1 px-6 py-8 text-center">
+          <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-4">
+            <Settings className="w-6 h-6 text-purple-500" />
+          </div>
+          <h3 className="text-sm font-medium text-gray-900 mb-1">尚未配置 API</h3>
+          <p className="text-xs text-gray-500 mb-5 leading-relaxed">
+            使用 Agent 生成提示词前，需要登录官方服务或配置第三方 API
+          </p>
+          <div className="flex flex-col gap-2 w-full max-w-[240px]">
+            <button
+              onClick={() => window.open(`${WEB_APP_URL}/auth/login`, '_blank')}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <LogIn className="w-4 h-4" />
+              登录官方服务
+            </button>
+            <button
+              onClick={() => onOpenSettings?.()}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              配置第三方 API
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Agent UI — shown when config exists or still checking */}
+      {(hasConfig === true || hasConfig === null) && (
+      <div className="agent-view">
       {/* Input section */}
       <div className="agent-input-section">
         <label className="agent-input-label">
@@ -232,6 +282,12 @@ export default function AgentView({
         <div className="agent-error-banner">
           <AlertTriangle className="agent-error-icon" />
           <span className="agent-error-text">{error}</span>
+          {errorAction === 'settings' && onOpenSettings && (
+            <button className="agent-error-retry" onClick={() => { setError(null); setErrorAction(null); onOpenSettings() }} style={{ background: '#7C3AED', color: 'white' }}>
+              <Settings style={{ width: 12, height: 12 }} />
+              <span>去设置</span>
+            </button>
+          )}
           <button className="agent-error-retry" onClick={handleRetry}>
             <RefreshCw style={{ width: 12, height: 12 }} />
             <span>重试</span>
@@ -280,6 +336,8 @@ export default function AgentView({
           message={toastMessage}
           onClose={() => setToastMessage(null)}
         />
+      )}
+      </div>
       )}
     </div>
   )

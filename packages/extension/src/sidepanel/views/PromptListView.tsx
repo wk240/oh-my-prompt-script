@@ -1986,6 +1986,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
               selectedTemplate={agentSelectedTemplate}
               extractedText={agentExtractedText}
               categories={sortableCategories}
+              onOpenSettings={onOpenSettings}
               onSave={(prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => {
                 const template = getAgentTemplate(templateCategory)
                 usePromptStore.getState().addPrompt({
