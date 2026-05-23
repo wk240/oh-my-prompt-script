@@ -7,7 +7,7 @@
 import { useRef, useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import type { Prompt, Category } from '@oh-my-prompt/shared/types'
-import type { TeamPrompt, TeamSyncStatus } from '@oh-my-prompt/shared/types'
+import type { TeamPrompt } from '@oh-my-prompt/shared/types'
 import type { AgentTemplateCategory } from '@oh-my-prompt/shared/types/agent'
 import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '@oh-my-prompt/shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '@oh-my-prompt/shared/utils'
@@ -1772,7 +1772,7 @@ export function DropdownContainer({
                 ))}
               </div>
             )
-          : selectedCategoryId === 'team' ? (
+          ) : selectedCategoryId === 'team' ? (
             // Team library content view
             !teamSyncStatus ? (
               // Not logged in state
@@ -1905,29 +1905,44 @@ export function DropdownContainer({
           </>
         </div>
       </div>
-    {/* Prompt preview modal with collect */}
-    {editingStates.resourcePrompt && (
+    {/* Prompt preview modal with collect - handles both resource and team prompts */}
+    {(editingStates.resourcePrompt || editingStates.teamPrompt) && (
       <Suspense fallback={null}>
         <PromptPreviewModal
-          prompt={editingStates.resourcePrompt}
+          prompt={(editingStates.resourcePrompt || editingStates.teamPrompt)!}
           isOpen={modalStates.isPreview}
           onClose={() => {
             closeModal('isPreview')
             clearEditingItem('resourcePrompt')
+            clearEditingItem('teamPrompt')
           }}
-          onCollect={() => openModal('isCategoryDialog')}
+          onCollect={() => {
+            if (editingStates.teamPrompt) {
+              openModal('isTeamCategoryDialog')
+            } else {
+              openModal('isCategoryDialog')
+            }
+          }}
           onInject={(language) => {
-            if (onInjectResource && editingStates.resourcePrompt) {
-              // Use the language version from modal
+            if (editingStates.teamPrompt) {
+              handleInjectTeamPrompt(
+                language === 'en' && editingStates.teamPrompt.contentEn
+                  ? { ...editingStates.teamPrompt, content: editingStates.teamPrompt.contentEn }
+                  : editingStates.teamPrompt
+              )
+            } else if (editingStates.resourcePrompt && onInjectResource) {
+              // Keep existing resource inject code
               const promptToInject = language === 'en' && editingStates.resourcePrompt.contentEn
-                ? { ...editingStates.resourcePrompt, content: editingStates.resourcePrompt.contentEn, name: editingStates.resourcePrompt.nameEn || editingStates.resourcePrompt.name }
+                ? { ...editingStates.resourcePrompt, content: editingStates.resourcePrompt.contentEn }
                 : editingStates.resourcePrompt
               onInjectResource(promptToInject)
               showToast('已注入提示词')
             }
           }}
           onCopy={() => {
-            if (editingStates.resourcePrompt) {
+            if (editingStates.teamPrompt) {
+              handleCopyTeamPrompt(editingStates.teamPrompt)
+            } else if (editingStates.resourcePrompt) {
               handleCopyResourcePrompt(editingStates.resourcePrompt)
             }
           }}
@@ -1979,6 +1994,13 @@ export function DropdownContainer({
       categories={sortableCategories}
       isOpen={modalStates.isCategoryDialog}
       onClose={() => closeModal('isCategoryDialog')}
+      onConfirm={handleConfirmCollect}
+    />
+    {/* Team prompt category select dialog */}
+    <CategorySelectDialog
+      categories={sortableCategories}
+      isOpen={modalStates.isTeamCategoryDialog}
+      onClose={() => closeModal('isTeamCategoryDialog')}
       onConfirm={handleConfirmCollect}
     />
     {/* "Already latest" tip - Portal rendered outside dropdown to escape overflow:hidden */}
