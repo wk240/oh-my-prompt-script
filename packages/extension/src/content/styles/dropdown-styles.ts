@@ -1628,7 +1628,8 @@ export const DROPDOWN_STYLES = `
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
     box-sizing: border-box;
-    position: relative;
+    display: flex;
+    flex-direction: column;
   }
 
   #${PORTAL_ID} .team-prompt-card:hover {
@@ -1679,13 +1680,13 @@ export const DROPDOWN_STYLES = `
     white-space: nowrap;
   }
 
-  /* Action buttons container */
+  /* Action buttons container - separate row at bottom */
   #${PORTAL_ID} .team-prompt-card-actions {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
     display: flex;
     gap: 4px;
+    margin-top: 8px;
+    justify-content: flex-end;
+    width: 100%;
   }
 
   /* Individual action button */

@@ -132,9 +132,7 @@
 
 /* 团队卡片操作按钮样式 - 黑白配色 */
 .team-card .network-card-actions {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
+  margin-top: 8px;
 }
 
 .team-card .network-card-btn.collect {

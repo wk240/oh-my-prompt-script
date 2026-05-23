@@ -750,7 +750,8 @@
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s ease, box-shadow 0.15s ease;
-  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .network-card:hover {
@@ -796,12 +797,11 @@
 }
 
 .network-card-actions {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
   display: flex;
   gap: 4px;
   justify-content: flex-end;
+  margin-top: 8px;
+  width: 100%;
 }
 
 .network-card-btn {
