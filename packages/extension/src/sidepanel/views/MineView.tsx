@@ -428,10 +428,9 @@ export default function MineView() {
               <User className="w-5 h-5 text-gray-500" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">未登录</p>
               <Button
                 onClick={handleLogin}
-                className="mt-2 h-8 text-xs"
+                className="h-8 text-xs"
               >
                 <LogIn className="w-3 h-3" />
                 登录
