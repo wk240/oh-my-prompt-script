@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy, useRef } from 'react'
-import type { Prompt, Category, ResourcePrompt, UpdateStatus, TeamPrompt, TeamSyncStatus } from '@oh-my-prompt/shared/types'
+import type { Prompt, Category, ResourcePrompt, UpdateStatus, TeamPrompt } from '@oh-my-prompt/shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '@oh-my-prompt/shared/utils'
 import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2, Clock, CheckCircle, Copy } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
@@ -598,7 +598,6 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
   const [resourceLanguage, setResourceLanguage] = useState<'zh' | 'en'>('zh')
   const [loadedCount, setLoadedCount] = useState(50)
   const [visionEnabled, setVisionEnabled] = useState(true)
-  const [isTeamLibraryOpen, setIsTeamLibraryOpen] = useState(false)
   const [teamSyncing, setTeamSyncing] = useState(false)
   // Sync status for permission restore and UI
   const [status, setStatus] = useState<{ hasFolder: boolean; permissionStatus?: 'granted' | 'prompt' | 'denied'; hasUnsyncedChanges?: boolean; dismissedBackupWarning?: boolean } | null>(null)
@@ -934,6 +933,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     resourcePrompt: null as ResourcePrompt | null,
     category: null as Category | null,
     prompt: null as Prompt | null,
+    teamPrompt: null as TeamPrompt | null,
     deletingCategory: null as Category | null,
     deletingPrompt: null as Prompt | null,
   })
@@ -1159,6 +1159,16 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     return sortPromptsByOrder(result)
   }, [prompts, displayTemporaryPrompts, selectedCategoryId])
 
+  // 团队库显示数据（语言转换）
+  const displayTeamPrompts: TeamPrompt[] = useMemo(() => {
+    return sortPromptsByOrder(teamPrompts as Prompt[]).map((p, index) => ({
+      ...teamPrompts[index],
+      name: resourceLanguage === 'en' && p.nameEn ? p.nameEn : p.name,
+      content: resourceLanguage === 'en' && p.contentEn ? p.contentEn : p.content,
+      description: resourceLanguage === 'en' && p.descriptionEn ? p.descriptionEn : p.description,
+    }))
+  }, [teamPrompts, resourceLanguage])
+
   const showPromptDragHandles = filteredPrompts.length >= 2
 
   // Display prompts with language transformation
@@ -1331,8 +1341,51 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     openModal('isCategoryDialog')
   }, [setEditingItem, openModal])
 
+  // 处理团队提示词保存到个人库
+  const handleSaveTeamPromptToPersonal = useCallback((teamPrompt: TeamPrompt) => {
+    setEditingItem('teamPrompt', teamPrompt)
+    openModal('isCategoryDialog')
+  }, [setEditingItem, openModal])
+
+  // 处理团队库同步
+  const handleTeamSync = useCallback(async () => {
+    setTeamSyncing(true)
+    const result = await syncTeamPrompts()
+    setTeamSyncing(false)
+
+    if (result.success) {
+      setToastMessage(`已同步 ${result.promptsCount || 0} 条团队提示词`)
+      setTimeout(hideToast, 2000)
+    } else {
+      setToastMessage(result.error === 'NOT_LOGGED_IN' ? '请先登录' : '同步失败')
+      setTimeout(hideToast, 2000)
+    }
+  }, [syncTeamPrompts, setToastMessage, hideToast])
+
   // Handle confirm collect
   const handleConfirmCollect = useCallback(async (categoryId: string, newCategoryName?: string) => {
+    // 处理团队提示词保存到个人库
+    if (editingStates.teamPrompt) {
+      let targetCategoryId = categoryId
+
+      if (newCategoryName?.trim()) {
+        usePromptStore.getState().addCategory(newCategoryName.trim())
+        const storeCategories = usePromptStore.getState().categories
+        const newCategory = storeCategories.find(c => c.name === newCategoryName.trim())
+        if (newCategory) targetCategoryId = newCategory.id
+      }
+
+      usePromptStore.getState().saveTeamPromptToPersonal(editingStates.teamPrompt, targetCategoryId)
+
+      const categoryName = usePromptStore.getState().categories.find(c => c.id === targetCategoryId)?.name || '未知分类'
+      setToastMessage(`已保存到 ${categoryName}`)
+      setTimeout(hideToast, 2000)
+
+      closeModal('isCategoryDialog')
+      clearEditingItem('teamPrompt')
+      return
+    }
+
     if (!editingStates.resourcePrompt) return
     const resourcePrompt = editingStates.resourcePrompt
 
@@ -1392,7 +1445,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     closeModal('isCategoryDialog')
     closeModal('isPreview')
     clearEditingItem('resourcePrompt')
-  }, [editingStates.resourcePrompt, setToastMessage, hideToast, closeModal, clearEditingItem])
+  }, [editingStates.resourcePrompt, editingStates.teamPrompt, setToastMessage, hideToast, closeModal, clearEditingItem])
 
   // Handle drag end for category reorder
   const handleCategoryDragEnd = useCallback(async (event: DragEndEvent) => {
@@ -1947,6 +2000,61 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
             <div className="empty-state">
               <div className="empty-message">加载中...</div>
             </div>
+          ) : selectedCategoryId === 'team' ? (
+            // 团队库内容展示
+            <div className="team-library-content">
+              <div className="content-header">
+                <div className="content-title">团队库</div>
+                <button className="sync-button" onClick={handleTeamSync} disabled={teamSyncing}>
+                  {teamSyncing ? (
+                    <Loader2 style={{ width: 12, height: 12 }} className="spin-animation" />
+                  ) : (
+                    <svg viewBox="0 0 24 24" style={{ width: 12, height: 12, stroke: 'currentColor', strokeWidth: 2, fill: 'none' }}>
+                      <polyline points="23 4 23 10 17 10"></polyline>
+                      <polyline points="1 20 1 14 7 14"></polyline>
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                  )}
+                  <span>{teamSyncing ? '同步中...' : '同步'}</span>
+                </button>
+              </div>
+
+              {displayTeamPrompts.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-message">
+                    {teamSyncStatus ? '暂无团队提示词' : '点击同步按钮获取团队提示词'}
+                  </div>
+                </div>
+              ) : (
+                <div className="team-prompts-list">
+                  {displayTeamPrompts.map(prompt => (
+                    <div key={prompt.id} className="team-prompt-card" onClick={() => handleSelectPrompt(prompt)}>
+                      <div className="card-header">
+                        <div className="card-title">{prompt.name}</div>
+                        <div className="card-actions">
+                          <Tooltip content="保存到个人库">
+                            <button className="card-action-btn collect" onClick={(e) => { e.stopPropagation(); handleSaveTeamPromptToPersonal(prompt) }}>
+                              <Bookmark style={{ width: 14, height: 14, fill: 'none' }} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip content="复制">
+                            <button className="card-action-btn" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(prompt.content); setToastMessage('已复制'); setTimeout(hideToast, 2000) }}>
+                              <Copy style={{ width: 14, height: 14 }} />
+                            </button>
+                          </Tooltip>
+                        </div>
+                      </div>
+                      <div className="card-source">
+                        <span className="card-source-tag" style={{ background: '#ddd6fe', color: '#7c3aed', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>
+                          来自：{prompt.teamName || '未知团队'}
+                        </span>
+                      </div>
+                      <div className="card-preview">{truncateText(prompt.description || prompt.content, 40)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : isResourceLibrary ? (
             paginatedResourcePrompts.length === 0 ? (
               <div className="empty-state">
@@ -2011,7 +2119,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
         </div>
 
         {/* FAB add button */}
-        {!isResourceLibrary && selectedCategoryId !== 'temporary' && (
+        {!isResourceLibrary && selectedCategoryId !== 'temporary' && selectedCategoryId !== 'team' && (
           <button
             className="fab-add-btn"
             onClick={() => openModal('isPromptAdd')}
