@@ -1,5 +1,5 @@
 import { MessageType, MessageResponse } from '@oh-my-prompt/shared/messages'
-import type { StorageSchema, SyncSettings, VisionApiConfig, InsertPromptPayload, InsertResultPayload, SaveTemporaryPromptPayload, UpdateTemporaryPromptFormatPayload, Prompt, ProviderConfig, ProviderConfigsStorage } from '@oh-my-prompt/shared/types'
+import type { StorageSchema, SyncSettings, VisionApiConfig, InsertPromptPayload, InsertResultPayload, SaveTemporaryPromptPayload, UpdateTemporaryPromptFormatPayload, Prompt, ProviderConfig, ProviderConfigsStorage, AgentGeneratePayload, EcommercePlatform, EcommerceLanguage } from '@oh-my-prompt/shared/types'
 import { StorageManager } from '../lib/storage'
 import { saveFolderHandle, getFolderHandle, checkFolderPermission } from '../lib/sync/indexeddb'
 import { getSyncStatus, triggerSync, restorePermission, initialSync, triggerProviderConfigsSync } from '../lib/sync/sync-manager'
@@ -13,9 +13,61 @@ import { validateProviderConfig, maskApiKey } from '../lib/config-validator'
 import { sendToOffscreen } from '../lib/offscreen-manager'
 import '../lib/migrations/register' // Register all migrations
 import { clearSupabaseClient } from '../lib/cloud-sync/supabase-client'
+import { handleAgentGenerate, handleEcommerceAiWrite } from './agent-handler'
 
 // Create sync orchestrator for cloud-first decision matrix
 const syncOrchestrator = createSyncOrchestrator()
+
+/**
+ * Ensure the official (omp_official) provider config exists and is active.
+ * Called after successful OAuth login so Agent/Vision features work immediately.
+ */
+async function ensureOfficialConfig(): Promise<void> {
+  const officialConfigId = 'omp-official-default'
+  try {
+    const result = await chrome.storage.local.get(PROVIDER_CONFIGS_STORAGE_KEY)
+    const storage = result[PROVIDER_CONFIGS_STORAGE_KEY] as ProviderConfigsStorage | undefined
+    const configs = storage?.configs || []
+
+    const existingOfficial = configs.find(c => c.id === officialConfigId || c.apiFormat === 'omp_official')
+
+    if (existingOfficial) {
+      // Official config already exists, just make sure it's active
+      if (storage?.activeConfigId !== existingOfficial.id) {
+        const updatedStorage: ProviderConfigsStorage = {
+          ...storage,
+          configs,
+          activeConfigId: existingOfficial.id
+        }
+        await chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: updatedStorage })
+        console.log('[Oh My Prompt] Official config activated')
+      }
+      return
+    }
+
+    // Create official config
+    const officialConfig: ProviderConfig = {
+      id: officialConfigId,
+      providerId: 'omp_official',
+      providerName: 'Oh My Prompt 官方服务',
+      apiKey: '',
+      apiEndpoint: '',
+      apiFormat: 'omp_official',
+      selectedModel: 'auto',
+      configuredAt: Date.now(),
+      isCustom: false
+    }
+
+    const updatedStorage: ProviderConfigsStorage = {
+      configs: [...configs, officialConfig],
+      activeConfigId: officialConfig.id
+    }
+    await chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: updatedStorage })
+    console.log('[Oh My Prompt] Official config created and activated')
+  } catch (error) {
+    console.error('[Oh My Prompt] Failed to ensure official config:', error)
+  }
+}
 
 /**
  * Debounced sync state - batches rapid sync requests from frontend
@@ -140,7 +192,7 @@ chrome.runtime.onInstalled.addListener(async (_details) => {
   // Permission restore is handled by useAutoPermissionRestore hook in sidepanel
   // (triggered on first user interaction inside sidepanel)
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(err => {
-    console.warn('[Oh My Prompt] Failed to set sidePanel behavior:', err)
+    console.warn('[Oh My Prompt] Failed to set sidePanel behavior on startup:', err)
   })
 
   // Run initial sync on install (restores data from backup folder including encrypted API config)
@@ -587,27 +639,95 @@ chrome.runtime.onMessage.addListener(
         // Auth callback content script reports success/failure
         const authPayload = message.payload as { success: boolean; error?: string }
 
-        // Clear Supabase client singleton to ensure fresh session state for subsequent auth checks
-        // This is critical because the client may have cached "no session" state before auth
         if (authPayload.success) {
+          // Clear Supabase client singleton to ensure fresh session state for subsequent auth checks
+          // This is critical because the client may have cached "no session" state before auth
+          clearSupabaseClient()
+
+          // Auto-ensure official provider config exists and is active after successful login
+          // This allows Agent/Vision features to work immediately without manual config
+          // Must await before broadcasting so components find the config when they re-check
+          ensureOfficialConfig()
+            .then(() => {
+              // Broadcast AUTH_STATUS_UPDATE to extension pages (sidepanel, popup)
+              chrome.runtime.sendMessage({
+                type: MessageType.AUTH_STATUS_UPDATE,
+                payload: authPayload
+              }).catch(() => {
+                // Extension pages may not be open, ignore error
+              })
+
+              // Broadcast to all content scripts (AgentPanel, EcommercePanel)
+              chrome.tabs.query({}, (tabs) => {
+                tabs.forEach(tab => {
+                  if (tab.id !== undefined && tab.id >= 0) {
+                    chrome.tabs.sendMessage(tab.id, {
+                      type: MessageType.AUTH_STATUS_UPDATE,
+                      payload: authPayload
+                    }).catch(() => { /* Ignore errors */ })
+                  }
+                })
+              })
+            })
+        } else {
+          // Login failed — still broadcast to all contexts
+          chrome.runtime.sendMessage({
+            type: MessageType.AUTH_STATUS_UPDATE,
+            payload: authPayload
+          }).catch(() => {})
+
+          chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+              if (tab.id !== undefined && tab.id >= 0) {
+                chrome.tabs.sendMessage(tab.id, {
+                  type: MessageType.AUTH_STATUS_UPDATE,
+                  payload: authPayload
+                }).catch(() => {})
+              }
+            })
+          })
+        }
+
+        sendResponse({ success: true } as MessageResponse)
+        break
+
+      case MessageType.AUTH_STATUS_UPDATE:
+        // Handle AUTH_STATUS_UPDATE from signOut() in auth-service.ts
+        // Rebroadcast to all extension contexts (sidepanel, popup) so they can refresh auth state
+        // This fixes the bug where VisionSection didn't update after logout
+        const logoutPayload = message.payload as { success: boolean; logout?: boolean }
+
+        // Clear Supabase client singleton to ensure fresh session state
+        if (logoutPayload?.logout) {
           clearSupabaseClient()
         }
 
-        // Broadcast to sidepanel if open
+        // Rebroadcast to all extension pages (sidepanel, popup)
         chrome.runtime.sendMessage({
-          type: 'AUTH_STATUS_UPDATE',
-          payload: authPayload
+          type: MessageType.AUTH_STATUS_UPDATE,
+          payload: logoutPayload
         }).catch(() => {
-          // Sidepanel may not be open, ignore error
+          // Other contexts may not be open, ignore error
+        })
+
+        // Broadcast to all content scripts
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach(tab => {
+            if (tab.id !== undefined && tab.id >= 0) {
+              chrome.tabs.sendMessage(tab.id, {
+                type: MessageType.AUTH_STATUS_UPDATE,
+                payload: logoutPayload
+              }).catch(() => { /* Ignore errors */ })
+            }
+          })
         })
 
         sendResponse({ success: true } as MessageResponse)
         break
 
       case 'CLOSE_AUTH_TAB':
-        // Content script requests closing the auth sync tab
-        // Find the tab with auth/extension/sync URL and close it
-        chrome.tabs.query({ url: ['http://localhost:3000/auth/extension/sync*', 'https://oh-my-prompt.com/auth/extension/sync*'] })
+        // Content script requests closing the auth tab
+        chrome.tabs.query({ url: ['http://localhost:3000/auth/callback*', 'https://oh-my-prompt.com/auth/callback*'] })
           .then(tabs => {
             if (tabs.length > 0) {
               chrome.tabs.remove(tabs[0].id!)
@@ -978,7 +1098,7 @@ chrome.runtime.onMessage.addListener(
 
             const updatedStorage: ProviderConfigsStorage = {
               configs: [...configs, newConfig],
-              activeConfigId: isFirstConfig ? newConfig.id : (existingStorage?.activeConfigId || null)
+              activeConfigId: isFirstConfig ? newConfig.id : (existingStorage?.activeConfigId || newConfig.id)
             }
 
             return chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: updatedStorage })
@@ -1217,7 +1337,8 @@ chrome.runtime.onMessage.addListener(
               }
 
               // Use new function that correctly handles omp_official format
-              const resultData = await executeVisionApiCallWithProviderConfig(base64Image, 'base64')
+              // Pass activeConfig directly to avoid nested messaging (GET_ACTIVE_CONFIG inside VISION_API_CALL)
+              const resultData = await executeVisionApiCallWithProviderConfig(base64Image, 'base64', undefined, activeConfig)
               const languagePreference = await getLanguagePreference()
               const primaryPrompt = languagePreference === 'en' ? resultData.en.prompt : resultData.zh.prompt
               sendResponse({ success: true, data: { prompt: primaryPrompt, fullData: resultData } })
@@ -1573,6 +1694,16 @@ chrome.runtime.onMessage.addListener(
             sendResponse({ success: false, error: 'Transfer failed' })
           })
         return true // Required for async response
+
+      // Agent: Prompt enhancement using Vision Provider Config infrastructure
+      case MessageType.AGENT_GENERATE:
+        handleAgentGenerate(message.payload as AgentGeneratePayload, sendResponse)
+        return true
+
+      // Agent: Ecommerce AI write (selling points generation from product image)
+      case MessageType.AGENT_ECOMMERCE_AI_WRITE:
+        handleEcommerceAiWrite(message.payload as { imageData: string; platform: EcommercePlatform; language: EcommerceLanguage }, sendResponse)
+        return true
 
       default:
         // Skip OFFSCREEN_* messages - they are handled by offscreen document (or this Service Worker handler)

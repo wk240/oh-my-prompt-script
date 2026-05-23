@@ -7,6 +7,7 @@
 import { useRef, useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import type { Prompt, Category } from '@oh-my-prompt/shared/types'
+import type { AgentTemplateCategory } from '@oh-my-prompt/shared/types/agent'
 import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '@oh-my-prompt/shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '@oh-my-prompt/shared/utils'
 import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, AlertTriangle, Settings, Clock, Copy } from 'lucide-react'
@@ -18,6 +19,10 @@ import { ProviderCategoryItem } from './ProviderCategoryItem'
 import { CategorySelectDialog } from './CategorySelectDialog'
 import { showToast } from './ToastNotification'
 import { Tooltip } from './Tooltip'
+import { AgentPanel } from './AgentPanel'
+import { EcommercePanel } from './EcommercePanel'
+import type { EcommercePersistedState } from './EcommercePanel'
+import { getAgentTemplates, getAgentTemplate } from '../../lib/agent-templates'
 // Lazy load Modal components - only loaded when user opens them
 const PromptPreviewModal = lazy(() => import('./PromptPreviewModal').then(m => ({ default: m.PromptPreviewModal })))
 const UpdateGuideModal = lazy(() => import('./UpdateGuideModal').then(m => ({ default: m.UpdateGuideModal })))
@@ -37,6 +42,7 @@ interface DropdownContainerProps {
   categories: Category[]
   onSelect: (prompt: Prompt) => void
   onInjectResource?: (prompt: ResourcePrompt) => void  // Inject resource prompt directly
+  onInsertText?: (text: string) => void  // Insert plain text into input field
   isOpen: boolean
   selectedPromptId: string | null
   onClose?: () => void
@@ -322,6 +328,7 @@ export function DropdownContainer({
   categories: propCategories,
   onSelect,
   onInjectResource,
+  onInsertText,
   isOpen,
   selectedPromptId,
   onClose: _onClose,
@@ -350,6 +357,41 @@ export function DropdownContainer({
   const [resourceCategories] = useState<ResourceCategory[]>(getResourceCategories())
   const [selectedResourceCategoryId, setSelectedResourceCategoryId] = useState<string>('all')
   const [loadedCount, setLoadedCount] = useState(50)
+
+  // Agent mode state
+  const [agentViewMode, setAgentViewMode] = useState<'default' | 'agent'>('default')
+  const [agentSelectedTemplate, setAgentSelectedTemplate] = useState<AgentTemplateCategory>('ecommerce')
+  const [agentExtractedText, setAgentExtractedText] = useState<string>('')
+
+  // Persisted state for Agent/Ecommerce panels (survives close/reopen)
+  const [agentPanelState, setAgentPanelState] = useState<{ inputText: string; result: string | null; imageData: string | null }>({
+    inputText: '', result: null, imageData: null
+  })
+  const [ecommercePanelState, setEcommercePanelState] = useState<EcommercePersistedState>({
+    productImage: null, productImageName: '', platform: 'amazon', market: 'china',
+    language: 'zh', aspectRatio: '1:1', sellingPoints: '', setStructure: 'smart',
+    customCounts: { whiteBg: 1, scene: 2, sellingPoint: 2, other: 2 },
+    result: null, viewMode: 'form'
+  })
+
+  const handleAgentStateChange = useCallback((state: { inputText: string; result: string | null; imageData: string | null }) => {
+    setAgentPanelState(state)
+  }, [])
+  const handleEcommerceStateChange = useCallback((state: EcommercePersistedState) => {
+    setEcommercePanelState(state)
+  }, [])
+
+  // Listen for extracted text from Content Script (Agent mode)
+  useEffect(() => {
+    const handler = (message: { type: string; payload?: { inputText: string } }) => {
+      if (message.type === MessageType.AGENT_EXTRACT_FROM_CS && message.payload?.inputText) {
+        setAgentExtractedText(message.payload.inputText)
+        setAgentViewMode('agent')
+      }
+    }
+    chrome.runtime.onMessage.addListener(handler)
+    return () => chrome.runtime.onMessage.removeListener(handler)
+  }, [])
 
   // Language preference state (for resource library and local prompts)
   const [resourceLanguage, setResourceLanguage] = useState<'zh' | 'en'>('zh')
@@ -1236,7 +1278,36 @@ export function DropdownContainer({
       >
       <div className="dropdown-sidebar">
         <div className="sidebar-categories">
-          {isResourceLibrary ? (
+          {agentViewMode === 'agent' ? (
+            <>
+              {/* Back to default mode */}
+              <button
+                className="sidebar-category-item"
+                onClick={() => setAgentViewMode('default')}
+                aria-label="返回"
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <ArrowLeft className="sidebar-category-icon" />
+                </div>
+                <span>返回</span>
+              </button>
+              {/* Agent template categories */}
+              {getAgentTemplates().map(template => (
+                <button
+                  key={template.id}
+                  className={`sidebar-category-item ${agentSelectedTemplate === template.id ? 'selected' : ''}`}
+                  onClick={() => setAgentSelectedTemplate(template.id)}
+                >
+                  <div className="sidebar-category-icon-wrapper">
+                    <Sparkles className="sidebar-category-icon" style={{ color: agentSelectedTemplate === template.id ? '#A16207' : '#64748B' }} />
+                  </div>
+                  <Tooltip content={template.description} maxWidth={600}>
+                    <span>{template.name}</span>
+                  </Tooltip>
+                </button>
+              ))}
+            </>
+          ) : isResourceLibrary ? (
             <>
               {/* Back to local categories */}
               <button
@@ -1278,6 +1349,17 @@ export function DropdownContainer({
             </>
           ) : (
             <>
+              <button
+                className="sidebar-category-item"
+                onClick={() => setAgentViewMode('agent')}
+                aria-label="Agent"
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <Sparkles className="sidebar-category-icon" style={{ color: '#A16207' }} />
+                </div>
+                <span style={{ color: '#A16207' }}>Agent</span>
+              </button>
+
               {/* "资源库" entry */}
               <button
                 className={`sidebar-category-item ${isResourceLibrary ? 'selected' : ''}`}
@@ -1500,7 +1582,49 @@ export function DropdownContainer({
             )}
 
             <div className="dropdown-content" ref={scrollContainerRef} onScroll={handleScroll}>
-          {isLoading ? (
+          {agentViewMode === 'agent' ? (
+            agentSelectedTemplate === 'ecommerce' ? (
+              <EcommercePanel
+                selectedTemplate={agentSelectedTemplate}
+                extractedText={agentExtractedText}
+                categories={sortableCategories}
+                onSave={(prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => {
+                  const template = getAgentTemplate(templateCategory)
+                  usePromptStore.getState().addPrompt({
+                    name: `Agent: ${template?.name || '生成'}`,
+                    content: prompt,
+                    categoryId,
+                    order: localPrompts.filter(p => p.categoryId === categoryId).length,
+                  })
+                  showToast('已保存到库')
+                }}
+                onInsert={onInsertText}
+                persistedState={ecommercePanelState}
+                onPersistStateChange={handleEcommerceStateChange}
+              />
+            ) : (
+              <AgentPanel
+                selectedTemplate={agentSelectedTemplate}
+                extractedText={agentExtractedText}
+                categories={sortableCategories}
+                onSave={(prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => {
+                  const template = getAgentTemplate(templateCategory)
+                  usePromptStore.getState().addPrompt({
+                    name: `Agent: ${template?.name || '生成'}`,
+                    content: prompt,
+                    categoryId,
+                    order: localPrompts.filter(p => p.categoryId === categoryId).length,
+                  })
+                  showToast('已保存到库')
+                }}
+                onInsert={onInsertText}
+                persistedInputText={agentPanelState.inputText}
+                persistedResult={agentPanelState.result}
+                persistedImageData={agentPanelState.imageData}
+                onPersistStateChange={handleAgentStateChange}
+              />
+            )
+          ) : isLoading ? (
             <div className="empty-state">
               <div className="empty-message">加载中...</div>
             </div>
@@ -1577,7 +1701,7 @@ export function DropdownContainer({
           )}
         </div>
         {/* FAB add prompt button */}
-            {!isResourceLibrary && selectedCategoryId !== 'temporary' && (
+            {!isResourceLibrary && selectedCategoryId !== 'temporary' && agentViewMode !== 'agent' && (
               <button
                 className="fab-add-prompt"
                 onClick={() => openModal('isPromptAdd')}

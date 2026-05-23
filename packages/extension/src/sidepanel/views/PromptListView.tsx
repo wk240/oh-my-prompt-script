@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy, useRef } from 'react'
 import type { Prompt, Category, ResourcePrompt, UpdateStatus, TeamPrompt } from '@oh-my-prompt/shared/types'
+import type { AgentTemplateCategory, AgentViewMode } from '@oh-my-prompt/shared/types/agent'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '@oh-my-prompt/shared/utils'
 import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2, Clock, CheckCircle, Copy } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
@@ -12,6 +13,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { usePromptStore } from '@/lib/store'
 import { getResourcePrompts, getResourceCategories } from '@/lib/resource-library'
+import { getAgentTemplates, getAgentTemplate } from '@/lib/agent-templates'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { STORAGE_KEY } from '@oh-my-prompt/shared/constants'
 import { Tooltip } from '@/content/components/Tooltip'
@@ -20,6 +22,8 @@ import { queueImageLoad } from '@/lib/sync/image-loader-queue'
 import { downloadImageFromUrl, saveImage } from '@/lib/sync/image-sync'
 import { getFolderHandle } from '@/lib/sync/indexeddb'
 import { useAutoPermissionRestore } from '@/sidepanel/hooks/useAutoPermissionRestore'
+import AgentView from '@/sidepanel/views/AgentView'
+import EcommerceView from '@/sidepanel/views/EcommerceView'
 
 // Lazy load modal components
 const PromptPreviewModal = lazy(() => import('@/content/components/PromptPreviewModal').then(m => ({ default: m.PromptPreviewModal })))
@@ -573,6 +577,81 @@ function SidePanelNetworkCard({
   )
 }
 
+// Team prompt card for team library
+function SidePanelTeamCard({
+  prompt,
+  onClick,
+  onInject,
+  onSave,
+  onCopy,
+  language,
+  canInject,
+}: {
+  prompt: TeamPrompt
+  onClick: () => void
+  onInject?: () => void
+  onSave?: () => void
+  onCopy?: () => void
+  language: 'zh' | 'en'
+  canInject: boolean
+}) {
+  const displayName = language === 'en' && prompt.nameEn ? prompt.nameEn : prompt.name
+  const displayDescription = language === 'en' && prompt.descriptionEn ? prompt.descriptionEn : prompt.description
+
+  return (
+    <div
+      className="network-card team-card"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+    >
+      <Tooltip content={displayName} maxWidth={600}>
+        <div className="network-card-name">{truncateText(displayName, 20)}</div>
+      </Tooltip>
+      <Tooltip content={displayDescription || prompt.content} maxWidth={600}>
+        <div className="network-card-category">{truncateText(displayDescription || prompt.content, 30)}</div>
+      </Tooltip>
+      <div className="network-card-actions">
+        <Tooltip content="保存到个人库">
+          <button
+            onClick={(e) => { e.stopPropagation(); onSave?.() }}
+            className="network-card-btn collect"
+            aria-label="保存到个人库"
+          >
+            <Bookmark style={{ width: 12, height: 12 }} />
+          </button>
+        </Tooltip>
+        <Tooltip content="复制">
+          <button
+            onClick={(e) => { e.stopPropagation(); onCopy?.() }}
+            className="network-card-btn copy"
+            aria-label="复制"
+          >
+            <Copy style={{ width: 12, height: 12 }} />
+          </button>
+        </Tooltip>
+        {canInject && (
+          <Tooltip content="注入">
+            <button
+              onClick={(e) => { e.stopPropagation(); onInject?.() }}
+              className="network-card-btn inject"
+              aria-label="注入"
+            >
+              <ArrowUpRight style={{ width: 12, height: 12 }} />
+            </button>
+          </Tooltip>
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface PromptListViewProps {
   onOpenSettings: () => void
 }
@@ -582,13 +661,13 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
   const prompts = usePromptStore((state) => state.prompts)
   const categories = usePromptStore((state) => state.categories)
   const temporaryPrompts = usePromptStore((state) => state.temporaryPrompts)
+  const isLoading = usePromptStore((state) => state.isLoading)
+  const loadFromStorage = usePromptStore((state) => state.loadFromStorage)
+  const transferTemporaryPrompt = usePromptStore((state) => state.transferTemporaryPrompt)
   const teamPrompts = usePromptStore((state) => state.teamPrompts)
   const teamSyncStatus = usePromptStore((state) => state.teamSyncStatus)
   const syncTeamPrompts = usePromptStore((state) => state.syncTeamPrompts)
   const loadTeamPrompts = usePromptStore((state) => state.loadTeamPrompts)
-  const isLoading = usePromptStore((state) => state.isLoading)
-  const loadFromStorage = usePromptStore((state) => state.loadFromStorage)
-  const transferTemporaryPrompt = usePromptStore((state) => state.transferTemporaryPrompt)
 
   // Local state
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
@@ -599,6 +678,12 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
   const [loadedCount, setLoadedCount] = useState(50)
   const [visionEnabled, setVisionEnabled] = useState(true)
   const [teamSyncing, setTeamSyncing] = useState(false)
+
+  // Agent state
+  const [agentViewMode, setAgentViewMode] = useState<AgentViewMode>('default')
+  const [agentSelectedTemplate, setAgentSelectedTemplate] = useState<AgentTemplateCategory>('ecommerce')
+  const [agentExtractedText, _setAgentExtractedText] = useState<string>('')
+
   // Sync status for permission restore and UI
   const [status, setStatus] = useState<{ hasFolder: boolean; permissionStatus?: 'granted' | 'prompt' | 'denied'; hasUnsyncedChanges?: boolean; dismissedBackupWarning?: boolean } | null>(null)
 
@@ -931,9 +1016,9 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
   // Editing states
   const [editingStates, setEditingStates] = useState({
     resourcePrompt: null as ResourcePrompt | null,
+    teamPrompt: null as TeamPrompt | null,
     category: null as Category | null,
     prompt: null as Prompt | null,
-    teamPrompt: null as TeamPrompt | null,
     deletingCategory: null as Category | null,
     deletingPrompt: null as Prompt | null,
   })
@@ -958,7 +1043,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     loadFromStorage()
   }, [loadFromStorage])
 
-  // Load team prompts on mount
+  // Load team prompts
   useEffect(() => {
     loadTeamPrompts()
   }, [loadTeamPrompts])
@@ -1010,6 +1095,18 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       chrome.runtime.onMessage.removeListener(handleMessage)
     }
   }, [loadFromStorage, refreshStatus])
+
+  // Listen for extracted text from Content Script (Agent mode)
+  useEffect(() => {
+    const handler = (message: { type: string; payload?: { inputText: string } }) => {
+      if (message.type === MessageType.AGENT_EXTRACT_FROM_CS && message.payload?.inputText) {
+        _setAgentExtractedText(message.payload.inputText)
+        setAgentViewMode('agent')
+      }
+    }
+    chrome.runtime.onMessage.addListener(handler)
+    return () => chrome.runtime.onMessage.removeListener(handler)
+  }, [])
 
   // Listen for storage changes directly (robust fallback for any storage mutation)
   useEffect(() => {
@@ -1147,20 +1244,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     }))
   }, [temporaryPrompts, resourceLanguage])
 
-  // Filter prompts by category
-  const filteredPrompts = useMemo(() => {
-    if (selectedCategoryId === 'temporary') {
-      // Temporary library: use displayTemporaryPrompts (already sorted in reverse order)
-      return displayTemporaryPrompts
-    }
-    let result = selectedCategoryId === 'all'
-      ? prompts
-      : prompts.filter(p => p.categoryId === selectedCategoryId)
-    return sortPromptsByOrder(result)
-  }, [prompts, displayTemporaryPrompts, selectedCategoryId])
-
-  // 团队库显示数据（语言转换）
-  // Team prompts display in server order (sort_order handled by API)
+  // Team prompts display with language transformation
   const displayTeamPrompts: TeamPrompt[] = useMemo(() => {
     return teamPrompts.map(p => ({
       ...p,
@@ -1169,6 +1253,22 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       description: resourceLanguage === 'en' && p.descriptionEn ? p.descriptionEn : p.description,
     }))
   }, [teamPrompts, resourceLanguage])
+
+  // Filter prompts by category
+  const filteredPrompts = useMemo(() => {
+    if (selectedCategoryId === 'temporary') {
+      // Temporary library: use displayTemporaryPrompts (already sorted in reverse order)
+      return displayTemporaryPrompts
+    }
+    if (selectedCategoryId === 'team') {
+      // Team library: use displayTeamPrompts
+      return displayTeamPrompts
+    }
+    let result = selectedCategoryId === 'all'
+      ? prompts
+      : prompts.filter(p => p.categoryId === selectedCategoryId)
+    return sortPromptsByOrder(result)
+  }, [prompts, displayTemporaryPrompts, displayTeamPrompts, selectedCategoryId])
 
   const showPromptDragHandles = filteredPrompts.length >= 2
 
@@ -1282,6 +1382,70 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     }
   }, [resourceLanguage, setToastMessage, hideToast])
 
+  // Handle copy team prompt to clipboard
+  const handleCopyTeamPrompt = useCallback(async (teamPrompt: TeamPrompt) => {
+    const promptToCopy = resourceLanguage === 'en' && teamPrompt.contentEn
+      ? teamPrompt.contentEn
+      : teamPrompt.content
+    try {
+      await navigator.clipboard.writeText(promptToCopy)
+      setToastMessage('已复制到剪贴板')
+      setTimeout(hideToast, 2000)
+    } catch {
+      setToastMessage('复制失败')
+      setTimeout(hideToast, 2000)
+    }
+  }, [resourceLanguage, setToastMessage, hideToast])
+
+  // Handle team prompt injection
+  const handleInjectTeamPrompt = useCallback(async (teamPrompt: TeamPrompt) => {
+    if (inputStatus !== 'available' || !currentTabId) return
+
+    const promptToInject = resourceLanguage === 'en' && teamPrompt.contentEn
+      ? teamPrompt.contentEn
+      : teamPrompt.content
+
+    try {
+      // Verify tab still exists before sending
+      const tab = await chrome.tabs.get(currentTabId)
+      if (!tab || !tab.url || isSpecialPage(tab.url)) {
+        setInputStatus('unavailable')
+        setCurrentTabId(null)
+        findAvailableTabRef.current()
+        await navigator.clipboard.writeText(promptToInject)
+        setToastMessage('已复制到剪贴板（页面已切换）')
+        setTimeout(hideToast, 2000)
+        return
+      }
+
+      const response = await chrome.tabs.sendMessage(currentTabId, {
+        type: MessageType.INSERT_PROMPT_TO_CS,
+        payload: { prompt: promptToInject }
+      })
+      if (response?.success) {
+        setToastMessage('已注入提示词')
+        setTimeout(hideToast, 2000)
+      } else if (response?.error === 'INPUT_NOT_FOUND') {
+        await navigator.clipboard.writeText(promptToInject)
+        setToastMessage('已复制到剪贴板')
+        setTimeout(hideToast, 2000)
+      }
+    } catch (error) {
+      // Fallback to clipboard and trigger re-check
+      setInputStatus('unavailable')
+      setCurrentTabId(null)
+      findAvailableTabRef.current()
+      try {
+        await navigator.clipboard.writeText(promptToInject)
+        setToastMessage('已复制到剪贴板')
+        setTimeout(hideToast, 2000)
+      } catch {
+        setToastMessage('无法连接到页面')
+        setTimeout(hideToast, 2000)
+      }
+    }
+  }, [inputStatus, currentTabId, resourceLanguage, isSpecialPage, setToastMessage, hideToast])
+
   // Handle resource prompt injection
   const handleInjectResource = useCallback(async (resourcePrompt: ResourcePrompt) => {
     if (inputStatus !== 'available' || !currentTabId) return
@@ -1342,18 +1506,17 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     openModal('isCategoryDialog')
   }, [setEditingItem, openModal])
 
-  // 处理团队提示词保存到个人库
+  // Handle save team prompt to personal library
   const handleSaveTeamPromptToPersonal = useCallback((teamPrompt: TeamPrompt) => {
     setEditingItem('teamPrompt', teamPrompt)
     openModal('isCategoryDialog')
   }, [setEditingItem, openModal])
 
-  // 处理团队库同步
+  // Handle team sync
   const handleTeamSync = useCallback(async () => {
     setTeamSyncing(true)
     const result = await syncTeamPrompts()
     setTeamSyncing(false)
-
     if (result.success) {
       setToastMessage(`已同步 ${result.promptsCount || 0} 条团队提示词`)
       setTimeout(hideToast, 2000)
@@ -1365,18 +1528,33 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
 
   // Handle confirm collect
   const handleConfirmCollect = useCallback(async (categoryId: string, newCategoryName?: string) => {
-    // 处理团队提示词保存到个人库
+    // Handle team prompt
     if (editingStates.teamPrompt) {
+      const teamPrompt = editingStates.teamPrompt
+
       let targetCategoryId = categoryId
 
       if (newCategoryName?.trim()) {
         usePromptStore.getState().addCategory(newCategoryName.trim())
         const storeCategories = usePromptStore.getState().categories
         const newCategory = storeCategories.find(c => c.name === newCategoryName.trim())
-        if (newCategory) targetCategoryId = newCategory.id
+        if (newCategory) {
+          targetCategoryId = newCategory.id
+        }
       }
 
-      usePromptStore.getState().saveTeamPromptToPersonal(editingStates.teamPrompt, targetCategoryId)
+      const localPrompt: Omit<Prompt, 'id'> = {
+        name: teamPrompt.name,
+        nameEn: teamPrompt.nameEn,
+        content: teamPrompt.content,
+        contentEn: teamPrompt.contentEn,
+        categoryId: targetCategoryId,
+        description: teamPrompt.description,
+        descriptionEn: teamPrompt.descriptionEn,
+        order: 0,
+      }
+
+      await usePromptStore.getState().addPrompt(localPrompt)
 
       const categoryName = usePromptStore.getState().categories.find(c => c.id === targetCategoryId)?.name || '未知分类'
       setToastMessage(`已保存到 ${categoryName}`)
@@ -1387,6 +1565,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       return
     }
 
+    // Handle resource prompt
     if (!editingStates.resourcePrompt) return
     const resourcePrompt = editingStates.resourcePrompt
 
@@ -1774,7 +1953,37 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
         {/* Sidebar */}
         <div className="side-panel-sidebar">
           <div className="sidebar-categories scrollbar-thin">
-          {isResourceLibrary ? (
+          {/* Agent mode sidebar */}
+          {agentViewMode === 'agent' ? (
+            <>
+              {/* Return button */}
+              <button
+                className="sidebar-category-item"
+                onClick={() => setAgentViewMode('default')}
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <ArrowLeft className="sidebar-category-icon" />
+                </div>
+                <span>返回</span>
+              </button>
+
+              {/* Template categories */}
+              {getAgentTemplates().map(template => (
+                <button
+                  key={template.id}
+                  className={`sidebar-category-item ${agentSelectedTemplate === template.id ? 'selected' : ''}`}
+                  onClick={() => setAgentSelectedTemplate(template.id)}
+                >
+                  <div className="sidebar-category-icon-wrapper">
+                    <Sparkles className="sidebar-category-icon" style={{ color: agentSelectedTemplate === template.id ? '#A16207' : '#64748B' }} />
+                  </div>
+                  <Tooltip content={template.description} maxWidth={600}>
+                    <span>{template.name}</span>
+                  </Tooltip>
+                </button>
+              ))}
+            </>
+          ) : isResourceLibrary ? (
             <>
               <button
                 className="sidebar-category-item"
@@ -1818,6 +2027,16 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
           ) : (
             <>
               <button
+                className="sidebar-category-item"
+                onClick={() => setAgentViewMode('agent')}
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <Sparkles className="sidebar-category-icon" style={{ color: '#A16207' }} />
+                </div>
+                <span className="sidebar-category-name" style={{ color: '#A16207' }}>Agent</span>
+              </button>
+
+              <button
                 className={`sidebar-category-item ${isResourceLibrary ? 'selected' : ''}`}
                 onClick={() => setIsResourceLibrary(true)}
               >
@@ -1838,13 +2057,16 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                 <span>临时库</span>
               </button>
 
-              {/* 团队库入口 - 在临时库按钮后 */}
+              {/* 团队库入口 */}
               <button
                 className={`sidebar-category-item team-library ${selectedCategoryId === 'team' ? 'selected' : ''}`}
                 onClick={() => setSelectedCategoryId('team')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && setSelectedCategoryId('team')}
               >
                 <div className="sidebar-category-icon-wrapper">
-                  <Database className="sidebar-category-icon" style={{ color: '#7c3aed' }} />
+                  <Database style={{ width: 16, height: 16, color: '#7c3aed' }} />
                 </div>
                 <span>团队库</span>
                 {teamSyncStatus && (
@@ -2001,61 +2223,44 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
             <div className="empty-state">
               <div className="empty-message">加载中...</div>
             </div>
-          ) : selectedCategoryId === 'team' ? (
-            // 团队库内容展示
-            <div className="team-library-content">
-              <div className="content-header">
-                <div className="content-title">团队库</div>
-                <button className="sync-button" onClick={handleTeamSync} disabled={teamSyncing} aria-label="同步团队库">
-                  {teamSyncing ? (
-                    <Loader2 style={{ width: 12, height: 12 }} className="spin-animation" />
-                  ) : (
-                    <svg viewBox="0 0 24 24" style={{ width: 12, height: 12, stroke: 'currentColor', strokeWidth: 2, fill: 'none' }}>
-                      <polyline points="23 4 23 10 17 10"></polyline>
-                      <polyline points="1 20 1 14 7 14"></polyline>
-                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                    </svg>
-                  )}
-                  <span>{teamSyncing ? '同步中...' : '同步'}</span>
-                </button>
-              </div>
-
-              {displayTeamPrompts.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-message">
-                    {teamSyncStatus ? '暂无团队提示词' : '点击同步按钮获取团队提示词'}
-                  </div>
-                </div>
-              ) : (
-                <div className="team-prompts-list">
-                  {displayTeamPrompts.map(prompt => (
-                    <div key={prompt.id} className="team-prompt-card" onClick={() => handleSelectPrompt(prompt)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectPrompt(prompt) } }}>
-                      <div className="card-header">
-                        <div className="card-title">{prompt.name}</div>
-                        <div className="card-actions">
-                          <Tooltip content="保存到个人库">
-                            <button className="card-action-btn collect" onClick={(e) => { e.stopPropagation(); handleSaveTeamPromptToPersonal(prompt) }}>
-                              <Bookmark style={{ width: 14, height: 14, fill: 'none' }} />
-                            </button>
-                          </Tooltip>
-                          <Tooltip content="复制">
-                            <button className="card-action-btn" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(prompt.content); setToastMessage('已复制'); setTimeout(hideToast, 2000) }}>
-                              <Copy style={{ width: 14, height: 14 }} />
-                            </button>
-                          </Tooltip>
-                        </div>
-                      </div>
-                      <div className="card-source">
-                        <span className="card-source-tag" style={{ background: '#ddd6fe', color: '#7c3aed', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>
-                          来自：{prompt.teamName || '未知团队'}
-                        </span>
-                      </div>
-                      <div className="card-preview">{truncateText(prompt.description || prompt.content, 40)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          ) : agentViewMode === 'agent' ? (
+            agentSelectedTemplate === 'ecommerce' ? (
+              <EcommerceView
+                selectedTemplate={agentSelectedTemplate}
+                extractedText={agentExtractedText}
+                categories={sortableCategories}
+                onSave={(prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => {
+                  const template = getAgentTemplate(templateCategory)
+                  usePromptStore.getState().addPrompt({
+                    name: `Agent: ${template?.name || '生成'}`,
+                    content: prompt,
+                    categoryId,
+                    order: prompts.filter(p => p.categoryId === categoryId).length,
+                  })
+                  setToastMessage('已保存到库')
+                  setTimeout(hideToast, 2000)
+                }}
+                onOpenSettings={onOpenSettings}
+              />
+            ) : (
+              <AgentView
+                selectedTemplate={agentSelectedTemplate}
+                extractedText={agentExtractedText}
+                categories={sortableCategories}
+                onOpenSettings={onOpenSettings}
+                onSave={(prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => {
+                  const template = getAgentTemplate(templateCategory)
+                  usePromptStore.getState().addPrompt({
+                    name: `Agent: ${template?.name || '生成'}`,
+                    content: prompt,
+                    categoryId,
+                    order: prompts.filter(p => p.categoryId === categoryId).length,
+                  })
+                  setToastMessage('已保存到库')
+                  setTimeout(hideToast, 2000)
+                }}
+              />
+            )
           ) : isResourceLibrary ? (
             paginatedResourcePrompts.length === 0 ? (
               <div className="empty-state">
@@ -2082,10 +2287,78 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                 ))}
               </div>
             )
+          ) : selectedCategoryId === 'team' ? (
+            // Team library content
+            !teamSyncStatus ? (
+              <div className="empty-state">
+                <div className="empty-message">
+                  <p>团队库需要登录后使用</p>
+                  <button
+                    className="header-action-btn"
+                    style={{ marginTop: '12px', padding: '8px 16px', background: '#7c3aed', color: '#fff', borderRadius: '6px' }}
+                    onClick={onOpenSettings}
+                  >
+                    前往设置登录
+                  </button>
+                </div>
+              </div>
+            ) : displayTeamPrompts.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-message">
+                  <p>暂无团队提示词</p>
+                  <button
+                    className="header-action-btn"
+                    style={{ marginTop: '12px', padding: '8px 16px', background: '#7c3aed', color: '#fff', borderRadius: '6px' }}
+                    onClick={handleTeamSync}
+                    disabled={teamSyncing}
+                  >
+                    {teamSyncing ? '同步中...' : '同步团队库'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Team sync button header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 12px', background: '#f8fafc', borderRadius: '6px' }}>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>共 {displayTeamPrompts.length} 条团队提示词</span>
+                  <button
+                    className="header-action-btn"
+                    style={{ padding: '6px 12px', background: teamSyncing ? '#e2e8f0' : '#7c3aed', color: teamSyncing ? '#64748b' : '#fff', borderRadius: '4px', fontSize: '12px', cursor: teamSyncing ? 'wait' : 'pointer' }}
+                    onClick={handleTeamSync}
+                    disabled={teamSyncing}
+                  >
+                    {teamSyncing ? (
+                      <>
+                        <Loader2 style={{ width: 12, height: 12, marginRight: '4px' }} className="spin-animation" />
+                        同步中...
+                      </>
+                    ) : '同步'}
+                  </button>
+                </div>
+                {/* Team prompts grid */}
+                <div className="network-cards-grid">
+                  {displayTeamPrompts.map(prompt => (
+                    <SidePanelTeamCard
+                      key={prompt.id}
+                      prompt={prompt}
+                      language={resourceLanguage}
+                      onClick={() => {
+                        setEditingItem('teamPrompt', prompt)
+                        openModal('isPreview')
+                      }}
+                      onInject={() => handleInjectTeamPrompt(prompt)}
+                      onSave={() => handleSaveTeamPromptToPersonal(prompt)}
+                      onCopy={() => handleCopyTeamPrompt(prompt)}
+                      canInject={inputStatus === 'available'}
+                    />
+                  ))}
+                </div>
+              </>
+            )
           ) : filteredPrompts.length === 0 ? (
             <div className="empty-state">
               <div className="empty-message">
-                {selectedCategoryId === 'all' ? '暂无提示词' : selectedCategoryId === 'temporary' ? '暂无临时提示词' : '该分类暂无提示词'}
+                {selectedCategoryId === 'all' ? '暂无提示词' : selectedCategoryId === 'temporary' ? '暂无临时提示词' : selectedCategoryId === 'team' ? '暂无团队提示词' : '该分类暂无提示词'}
               </div>
             </div>
           ) : (
@@ -2120,7 +2393,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
         </div>
 
         {/* FAB add button */}
-        {!isResourceLibrary && selectedCategoryId !== 'temporary' && selectedCategoryId !== 'team' && (
+        {!isResourceLibrary && agentViewMode !== 'agent' && selectedCategoryId !== 'temporary' && selectedCategoryId !== 'team' && (
           <button
             className="fab-add-btn"
             onClick={() => openModal('isPromptAdd')}
@@ -2154,6 +2427,32 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
             onCopy={() => {
               if (editingStates.resourcePrompt) {
                 handleCopyResourcePrompt(editingStates.resourcePrompt)
+              }
+            }}
+            globalLanguage={resourceLanguage}
+            width="340px"
+          />
+        )}
+        {editingStates.teamPrompt && (
+          <PromptPreviewModal
+            prompt={editingStates.teamPrompt}
+            isOpen={modalStates.isPreview}
+            onClose={() => {
+              closeModal('isPreview')
+              clearEditingItem('teamPrompt')
+            }}
+            onCollect={() => openModal('isCategoryDialog')}
+            onInject={(language) => {
+              if (editingStates.teamPrompt) {
+                const promptToInject = language === 'en' && editingStates.teamPrompt.contentEn
+                  ? { ...editingStates.teamPrompt, content: editingStates.teamPrompt.contentEn }
+                  : editingStates.teamPrompt
+                handleInjectTeamPrompt(promptToInject)
+              }
+            }}
+            onCopy={() => {
+              if (editingStates.teamPrompt) {
+                handleCopyTeamPrompt(editingStates.teamPrompt)
               }
             }}
             globalLanguage={resourceLanguage}

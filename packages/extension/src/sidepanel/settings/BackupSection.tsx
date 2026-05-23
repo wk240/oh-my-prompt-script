@@ -8,14 +8,13 @@ import { MergePreviewModal, MergePreviewData } from './MergePreviewModal'
 import { HistoryModal } from './HistoryModal'
 import { RestoreDecisionModal } from './RestoreDecisionModal'
 import { MergeConflictModal, MergeResult } from './MergeConflictModal'
-import { signOut } from '@/lib/cloud-sync/auth-service'
 import { changeSyncFolder, enableSync, getBackupVersions, restoreFromBackup } from '@/lib/sync/sync-manager'
 import type { ExistingBackupInfo } from '@/lib/sync/sync-manager'
 import type { BackupStatusStorage, UnifiedSyncStatus } from '@/lib/sync/types'
 import type { BackupVersion } from '@/lib/sync/file-sync'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { BACKUP_FILE_NAME } from '@oh-my-prompt/shared/constants'
-import { WEB_APP_URL } from '@/lib/config'
+import { WEB_APP_URL, SUPABASE_PROJECT_REF } from '@/lib/config'
 
 /**
  * Transform UnifiedSyncStatus to BackupStatusStorage
@@ -41,6 +40,9 @@ const transformUnifiedToBackup = (unified: UnifiedSyncStatus): BackupStatusStora
     folderName: unified.folderName
   }
 })
+
+// Supabase auth token storage key
+const SUPABASE_AUTH_KEY = `sb-${SUPABASE_PROJECT_REF}-auth-token`
 
 /**
  * BackupSection - Main backup UI with transparent auto-backup display
@@ -150,35 +152,44 @@ export function BackupSection() {
     return () => chrome.runtime.onMessage.removeListener(handleMessage)
   }, [loadBackupStatus])
 
+  // Backup mechanism: Listen for auth token storage changes directly.
+  // This ensures sidepanel updates even if AUTH_STATUS_UPDATE message is lost
+  // (e.g., user closes callback tab before message delivery completes).
+  useEffect(() => {
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      // Check if auth token was added (login) or removed (logout)
+      if (changes[SUPABASE_AUTH_KEY]) {
+        const newValue = changes[SUPABASE_AUTH_KEY].newValue
+        const oldValue = changes[SUPABASE_AUTH_KEY].oldValue
+
+        // Token added = login success
+        if (newValue && !oldValue) {
+          console.log('[Oh My Prompt] Auth token added via storage, refreshing status')
+          loadBackupStatus()
+        }
+        // Token removed = logout
+        else if (!newValue && oldValue) {
+          console.log('[Oh My Prompt] Auth token removed via storage, refreshing status')
+          loadBackupStatus()
+        }
+      }
+    }
+    chrome.storage.onChanged.addListener(handleStorageChange)
+    return () => chrome.storage.onChanged.removeListener(handleStorageChange)
+  }, [loadBackupStatus])
+
   /**
-   * Handle cloud login - open Web App sync URL
+   * Handle cloud login - open Web App callback URL
    */
   const handleLogin = () => {
-    chrome.tabs.create({ url: `${WEB_APP_URL}/auth/extension/sync` })
+    chrome.tabs.create({ url: `${WEB_APP_URL}/auth/callback?source=extension` })
   }
 
   /**
-   * Handle cloud logout
+   * Navigate to mine tab when user clicks "未登录"
    */
-  const handleLogout = async () => {
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
-
-    try {
-      const result = await signOut()
-      if (result.success) {
-        setSuccess('已退出登录')
-        await loadBackupStatus()
-      } else {
-        setError('退出失败')
-      }
-    } catch (err) {
-      console.error('[Oh My Prompt] Logout failed:', err)
-      setError('退出失败')
-    } finally {
-      setLoading(false)
-    }
+  const handleNavigateToMine = () => {
+    chrome.storage.session.set({ sidepanelIntent: 'mine' })
   }
 
   /**
@@ -551,6 +562,7 @@ export function BackupSection() {
           status={status?.cloud ?? null}
           onLogin={handleLogin}
           onClickError={() => setShowMoreOptions(true)}
+          onNavigateToMine={handleNavigateToMine}
         />
         <BackupStatusRow
           target="local"
@@ -594,13 +606,13 @@ export function BackupSection() {
         {showMoreOptions && (
           <BackupMoreOptions
             status={status}
-            onLogout={handleLogout}
             onChangeFolder={handleChangeFolder}
             onViewHistory={handleViewHistory}
             onMergeFromCloud={handleMergeFromCloud}
             onViewDiff={handleViewDiff}
             onEmergencyExport={handleEmergencyExport}
             loading={loading}
+            diffLoading={diffLoading}
           />
         )}
       </div>

@@ -1,6 +1,7 @@
 // packages/extension/src/lib/cloud-sync/auth-service.ts
 import { getSupabaseClient, clearSupabaseClient } from './supabase-client'
 import { WEB_APP_URL, SUPABASE_PROJECT_REF } from '@/lib/config'
+import { MessageType } from '@oh-my-prompt/shared/messages'
 import type { CloudAuthState } from '@oh-my-prompt/shared/types'
 
 /**
@@ -36,22 +37,22 @@ export async function checkWebAppSession(): Promise<{
 }
 
 /**
- * Open Web App sync page to transfer session to Extension.
+ * Open Web App callback page to transfer session to Extension.
  *
  * Flow:
  * 1. Extension opens this URL in new tab (foreground or background)
  * 2. Web App detects existing session, returns tokens in hash
  * 3. Extension content script extracts tokens and saves to chrome.storage
- * 4. For sync route: tab auto-closes after success
+ * 4. Tab auto-closes after success (via hashchange listener)
  *
  * @param options.background - If true, open tab in background (active: false)
  * @returns Success status
  */
 export async function syncFromWebApp(options?: { background?: boolean }): Promise<{ success: boolean }> {
   try {
-    // Open sync page in new tab (background if specified)
+    // Open callback page with source=extension in new tab
     chrome.tabs.create({
-      url: `${WEB_APP_URL}/auth/extension/sync`,
+      url: `${WEB_APP_URL}/auth/callback?source=extension`,
       active: !options?.background
     })
     return { success: true }
@@ -136,8 +137,18 @@ export async function getAuthState(): Promise<CloudAuthState> {
       }
     })
 
+    // Handle 401 Unauthorized - session invalid (user logged out from Web App)
+    if (statusRes.status === 401) {
+      const storageKey = `sb-${SUPABASE_PROJECT_REF}-auth-token`
+      await chrome.storage.local.remove(storageKey)
+      clearSupabaseClient()
+      cachedSyncStatus = null // Clear cache on auth change
+      return { status: 'not_logged_in' }
+    }
+
     if (!statusRes.ok) {
-      // API unavailable, return basic logged_in state
+      // Other API errors (network, server) - return basic logged_in state
+      // User is authenticated locally, but API temporarily unavailable
       return {
         status: 'logged_in',
         user: { id: session.user.id, email: session.user.email }
@@ -196,7 +207,7 @@ export function invalidateSyncStatusCache(): void {
  * 2. Extension opens URL in new tab (chrome.tabs.create)
  * 3. User completes OAuth on provider site
  * 4. Provider redirects to web-app callback
- * 5. Web-app exchanges code for session
+ * 5. Web-app exchanges code for session and returns HTML with tokens (for extension)
  * 6. Extension polls waitForAuthCallback() until session detected
  *
  * @param provider - 'google' or 'github'
@@ -206,12 +217,11 @@ export async function signInWithOAuth(provider: 'google' | 'github'): Promise<{ 
   const supabase = getSupabaseClient()
 
   try {
-    // Use dedicated extension callback path to avoid query param matching issues
-    // Supabase's redirect URL matching is exact - query params must match exactly
+    // Use unified callback path with source=extension query param
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${WEB_APP_URL}/auth/extension/callback`,
+        redirectTo: `${WEB_APP_URL}/auth/callback?source=extension`,
         skipBrowserRedirect: true // We open in new tab manually
       }
     })
@@ -254,9 +264,19 @@ export async function signOut(): Promise<{ success: boolean }> {
   }
 
   clearSupabaseClient()
+  invalidateSyncStatusCache() // Clear auth state cache
 
   // Clear stored session from chrome.storage.local with correct key format
   await chrome.storage.local.remove([SUPABASE_AUTH_KEY])
+
+  // Broadcast logout to service worker, which will rebroadcast to all extension contexts (sidepanel, popup)
+  // This ensures VisionSection and other UI components update their auth state
+  chrome.runtime.sendMessage({
+    type: MessageType.AUTH_STATUS_UPDATE,
+    payload: { success: true, logout: true }
+  }).catch(() => {
+    // Service worker may not be running or other contexts not open, ignore error
+  })
 
   return { success: true }
 }
