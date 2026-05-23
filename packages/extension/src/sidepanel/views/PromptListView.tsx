@@ -666,8 +666,10 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
   const transferTemporaryPrompt = usePromptStore((state) => state.transferTemporaryPrompt)
   const teamPrompts = usePromptStore((state) => state.teamPrompts)
   const teamSyncStatus = usePromptStore((state) => state.teamSyncStatus)
+  const authState = usePromptStore((state) => state.authState)
   const syncTeamPrompts = usePromptStore((state) => state.syncTeamPrompts)
   const loadTeamPrompts = usePromptStore((state) => state.loadTeamPrompts)
+  const loadAuthState = usePromptStore((state) => state.loadAuthState)
 
   // Local state
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all')
@@ -1043,10 +1045,11 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     loadFromStorage()
   }, [loadFromStorage])
 
-  // Load team prompts
+  // Load team prompts and auth state
   useEffect(() => {
     loadTeamPrompts()
-  }, [loadTeamPrompts])
+    loadAuthState()
+  }, [loadTeamPrompts, loadAuthState])
 
   // Wait for permission restore from action.onClicked, then check status
   // CRITICAL: action.onClicked sends permission request BEFORE sidePanel.open()
@@ -1121,6 +1124,19 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       chrome.storage.onChanged.removeListener(handleStorageChange)
     }
   }, [loadFromStorage, refreshStatus])
+
+  // Listen for auth status updates (login/logout from MineView or other contexts)
+  useEffect(() => {
+    const handleMessage = (message: { type: string }) => {
+      if (message.type === MessageType.AUTH_STATUS_UPDATE) {
+        loadAuthState()
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleMessage)
+    }
+  }, [loadAuthState])
 
   // Load language preference and vision setting
   useEffect(() => {
@@ -2289,7 +2305,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
             )
           ) : selectedCategoryId === 'team' ? (
             // Team library content
-            !teamSyncStatus ? (
+            authState?.status !== 'logged_in' ? (
               <div className="empty-state">
                 <div className="empty-message">
                   <p>团队库需要登录后使用</p>
