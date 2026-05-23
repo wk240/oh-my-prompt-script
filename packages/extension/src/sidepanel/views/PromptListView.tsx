@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useMemo, Suspense, lazy, useRef } fro
 import type { Prompt, Category, ResourcePrompt, UpdateStatus, TeamPrompt } from '@oh-my-prompt/shared/types'
 import type { AgentTemplateCategory, AgentViewMode } from '@oh-my-prompt/shared/types/agent'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '@oh-my-prompt/shared/utils'
-import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2, Clock, CheckCircle, Copy, Users } from 'lucide-react'
+import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2, Clock, CheckCircle, Copy, Users, Share2 } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -32,6 +32,7 @@ const CategoryEditModal = lazy(() => import('@/content/components/CategoryEditMo
 const DeleteConfirmModal = lazy(() => import('@/content/components/DeleteConfirmModal').then(m => ({ default: m.DeleteConfirmModal })))
 const PromptEditModal = lazy(() => import('@/content/components/PromptEditModal').then(m => ({ default: m.PromptEditModal })))
 const CategorySelectDialog = lazy(() => import('@/content/components/CategorySelectDialog').then(m => ({ default: m.CategorySelectDialog })))
+const TeamShareDialog = lazy(() => import('@/sidepanel/components/TeamShareDialog').then(m => ({ default: m.TeamShareDialog })))
 
 // Icon mapping for categories
 const CATEGORY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -150,6 +151,7 @@ function SortablePromptItem({
   onEdit,
   onDelete,
   onCopy,
+  onShare,
   canInject,
 }: {
   prompt: Prompt
@@ -159,6 +161,7 @@ function SortablePromptItem({
   onEdit: (prompt: Prompt) => void
   onDelete: (prompt: Prompt) => void
   onCopy: (prompt: Prompt) => void
+  onShare: (prompt: Prompt) => void
   canInject: boolean
 }) {
   const {
@@ -355,6 +358,14 @@ function SortablePromptItem({
           aria-label="复制提示词"
         >
           <Copy style={{ width: 14, height: 14 }} />
+        </button>
+        <button
+          className="prompt-action-btn"
+          onClick={(e) => { e.stopPropagation(); onShare(prompt) }}
+          aria-label="共享到团队"
+          title="共享到团队"
+        >
+          <Share2 style={{ width: 14, height: 14 }} />
         </button>
         <button
           className="prompt-action-btn"
@@ -1013,6 +1024,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     showBackupReminder: false,
     showFirstBackupWarning: false,
     toastMessage: null as string | null,
+    isTeamShare: false,
   })
 
   // Editing states
@@ -1023,6 +1035,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     prompt: null as Prompt | null,
     deletingCategory: null as Category | null,
     deletingPrompt: null as Prompt | null,
+    sharingPrompt: null as Prompt | null,
   })
 
   // Update status
@@ -1541,6 +1554,17 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       setTimeout(hideToast, 2000)
     }
   }, [syncTeamPrompts, setToastMessage, hideToast])
+
+  // Handle share prompt to team
+  const handleShareToTeam = useCallback((prompt: Prompt) => {
+    if (!authState || authState.status !== 'logged_in') {
+      setToastMessage('请先登录后共享')
+      setTimeout(hideToast, 2000)
+      return
+    }
+    setEditingItem('sharingPrompt', prompt)
+    openModal('isTeamShare')
+  }, [authState, setToastMessage, hideToast, setEditingItem, openModal])
 
   // Handle confirm collect
   const handleConfirmCollect = useCallback(async (categoryId: string, newCategoryName?: string) => {
@@ -2397,6 +2421,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                       openModal('isPromptDelete')
                     }}
                     onCopy={handleCopyPrompt}
+                    onShare={handleShareToTeam}
                     canInject={inputStatus === 'available'}
                   />
                 ))}
@@ -2540,6 +2565,24 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
           onClose={() => closeModal('isCategoryDialog')}
           onConfirm={handleConfirmCollect}
         />
+        {editingStates.sharingPrompt && (
+          <TeamShareDialog
+            prompt={editingStates.sharingPrompt}
+            isOpen={modalStates.isTeamShare}
+            onClose={() => {
+              closeModal('isTeamShare')
+              clearEditingItem('sharingPrompt')
+            }}
+            onSuccess={(teamName) => {
+              setToastMessage(`已共享到 ${teamName}`)
+              setTimeout(hideToast, 2000)
+            }}
+            onError={(error) => {
+              setToastMessage(error)
+              setTimeout(hideToast, 2000)
+            }}
+          />
+        )}
       </Suspense>
 
       {/* "Already latest" tip - positioned near update button */}
