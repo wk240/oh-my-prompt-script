@@ -730,6 +730,10 @@ export const DROPDOWN_STYLES = `
     color: #dc2626;
   }
 
+  #${PORTAL_ID} .prompt-action-btn.share:hover {
+    color: #8b5cf6;
+  }
+
   /* FAB add prompt button */
   #${PORTAL_ID} .fab-add-prompt {
     position: absolute;
