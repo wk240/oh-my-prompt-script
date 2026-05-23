@@ -26,6 +26,7 @@ export const TEAM_SHARE_DIALOG_STYLES = `
     inset: 0;
     background: rgba(0, 0, 0, 0.8);
     animation: omp-fade-in 0.15s ease-out;
+    cursor: pointer;
   }
 
   /* Content container - centered, white background, rounded, shadow */
@@ -35,9 +36,9 @@ export const TEAM_SHARE_DIALOG_STYLES = `
     top: 50%;
     transform: translate(-50%, -50%);
     width: calc(100% - 32px);
-    max-width: 400px;
+    max-width: 384px;
     background: #ffffff;
-    border: 1px solid #E5E5E5;
+    border: 1px solid #E5E7EB;
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     padding: 20px;
@@ -56,7 +57,7 @@ export const TEAM_SHARE_DIALOG_STYLES = `
   }
 
   #${TEAM_SHARE_PORTAL_ID} .team-share-title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     color: #171717;
     line-height: 1.2;
@@ -103,7 +104,7 @@ export const TEAM_SHARE_DIALOG_STYLES = `
     width: 100%;
     padding: 12px;
     background: #ffffff;
-    border: 1px solid #E5E5E5;
+    border: 1px solid #E5E7EB;
     border-radius: 8px;
     cursor: pointer;
     text-align: left;
@@ -112,7 +113,7 @@ export const TEAM_SHARE_DIALOG_STYLES = `
 
   #${TEAM_SHARE_PORTAL_ID} .team-share-option:hover {
     border-color: #D4D4D4;
-    background: #f8f8f8;
+    background: #F9FAFB;
   }
 
   #${TEAM_SHARE_PORTAL_ID} .team-share-option.selected {
@@ -217,7 +218,7 @@ export const TEAM_SHARE_DIALOG_STYLES = `
   #${TEAM_SHARE_PORTAL_ID} .team-share-btn-outline {
     padding: 10px 16px;
     background: #ffffff;
-    border: 1px solid #E5E5E5;
+    border: 1px solid #E5E7EB;
     border-radius: 6px;
     font-size: 13px;
     font-weight: 500;
@@ -227,7 +228,7 @@ export const TEAM_SHARE_DIALOG_STYLES = `
   }
 
   #${TEAM_SHARE_PORTAL_ID} .team-share-btn-outline:hover {
-    background: #f8f8f8;
+    background: #F9FAFB;
     border-color: #D4D4D4;
   }
 
@@ -249,7 +250,7 @@ export const TEAM_SHARE_DIALOG_STYLES = `
   }
 
   #${TEAM_SHARE_PORTAL_ID} .team-share-btn-primary:disabled {
-    background: #D4D4D4;
+    background: #9CA3AF;
     cursor: not-allowed;
   }
 
