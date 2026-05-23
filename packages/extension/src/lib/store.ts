@@ -5,10 +5,11 @@
  */
 
 import { create } from 'zustand'
-import type { Prompt, Category, StorageSchema, TeamPrompt, TeamSyncStatus } from '@oh-my-prompt/shared/types'
+import type { Prompt, Category, StorageSchema, TeamPrompt, TeamSyncStatus, CloudAuthState } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { sortPromptsByOrder } from '@oh-my-prompt/shared/utils'
 import { syncTeamPrompts } from '@/lib/team-sync'
+import { getAuthState } from '@/lib/cloud-sync/auth-service'
 
 interface PromptStore {
   prompts: Prompt[]
@@ -16,6 +17,7 @@ interface PromptStore {
   temporaryPrompts: Prompt[]  // Temporary library prompts (independent storage)
   teamPrompts: TeamPrompt[]   // Team library prompts (shared from teams)
   teamSyncStatus: TeamSyncStatus | null  // Team sync status
+  authState: CloudAuthState | null  // Cloud auth state (logged_in / not_logged_in)
   selectedCategoryId: string | null
   isLoading: boolean
 
@@ -46,6 +48,7 @@ interface PromptStore {
   // Team library
   syncTeamPrompts: () => Promise<{ success: boolean; promptsCount?: number; error?: string }>
   loadTeamPrompts: () => Promise<void>
+  loadAuthState: () => Promise<void>
   saveTeamPromptToPersonal: (teamPrompt: TeamPrompt, categoryId: string) => void
 
   // Computed getters
@@ -316,6 +319,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
   temporaryPrompts: [],
   teamPrompts: [],
   teamSyncStatus: null,
+  authState: null,
   selectedCategoryId: 'all',
   isLoading: true,
 
@@ -609,6 +613,11 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
   loadTeamPrompts: async () => {
     const stored = await chrome.storage.local.get(['teamPrompts', 'teamSyncStatus'])
     set({ teamPrompts: stored.teamPrompts || [], teamSyncStatus: stored.teamSyncStatus || null })
+  },
+
+  loadAuthState: async () => {
+    const authState = await getAuthState()
+    set({ authState })
   },
 
   saveTeamPromptToPersonal: (teamPrompt: TeamPrompt, categoryId: string) => {

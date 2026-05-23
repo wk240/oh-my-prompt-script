@@ -149,11 +149,11 @@ export class SyncOrchestrator {
           (success) => this.notifyBackupComplete('cloud', success)
         )
         const retryResult = await this.cloudRetryManager.execute()
-        const cloudResult = this.lastCloudSyncResult!
+        const cloudResult = this.lastCloudSyncResult as SyncResult | null
 
-        if (retryResult.success && cloudResult.success) {
+        if (retryResult.success && cloudResult?.success) {
           await this.updateSyncStatus({
-            lastCloudSyncTime: cloudResult.syncedAt,
+            lastCloudSyncTime: cloudResult?.syncedAt,
             hasUnsyncedChanges: false,
             pendingCloudSync: false,
             pendingUpload: false,
@@ -169,14 +169,14 @@ export class SyncOrchestrator {
           })
           // Invalidate auth-service cache after successful cloud sync
           invalidateSyncStatusCache()
-          return { cloudSynced: true, localSynced: false, syncedAt: cloudResult.syncedAt }
+          return { cloudSynced: true, localSynced: false, syncedAt: cloudResult?.syncedAt }
         }
         await this.updateSyncStatus({
           cloudSyncing: false,
           localSyncing: false,
-          cloudError: cloudResult.error
+          cloudError: cloudResult?.error
         })
-        return { cloudSynced: false, localSynced: false, cloudError: cloudResult.error }
+        return { cloudSynced: false, localSynced: false, cloudError: cloudResult?.error }
       }
       await this.updateSyncStatus({
         cloudSyncing: false,
@@ -196,11 +196,11 @@ export class SyncOrchestrator {
         (success) => this.notifyBackupComplete('local', success)
       )
       const retryResult = await this.localRetryManager.execute()
-      const localResult = this.lastLocalSyncResult!
+      const localResult = this.lastLocalSyncResult as LocalSyncResult | null
 
-      if (retryResult.success && localResult.success) {
+      if (retryResult.success && localResult?.success) {
         await this.updateSyncStatus({
-          lastLocalSyncTime: localResult.syncedAt || Date.now(),
+          lastLocalSyncTime: localResult?.syncedAt || Date.now(),
           hasUnsyncedChanges: true,
           pendingCloudSync: true,
           cloudSyncing: false,
@@ -208,15 +208,15 @@ export class SyncOrchestrator {
           localRetryCount: 0,
           localError: undefined
         })
-        return { cloudSynced: false, localSynced: true, syncedAt: localResult.syncedAt }
+        return { cloudSynced: false, localSynced: true, syncedAt: localResult?.syncedAt }
       } else {
-        console.warn('[Oh My Prompt] Local sync failed:', localResult.error)
+        console.warn('[Oh My Prompt] Local sync failed:', localResult?.error)
         await this.updateSyncStatus({
           cloudSyncing: false,
           localSyncing: false,
-          localError: localResult.error
+          localError: localResult?.error
         })
-        return { cloudSynced: false, localSynced: false, localError: localResult.error }
+        return { cloudSynced: false, localSynced: false, localError: localResult?.error }
       }
     }
 
@@ -244,21 +244,21 @@ export class SyncOrchestrator {
     ])
 
     // Access stored results (set by callbacks during execute)
-    const cloudResult = this.lastCloudSyncResult!
-    const localResult = this.lastLocalSyncResult!
+    const cloudResult = this.lastCloudSyncResult as SyncResult | null
+    const localResult = this.lastLocalSyncResult as LocalSyncResult | null
 
     // Determine success using retry results (accounts for retry mechanism)
-    const cloudSuccess = cloudRetryResult.success && cloudResult.success
-    const localSuccess = localRetryResult.success && localResult.success
+    const cloudSuccess = cloudRetryResult.success && cloudResult?.success
+    const localSuccess = localRetryResult.success && localResult?.success
 
     // Handle skipped sync (data unchanged)
-    if (cloudResult.skipped) {
+    if (cloudResult?.skipped) {
       // Cloud sync skipped: data unchanged
     }
 
     if (cloudSuccess && localSuccess) {
       await this.updateSyncStatus({
-        lastCloudSyncTime: cloudResult.syncedAt,
+        lastCloudSyncTime: cloudResult?.syncedAt,
         lastLocalSyncTime: Date.now(),
         hasUnsyncedChanges: false,
         pendingCloudSync: false,
@@ -280,8 +280,8 @@ export class SyncOrchestrator {
       return {
         cloudSynced: true,
         localSynced: true,
-        syncedAt: cloudResult.syncedAt,
-        skipped: cloudResult.skipped
+        syncedAt: cloudResult?.syncedAt,
+        skipped: cloudResult?.skipped
       }
     } else if (localSuccess) {
       // Local success, cloud failed
@@ -292,17 +292,17 @@ export class SyncOrchestrator {
         localSyncing: false,
         localRetryCount: localRetryResult.retryCount,
         localError: undefined,
-        cloudError: cloudResult.error
+        cloudError: cloudResult?.error
       })
       return {
         cloudSynced: false,
         localSynced: true,
-        cloudError: cloudResult.error
+        cloudError: cloudResult?.error
       }
     } else if (cloudSuccess) {
       // Cloud success, local failed
       await this.updateSyncStatus({
-        lastCloudSyncTime: cloudResult.syncedAt,
+        lastCloudSyncTime: cloudResult?.syncedAt,
         hasUnsyncedChanges: true,
         pendingUpload: false,
         localOnlyItems: {
@@ -313,15 +313,15 @@ export class SyncOrchestrator {
         cloudSyncing: false,
         cloudRetryCount: cloudRetryResult.retryCount,
         cloudError: undefined,
-        localError: localResult.error
+        localError: localResult?.error
       })
       // Invalidate auth-service cache after successful cloud sync
       invalidateSyncStatusCache()
       return {
         cloudSynced: true,
         localSynced: false,
-        localError: localResult.error,
-        syncedAt: cloudResult.syncedAt
+        localError: localResult?.error,
+        syncedAt: cloudResult?.syncedAt
       }
     }
 
@@ -329,20 +329,21 @@ export class SyncOrchestrator {
     await this.updateSyncStatus({
       cloudSyncing: false,
       localSyncing: false,
-      cloudError: cloudResult.error,
-      localError: localResult.error
+      cloudError: cloudResult?.error,
+      localError: localResult?.error
     })
     return {
       cloudSynced: false,
       localSynced: false,
-      cloudError: cloudResult.error,
-      localError: localResult.error
+      cloudError: cloudResult?.error,
+      localError: localResult?.error
     }
   }
 
   /**
    * Preview merge diff without actually merging.
    * Returns counts and change details for UI display.
+   * Now includes mergedByName for categories (same name, different IDs).
    */
   async previewMerge(): Promise<{
     cloudCount: { prompts: number; categories: number; temporaryPrompts: number }
@@ -354,6 +355,7 @@ export class SyncOrchestrator {
       updateToLocal: number // Cloud items newer than local
       updateToCloud: number // Local items newer than cloud
       conflicts: number     // Items with same updatedAt timestamp
+      mergedByName: number  // Categories merged by name (same name, different IDs)
     }
     cloudOnlyItems: {
       prompts: Array<{ id: string; name: string; updatedAt?: number }>
@@ -366,6 +368,7 @@ export class SyncOrchestrator {
       temporaryPrompts: Array<{ id: string; name: string; updatedAt?: number }>
     }
     conflicts: Array<{ type: 'prompt' | 'category' | 'temporaryPrompt'; cloud: { id: string; name: string; updatedAt?: number }; local: { id: string; name: string; updatedAt?: number } }>
+    mergedByNameItems: Array<{ type: 'category' | 'prompt' | 'temporaryPrompt'; cloud: { id: string; name: string; updatedAt?: number }; local: { id: string; name: string; updatedAt?: number }; kept: 'cloud' | 'local' }>
   }> {
     const cloudData = await this.cloudStrategy.restore()
     const localData = await this.getLocalData()
@@ -389,7 +392,8 @@ export class SyncOrchestrator {
           addToCloud: localData.prompts.length + localData.categories.length + localData.temporaryPrompts.length,
           updateToLocal: 0,
           updateToCloud: 0,
-          conflicts: 0
+          conflicts: 0,
+          mergedByName: 0
         },
         cloudOnlyItems: { prompts: [], categories: [], temporaryPrompts: [] },
         localOnlyItems: {
@@ -397,19 +401,42 @@ export class SyncOrchestrator {
           categories: localData.categories.map(c => ({ id: c.id, name: c.name, updatedAt: c.updatedAt })),
           temporaryPrompts: localData.temporaryPrompts.map(p => ({ id: p.id, name: p.name, updatedAt: p.updatedAt }))
         },
-        conflicts: []
+        conflicts: [],
+        mergedByNameItems: []
       }
     }
 
     // Perform merge preview (without applying changes)
-    const promptMerge = this.mergeBidirectional(
-      cloudData.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
-      localData.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
-    )
-
+    // First merge categories to detect name-based duplicates
     const categoryMerge = this.mergeBidirectional(
       cloudData.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 })),
       localData.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 }))
+    )
+
+    // Build category ID mapping for prompts
+    const categoryIdMap = new Map<string, string>()
+    categoryMerge.mergedByName.forEach(merge => {
+      if (merge.kept.id === merge.cloud.id) {
+        categoryIdMap.set(merge.local.id, merge.cloud.id)
+      }
+      if (merge.kept.id === merge.local.id) {
+        categoryIdMap.set(merge.cloud.id, merge.local.id)
+      }
+    })
+
+    // Update prompts' categoryId before merge preview
+    const updatedCloudPrompts = cloudData.prompts.map(p => {
+      const newCategoryId = categoryIdMap.get(p.categoryId)
+      return newCategoryId ? { ...p, categoryId: newCategoryId } : p
+    })
+    const updatedLocalPrompts = localData.prompts.map(p => {
+      const newCategoryId = categoryIdMap.get(p.categoryId)
+      return newCategoryId ? { ...p, categoryId: newCategoryId } : p
+    })
+
+    const promptMerge = this.mergeBidirectional(
+      updatedCloudPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
+      updatedLocalPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
     )
 
     const tempMerge = this.mergeBidirectional(
@@ -418,10 +445,6 @@ export class SyncOrchestrator {
     )
 
     // Use separate arrays from mergeBidirectional to avoid double-counting
-    // - cloudOnly: items only in cloud (need to add to local)
-    // - localOnly: items only in local (need to upload to cloud)
-    // - cloudNewer: items where cloud is newer (need to update local)
-    // - localNewer: items where local is newer (need to update cloud)
     return {
       cloudCount: {
         prompts: cloudData.prompts.length,
@@ -443,7 +466,8 @@ export class SyncOrchestrator {
         addToCloud: promptMerge.localOnly.length + categoryMerge.localOnly.length + tempMerge.localOnly.length,
         updateToLocal: promptMerge.cloudNewer.length + categoryMerge.cloudNewer.length + tempMerge.cloudNewer.length,
         updateToCloud: promptMerge.localNewer.length + categoryMerge.localNewer.length + tempMerge.localNewer.length,
-        conflicts: promptMerge.conflicts.length + categoryMerge.conflicts.length + tempMerge.conflicts.length
+        conflicts: promptMerge.conflicts.length + categoryMerge.conflicts.length + tempMerge.conflicts.length,
+        mergedByName: categoryMerge.mergedByName.length + promptMerge.mergedByName.length + tempMerge.mergedByName.length
       },
       cloudOnlyItems: {
         prompts: promptMerge.cloudOnly.map(p => ({ id: p.id, name: p.name, updatedAt: p.updatedAt })),
@@ -471,6 +495,26 @@ export class SyncOrchestrator {
           cloud: { id: c.cloud.id, name: c.cloud.name, updatedAt: c.cloud.updatedAt },
           local: { id: c.local.id, name: c.local.name, updatedAt: c.local.updatedAt }
         }))
+      ],
+      mergedByNameItems: [
+        ...categoryMerge.mergedByName.map(m => ({
+          type: 'category' as const,
+          cloud: { id: m.cloud.id, name: m.cloud.name!, updatedAt: m.cloud.updatedAt },
+          local: { id: m.local.id, name: m.local.name!, updatedAt: m.local.updatedAt },
+          kept: (m.kept.id === m.cloud.id ? 'cloud' : 'local') as 'cloud' | 'local'
+        })),
+        ...promptMerge.mergedByName.map(m => ({
+          type: 'prompt' as const,
+          cloud: { id: m.cloud.id, name: m.cloud.name!, updatedAt: m.cloud.updatedAt },
+          local: { id: m.local.id, name: m.local.name!, updatedAt: m.local.updatedAt },
+          kept: (m.kept.id === m.cloud.id ? 'cloud' : 'local') as 'cloud' | 'local'
+        })),
+        ...tempMerge.mergedByName.map(m => ({
+          type: 'temporaryPrompt' as const,
+          cloud: { id: m.cloud.id, name: m.cloud.name!, updatedAt: m.cloud.updatedAt },
+          local: { id: m.local.id, name: m.local.name!, updatedAt: m.local.updatedAt },
+          kept: (m.kept.id === m.cloud.id ? 'cloud' : 'local') as 'cloud' | 'local'
+        }))
       ]
     }
   }
@@ -479,6 +523,8 @@ export class SyncOrchestrator {
   /**
    * Download from cloud and merge with local.
    * Now uses bidirectional merge (keeps latest version based on updatedAt).
+   * For categories: also merges by name to prevent duplicates.
+   * For prompts: updates categoryId if their category was merged by name.
    */
   async downloadAndMerge(): Promise<MergeResult & { conflicts?: Array<{ type: 'prompt' | 'category'; cloud: unknown; local: unknown }> }> {
     const cloudData = await this.cloudStrategy.restore()
@@ -493,20 +539,81 @@ export class SyncOrchestrator {
     }
 
     // Bidirectional merge - keeps latest version based on updatedAt
-    const promptMerge = this.mergeBidirectional(
-      cloudData.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
-      localData.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
-    )
-
     const categoryMerge = this.mergeBidirectional(
       cloudData.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 })),
       localData.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 }))
+    )
+
+    // Build category ID mapping for prompts (when categories merged by name)
+    // If local category was merged with cloud category by name, update prompt's categoryId
+    const categoryIdMap = new Map<string, string>()
+    categoryMerge.mergedByName.forEach(merge => {
+      // If kept cloud version, map local category ID to cloud category ID
+      if (merge.kept.id === merge.cloud.id) {
+        categoryIdMap.set(merge.local.id, merge.cloud.id)
+      }
+      // If kept local version, map cloud category ID to local category ID
+      if (merge.kept.id === merge.local.id) {
+        categoryIdMap.set(merge.cloud.id, merge.local.id)
+      }
+    })
+
+    // Update prompts' categoryId if needed
+    const updatedCloudPrompts = cloudData.prompts.map(p => {
+      const newCategoryId = categoryIdMap.get(p.categoryId)
+      if (newCategoryId) {
+        console.log(`[Oh My Prompt] Updating prompt "${p.name}" categoryId: ${p.categoryId} -> ${newCategoryId}`)
+        return { ...p, categoryId: newCategoryId }
+      }
+      return p
+    })
+
+    const updatedLocalPrompts = localData.prompts.map(p => {
+      const newCategoryId = categoryIdMap.get(p.categoryId)
+      if (newCategoryId) {
+        console.log(`[Oh My Prompt] Updating prompt "${p.name}" categoryId: ${p.categoryId} -> ${newCategoryId}`)
+        return { ...p, categoryId: newCategoryId }
+      }
+      return p
+    })
+
+    const promptMerge = this.mergeBidirectional(
+      updatedCloudPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
+      updatedLocalPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
     )
 
     const tempMerge = this.mergeBidirectional(
       cloudData.temporaryPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
       localData.temporaryPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
     )
+
+    // Log merged items for debugging
+    if (categoryMerge.mergedByName.length > 0) {
+      console.log('[Oh My Prompt] Categories merged by name:', categoryMerge.mergedByName.map(m => ({
+        name: m.kept.name,
+        cloudId: m.cloud.id,
+        localId: m.local.id,
+        kept: (m.kept.id === m.cloud.id ? 'cloud' : 'local') as 'cloud' | 'local'
+      })))
+    }
+
+    if (promptMerge.mergedByName.length > 0) {
+      console.log('[Oh My Prompt] Prompts merged by name:', promptMerge.mergedByName.map(m => ({
+        name: m.kept.name,
+        cloudId: m.cloud.id,
+        localId: m.local.id,
+        kept: (m.kept.id === m.cloud.id ? 'cloud' : 'local') as 'cloud' | 'local'
+      })))
+    }
+
+    if (tempMerge.mergedByName.length > 0) {
+      console.log('[Oh My Prompt] Temporary prompts merged by name:', tempMerge.mergedByName.map(m => ({
+        name: m.kept.name,
+        cloudId: m.cloud.id,
+        localId: m.local.id,
+        kept: (m.kept.id === m.cloud.id ? 'cloud' : 'local') as 'cloud' | 'local'
+      })))
+    }
 
     const result: MergeResult = {
       data: {
@@ -722,14 +829,18 @@ export class SyncOrchestrator {
    * Bidirectional merge - keeps latest version based on updatedAt.
    * This is TRUE multi-device sync (not cloud-wins-all).
    *
+   * For categories: also merges by name to prevent duplicates when same category
+   * was created on different devices with different IDs.
+   *
    * Returns separate arrays for different merge scenarios:
    * - cloudOnly: items that exist only in cloud (need to add to local)
    * - localOnly: items that exist only in local (need to upload to cloud)
    * - localNewer: items where local version is newer than cloud (need to update cloud)
    * - cloudNewer: items where cloud version is newer than local (need to update local)
    * - conflicts: items with same timestamp
+   * - mergedByName: items that were merged by name (same name, different IDs)
    */
-  private mergeBidirectional<T extends { id: string; updatedAt?: number }>(
+  private mergeBidirectional<T extends { id: string; updatedAt?: number; name?: string }>(
     cloud: T[],
     local: T[],
     onConflict?: (cloudItem: T, localItem: T) => T
@@ -740,6 +851,7 @@ export class SyncOrchestrator {
     localNewer: T[]
     cloudNewer: T[]
     conflicts: Array<{ cloud: T; local: T }>
+    mergedByName: Array<{ cloud: T; local: T; kept: T }>
   } {
     const merged = new Map<string, T>()
     const cloudOnly: T[] = []
@@ -747,20 +859,59 @@ export class SyncOrchestrator {
     const localNewer: T[] = []
     const cloudNewer: T[] = []
     const conflicts: Array<{ cloud: T; local: T }> = []
+    const mergedByName: Array<{ cloud: T; local: T; kept: T }> = []
 
     const cloudMap = new Map(cloud.map(item => [item.id, item]))
     const localMap = new Map(local.map(item => [item.id, item]))
 
-    // Process all items
+    // Build name maps for categories (items with 'name' field)
+    // This helps detect duplicates where same category was created on different devices
+    const cloudNameMap = new Map<string, T>()
+    const localNameMap = new Map<string, T>()
+    cloud.forEach(item => {
+      if (item.name) {
+        cloudNameMap.set(item.name, item)
+      }
+    })
+    local.forEach(item => {
+      if (item.name) {
+        localNameMap.set(item.name, item)
+      }
+    })
+
+    // Process all items by ID first
     for (const [id, cloudItem] of cloudMap) {
       const localItem = localMap.get(id)
 
       if (!localItem) {
-        // Cloud only - not in local at all
-        cloudOnly.push(cloudItem)
-        merged.set(id, cloudItem)
+        // No item with same ID in local
+        // Check if there's an item with same NAME in local (for categories)
+        if (cloudItem.name && localNameMap.has(cloudItem.name)) {
+          const localByName = localNameMap.get(cloudItem.name)!
+          // Same name but different IDs -> merge by name
+          const cloudUpdated = cloudItem.updatedAt || 0
+          const localUpdated = localByName.updatedAt || 0
+
+          if (cloudUpdated > localUpdated) {
+            // Keep cloud version, discard local duplicate
+            merged.set(cloudItem.id, cloudItem)
+            mergedByName.push({ cloud: cloudItem, local: localByName, kept: cloudItem })
+          } else if (localUpdated > cloudUpdated) {
+            // Keep local version, discard cloud duplicate
+            merged.set(localByName.id, localByName)
+            mergedByName.push({ cloud: cloudItem, local: localByName, kept: localByName })
+          } else {
+            // Same timestamp - prefer cloud version
+            merged.set(cloudItem.id, cloudItem)
+            mergedByName.push({ cloud: cloudItem, local: localByName, kept: cloudItem })
+          }
+        } else {
+          // Truly cloud-only (no matching ID or name)
+          cloudOnly.push(cloudItem)
+          merged.set(id, cloudItem)
+        }
       } else {
-        // Both exist - compare updatedAt
+        // Both exist with same ID - compare updatedAt
         const cloudUpdated = cloudItem.updatedAt || 0
         const localUpdated = localItem.updatedAt || 0
 
@@ -782,8 +933,18 @@ export class SyncOrchestrator {
       }
     }
 
-    // Add local-only items (not in cloud at all)
+    // Add local-only items (not in cloud by ID or name)
     for (const [id, localItem] of localMap) {
+      // Skip if already processed (merged by name with a cloud item)
+      if (merged.has(id)) continue
+
+      // Check if there's an item with same NAME in cloud
+      if (localItem.name && cloudNameMap.has(localItem.name)) {
+        // Already handled in the cloud loop above (merged by name)
+        continue
+      }
+
+      // Truly local-only (no matching ID or name in cloud)
       if (!cloudMap.has(id)) {
         localOnly.push(localItem)
         merged.set(id, localItem)
@@ -796,7 +957,8 @@ export class SyncOrchestrator {
       localOnly,
       localNewer,
       cloudNewer,
-      conflicts
+      conflicts,
+      mergedByName
     }
   }
 }
