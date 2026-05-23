@@ -40,141 +40,60 @@ export function TeamPromptCard({
           onClick()
         }
       }}
-      style={{
-        width: 'calc(50% - 6px)',
-        padding: '12px',
-        background: '#ffffff',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        cursor: 'pointer',
-        transition: 'background 0.15s, box-shadow 0.15s',
-        boxSizing: 'border-box',
-        position: 'relative',
-      }}
     >
-      {/* Save button - bottom right */}
-      <Tooltip content="保存到个人库">
-        <button
-          onClick={(e) => { e.stopPropagation(); onSave?.() }}
-          aria-label="保存到个人库"
-          style={{
-            position: 'absolute',
-            bottom: '8px',
-            right: '72px',
-            width: '24px',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#ffffff',
-            border: '1px solid #E5E5E5',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            zIndex: 10,
-          }}
-        >
-          <Bookmark style={{ width: 12, height: 12, color: '#8b5cf6' }} />
-        </button>
-      </Tooltip>
-
-      {/* Copy button */}
-      <Tooltip content="复制">
-        <button
-          onClick={(e) => { e.stopPropagation(); onCopy?.() }}
-          aria-label="复制"
-          style={{
-            position: 'absolute',
-            bottom: '8px',
-            right: '40px',
-            width: '24px',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#ffffff',
-            border: '1px solid #E5E5E5',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            zIndex: 10,
-          }}
-        >
-          <Copy style={{ width: 12, height: 12, color: '#171717' }} />
-        </button>
-      </Tooltip>
-
-      {/* Inject button */}
-      <Tooltip content="一键注入">
-        <button
-          onClick={(e) => { e.stopPropagation(); onInject?.() }}
-          aria-label="一键注入"
-          style={{
-            position: 'absolute',
-            bottom: '8px',
-            right: '8px',
-            width: '24px',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#ffffff',
-            border: '1px solid #E5E5E5',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            zIndex: 10,
-          }}
-        >
-          <ArrowUpRight style={{ width: 12, height: 12, color: '#171717' }} />
-        </button>
-      </Tooltip>
-
       {/* Name */}
       <Tooltip content={displayName}>
-        <div style={{ fontSize: '12px', fontWeight: 500, color: '#171717', marginTop: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div className="team-prompt-card-name">
           {truncateText(displayName, 30)}
         </div>
       </Tooltip>
 
       {/* Description tag */}
       <Tooltip content={displayDescription || prompt.content}>
-        <div
-          style={{
-            fontSize: '10px',
-            fontWeight: 500,
-            color: '#64748B',
-            marginTop: '4px',
-            padding: '4px 8px',
-            background: '#f0f0f0',
-            borderRadius: '4px',
-            display: 'inline-block',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            maxWidth: '100%',
-          }}
-        >
+        <div className="team-prompt-card-category">
           {truncateText(displayDescription || prompt.content, 30)}
         </div>
       </Tooltip>
 
       {/* Team name source */}
       {prompt.teamName && (
-        <div
-          style={{
-            fontSize: '10px',
-            fontWeight: 400,
-            color: '#8b5cf6',
-            marginTop: '4px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <div className="team-prompt-card-source">
           来自: {prompt.teamName}
         </div>
       )}
+
+      {/* Action buttons */}
+      <div className="team-prompt-card-actions">
+        <Tooltip content="保存到个人库">
+          <button
+            className="team-prompt-card-btn save"
+            onClick={(e) => { e.stopPropagation(); onSave?.() }}
+            aria-label="保存到个人库"
+          >
+            <Bookmark style={{ width: 12, height: 12 }} />
+          </button>
+        </Tooltip>
+
+        <Tooltip content="复制">
+          <button
+            className="team-prompt-card-btn"
+            onClick={(e) => { e.stopPropagation(); onCopy?.() }}
+            aria-label="复制"
+          >
+            <Copy style={{ width: 12, height: 12 }} />
+          </button>
+        </Tooltip>
+
+        <Tooltip content="一键注入">
+          <button
+            className="team-prompt-card-btn"
+            onClick={(e) => { e.stopPropagation(); onInject?.() }}
+            aria-label="一键注入"
+          >
+            <ArrowUpRight style={{ width: 12, height: 12 }} />
+          </button>
+        </Tooltip>
+      </div>
     </div>
   )
 }

@@ -445,18 +445,21 @@ export function DropdownContainer({
   // Team library state
   const teamPrompts = usePromptStore((state) => state.teamPrompts)
   const teamSyncStatus = usePromptStore((state) => state.teamSyncStatus)
+  const authState = usePromptStore((state) => state.authState)
   const syncTeamPrompts = usePromptStore((state) => state.syncTeamPrompts)
   const loadTeamPrompts = usePromptStore((state) => state.loadTeamPrompts)
+  const loadAuthState = usePromptStore((state) => state.loadAuthState)
 
   // Team syncing state
   const [teamSyncing, setTeamSyncing] = useState(false)
 
-  // Load team prompts on mount
+  // Load team prompts and auth state on mount
   useEffect(() => {
     if (isOpen) {
       loadTeamPrompts()
+      loadAuthState()
     }
-  }, [isOpen, loadTeamPrompts])
+  }, [isOpen, loadTeamPrompts, loadAuthState])
 
   // Display temporary prompts with language transformation
   const displayTemporaryPrompts = useMemo(() => {
@@ -1774,37 +1777,37 @@ export function DropdownContainer({
             )
           ) : selectedCategoryId === 'team' ? (
             // Team library content view
-            !teamSyncStatus ? (
+            authState?.status !== 'logged_in' ? (
               // Not logged in state
               <div className="team-library-empty">
                 <div className="team-library-empty-message">
-                  团队库需要登录后使用
+                  <p>团队库需要登录后使用</p>
+                  <button
+                    className="team-library-empty-btn"
+                    onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL })}
+                  >
+                    前往设置登录
+                  </button>
                 </div>
-                <button
-                  className="team-library-empty-btn"
-                  onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL })}
-                >
-                  前往设置登录
-                </button>
               </div>
             ) : teamPrompts.length === 0 ? (
               // Empty team library state
               <div className="team-library-empty">
                 <div className="team-library-empty-message">
-                  暂无团队提示词
+                  <p>暂无团队提示词</p>
+                  <button
+                    className="team-library-empty-btn"
+                    onClick={handleTeamSync}
+                    disabled={teamSyncing}
+                  >
+                    {teamSyncing ? (
+                      <>
+                        <Loader2 className="team-sync-spinner" style={{ width: 12, height: 12 }} />
+                        同步中...
+                      </>
+                    ) : '同步团队库'}
+                  </button>
                 </div>
-                <button
-                  className="team-library-empty-btn"
-                  onClick={handleTeamSync}
-                  disabled={teamSyncing}
-                >
-                  {teamSyncing ? (
-                    <>
-                      <Loader2 className="team-sync-spinner" style={{ width: 12, height: 12 }} />
-                      同步中...
-                    </>
-                  ) : '同步团队库'}
-                </button>
               </div>
             ) : (
               // Team prompts grid

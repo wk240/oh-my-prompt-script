@@ -1524,30 +1524,21 @@ export const DROPDOWN_STYLES = `
     color: #A16207;
   }
 
-  /* Team Library Styles */
-  #${PORTAL_ID} .team-prompt-card:hover {
-    background: #f8f8f8;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-  }
-
-  #${PORTAL_ID} .team-prompt-card:focus {
-    outline: 2px solid #8b5cf6;
-    outline-offset: 2px;
-  }
-
+  /* Team Library Styles - Black & White */
   #${PORTAL_ID} .team-library-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
     margin-bottom: 12px;
-    background: #f8fafc;
+    background: #f8f8f8;
     border-radius: 6px;
+    border: 1px solid #E5E5E5;
   }
 
   #${PORTAL_ID} .team-library-count {
     font-size: 12px;
-    color: #64748b;
+    color: #171717;
   }
 
   #${PORTAL_ID} .team-sync-btn {
@@ -1555,22 +1546,23 @@ export const DROPDOWN_STYLES = `
     align-items: center;
     gap: 4px;
     padding: 6px 12px;
-    background: #ffffff;
-    border: 1px solid #E5E5E5;
+    background: #171717;
+    border: none;
     border-radius: 4px;
     font-size: 12px;
-    color: #171717;
+    color: #ffffff;
     cursor: pointer;
     transition: all 0.15s;
   }
 
   #${PORTAL_ID} .team-sync-btn:hover:not(:disabled) {
-    background: #f8f8f8;
+    background: #404040;
   }
 
   #${PORTAL_ID} .team-sync-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    background: #e5e5e5;
+    color: #737373;
+    cursor: wait;
   }
 
   #${PORTAL_ID} .team-sync-spinner {
@@ -1594,9 +1586,13 @@ export const DROPDOWN_STYLES = `
     color: #64748B;
   }
 
+  #${PORTAL_ID} .team-library-empty-message p {
+    margin: 0 0 12px 0;
+  }
+
   #${PORTAL_ID} .team-library-empty-btn {
     padding: 8px 16px;
-    background: #8b5cf6;
+    background: #171717;
     border: none;
     border-radius: 6px;
     font-size: 12px;
@@ -1607,12 +1603,116 @@ export const DROPDOWN_STYLES = `
   }
 
   #${PORTAL_ID} .team-library-empty-btn:hover {
-    background: #7c3aed;
+    background: #404040;
+  }
+
+  #${PORTAL_ID} .team-library-empty-btn:disabled {
+    background: #e5e5e5;
+    color: #737373;
+    cursor: wait;
   }
 
   #${PORTAL_ID} .team-cards-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
+  }
+
+  /* Team prompt card - matches sidepanel network-card style */
+  #${PORTAL_ID} .team-prompt-card {
+    width: calc(50% - 6px);
+    padding: 12px;
+    background: #ffffff;
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  #${PORTAL_ID} .team-prompt-card:hover {
+    background: #f8f8f8;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    border-color: #171717;
+  }
+
+  #${PORTAL_ID} .team-prompt-card:focus {
+    outline: 2px solid #171717;
+    outline-offset: 2px;
+  }
+
+  /* Card name */
+  #${PORTAL_ID} .team-prompt-card-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: #171717;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Card description/tag */
+  #${PORTAL_ID} .team-prompt-card-category {
+    font-size: 10px;
+    font-weight: 500;
+    color: #64748B;
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* Team source */
+  #${PORTAL_ID} .team-prompt-card-source {
+    font-size: 10px;
+    font-weight: 400;
+    color: #64748B;
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Action buttons container */
+  #${PORTAL_ID} .team-prompt-card-actions {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+  }
+
+  /* Individual action button */
+  #${PORTAL_ID} .team-prompt-card-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid #E5E5E5;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #171717;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+
+  #${PORTAL_ID} .team-prompt-card-btn:hover {
+    background: #f8f8f8;
+  }
+
+  /* Save/collect button - black style */
+  #${PORTAL_ID} .team-prompt-card-btn.save svg {
+    color: #171717;
+  }
+
+  #${PORTAL_ID} .team-prompt-card-btn.save:hover svg {
+    color: #ffffff;
   }
 `
