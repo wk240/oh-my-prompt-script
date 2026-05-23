@@ -11,7 +11,7 @@ import type { TeamPrompt } from '@oh-my-prompt/shared/types'
 import type { AgentTemplateCategory } from '@oh-my-prompt/shared/types/agent'
 import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '@oh-my-prompt/shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '@oh-my-prompt/shared/utils'
-import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, AlertTriangle, Settings, Clock, Copy, Users, Loader2 } from 'lucide-react'
+import { Sparkles, Palette, Shapes, ArrowUpRight, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, AlertTriangle, Settings, Clock, Copy, Users, Loader2, Share2 } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -19,6 +19,7 @@ import { NetworkPromptCard } from './NetworkPromptCard'
 import { TeamPromptCard } from './TeamPromptCard'
 import { ProviderCategoryItem } from './ProviderCategoryItem'
 import { CategorySelectDialog } from './CategorySelectDialog'
+import { TeamShareDialog } from './TeamShareDialog'
 import { showToast } from './ToastNotification'
 import { Tooltip } from './Tooltip'
 import { AgentPanel } from './AgentPanel'
@@ -217,6 +218,7 @@ function SortableDropdownItem({
   onEdit,
   onDelete,
   onCopy,
+  onShare,
   onThumbnailClick,
 }: {
   prompt: Prompt
@@ -227,6 +229,7 @@ function SortableDropdownItem({
   onEdit: (prompt: Prompt) => void
   onDelete: (prompt: Prompt) => void
   onCopy: (prompt: Prompt) => void
+  onShare?: (prompt: Prompt) => void  // Share to team
   onThumbnailClick?: (prompt: Prompt) => void  // Click on thumbnail to open preview
 }) {
   const {
@@ -291,6 +294,18 @@ function SortableDropdownItem({
       <ArrowUpRight className="dropdown-item-arrow" />
       {/* Edit/Delete buttons */}
       <div className="prompt-action-buttons">
+        {onShare && (
+          <button
+            className="prompt-action-btn"
+            onClick={(e) => {
+              e.stopPropagation()
+              onShare(prompt)
+            }}
+            aria-label="分享到团队"
+          >
+            <Share2 style={{ width: 14, height: 14 }} />
+          </button>
+        )}
         <button
           className="prompt-action-btn"
           onClick={(e) => {
@@ -493,6 +508,7 @@ export function DropdownContainer({
     isUserPreview: boolean       // User prompt preview modal (thumbnail click)
     isCategoryDialog: boolean    // Category select dialog
     isTeamCategoryDialog: boolean  // Team prompt category select dialog
+    isTeamShare: boolean         // Team share dialog
     isCategoryAdd: boolean       // Category add modal
     isCategoryEdit: boolean      // Category edit modal
     isCategoryDelete: boolean    // Category delete modal
@@ -510,6 +526,7 @@ export function DropdownContainer({
     isUserPreview: false,
     isCategoryDialog: false,
     isTeamCategoryDialog: false,
+    isTeamShare: false,
     isCategoryAdd: false,
     isCategoryEdit: false,
     isCategoryDelete: false,
@@ -537,6 +554,7 @@ export function DropdownContainer({
     prompt: Prompt | null                  // Prompt being edited
     deletingCategory: Category | null      // Category being deleted
     deletingPrompt: Prompt | null          // Prompt being deleted
+    sharingPrompt: Prompt | null           // Prompt being shared to team
   }
 
   const [editingStates, setEditingStates] = useState<EditingStates>({
@@ -547,6 +565,7 @@ export function DropdownContainer({
     prompt: null,
     deletingCategory: null,
     deletingPrompt: null,
+    sharingPrompt: null,
   })
 
   // Helper methods for editing state (memoized for stable references)
@@ -1220,6 +1239,22 @@ export function DropdownContainer({
       showToast('复制失败')
     }
   }, [resourceLanguage])
+
+  // Handle share to team
+  const handleShareToTeam = useCallback((prompt: Prompt) => {
+    if (!authState || authState.status !== 'logged_in') {
+      showToast('请先登录后共享')
+      return
+    }
+    setEditingItem('sharingPrompt', prompt)
+    openModal('isTeamShare')
+  }, [authState, setEditingItem, openModal])
+
+  // Handle team share dialog close (memoized for TeamShareDialog)
+  const handleTeamShareClose = useCallback(() => {
+    closeModal('isTeamShare')
+    clearEditingItem('sharingPrompt')
+  }, [closeModal, clearEditingItem])
 
   // Handle copy resource prompt to clipboard
   const handleCopyResourcePrompt = useCallback(async (resourcePrompt: ResourcePrompt) => {
@@ -1904,6 +1939,7 @@ export function DropdownContainer({
                         openModal('isPromptDelete')
                       }}
                       onCopy={handleCopyPrompt}
+                      onShare={handleShareToTeam}
                     />
                   ))}
                 </SortableContext>
@@ -2022,6 +2058,14 @@ export function DropdownContainer({
       onClose={() => closeModal('isTeamCategoryDialog')}
       onConfirm={handleConfirmCollect}
     />
+    {/* Team share dialog */}
+    {editingStates.sharingPrompt && (
+      <TeamShareDialog
+        prompt={editingStates.sharingPrompt}
+        isOpen={modalStates.isTeamShare}
+        onClose={handleTeamShareClose}
+      />
+    )}
     {/* "Already latest" tip - Portal rendered outside dropdown to escape overflow:hidden */}
     {modalStates.showLatestTip && updateButtonRef.current && (
       <div
