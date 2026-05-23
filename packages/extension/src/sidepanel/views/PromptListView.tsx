@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy, useRef } from 'react'
-import type { Prompt, Category, ResourcePrompt, UpdateStatus } from '@oh-my-prompt/shared/types'
+import type { Prompt, Category, ResourcePrompt, UpdateStatus, TeamPrompt, TeamSyncStatus } from '@oh-my-prompt/shared/types'
 import { truncateText, sortCategoriesByOrder, sortPromptsByOrder, sortProviderCategoriesByOrder, sortResourcePromptsByCategoryOrder } from '@oh-my-prompt/shared/utils'
 import { Sparkles, Palette, Shapes, FolderOpen, Layers, Sparkle, Brush, GripVertical, Database, ArrowLeft, Sun, Frame, Paintbrush, Image, ArrowUpCircle, Plus, Pencil, Trash2, ExternalLink, ArrowUpRight, Bookmark, AlertTriangle, Settings, Loader2, Clock, CheckCircle, Copy } from 'lucide-react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
@@ -582,6 +582,10 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
   const prompts = usePromptStore((state) => state.prompts)
   const categories = usePromptStore((state) => state.categories)
   const temporaryPrompts = usePromptStore((state) => state.temporaryPrompts)
+  const teamPrompts = usePromptStore((state) => state.teamPrompts)
+  const teamSyncStatus = usePromptStore((state) => state.teamSyncStatus)
+  const syncTeamPrompts = usePromptStore((state) => state.syncTeamPrompts)
+  const loadTeamPrompts = usePromptStore((state) => state.loadTeamPrompts)
   const isLoading = usePromptStore((state) => state.isLoading)
   const loadFromStorage = usePromptStore((state) => state.loadFromStorage)
   const transferTemporaryPrompt = usePromptStore((state) => state.transferTemporaryPrompt)
@@ -951,6 +955,11 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
   useEffect(() => {
     loadFromStorage()
   }, [loadFromStorage])
+
+  // Load team prompts on mount
+  useEffect(() => {
+    loadTeamPrompts()
+  }, [loadTeamPrompts])
 
   // Wait for permission restore from action.onClicked, then check status
   // CRITICAL: action.onClicked sends permission request BEFORE sidePanel.open()
@@ -1771,6 +1780,22 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                   <Clock className="sidebar-category-icon" />
                 </div>
                 <span>临时库</span>
+              </button>
+
+              {/* 团队库入口 - 在临时库按钮后 */}
+              <button
+                className={`sidebar-category-item team-library ${selectedCategoryId === 'team' ? 'selected' : ''}`}
+                onClick={() => setSelectedCategoryId('team')}
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <Database className="sidebar-category-icon" style={{ color: '#7c3aed' }} />
+                </div>
+                <span>团队库</span>
+                {teamSyncStatus && (
+                  <span style={{ fontSize: '10px', color: '#94a3b8', marginLeft: 'auto' }}>
+                    {teamPrompts.length}
+                  </span>
+                )}
               </button>
 
               <button
