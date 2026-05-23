@@ -36,6 +36,7 @@ import { getResourcePrompts, getResourceCategories } from '../../lib/resource-li
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { clearImageUrlCache, isFolderConfigured, downloadImageFromUrl, saveImage } from '../../lib/sync/image-sync'
 import { clearLoadQueue } from '../../lib/sync/image-loader-queue'
+import { clearSupabaseClient } from '../../lib/cloud-sync/supabase-client'
 import { PromptThumbnail } from './PromptThumbnail'
 import { PORTAL_ID, STYLE_ID, DROPDOWN_STYLES } from '../styles/dropdown-styles'
 
@@ -460,6 +461,21 @@ export function DropdownContainer({
       loadAuthState()
     }
   }, [isOpen, loadTeamPrompts, loadAuthState])
+
+  // Listen for auth status updates (login/logout) to refresh auth state
+  // Critical: Content script's Supabase client singleton must be cleared to pick up new session
+  useEffect(() => {
+    const handleMessage = (message: { type: string; payload?: { logout?: boolean } }) => {
+      if (message.type === MessageType.AUTH_STATUS_UPDATE) {
+        // Clear Supabase client singleton to force re-read from chrome.storage.local
+        clearSupabaseClient()
+        // Re-load auth state from storage
+        loadAuthState()
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
+  }, [loadAuthState])
 
   // Display temporary prompts with language transformation
   const displayTemporaryPrompts = useMemo(() => {
