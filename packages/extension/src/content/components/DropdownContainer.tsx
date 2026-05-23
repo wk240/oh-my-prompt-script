@@ -1772,10 +1772,88 @@ export function DropdownContainer({
                 ))}
               </div>
             )
+          : selectedCategoryId === 'team' ? (
+            // Team library content view
+            !teamSyncStatus ? (
+              // Not logged in state
+              <div className="team-library-empty">
+                <div className="team-library-empty-message">
+                  团队库需要登录后使用
+                </div>
+                <button
+                  className="team-library-empty-btn"
+                  onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL })}
+                >
+                  前往设置登录
+                </button>
+              </div>
+            ) : teamPrompts.length === 0 ? (
+              // Empty team library state
+              <div className="team-library-empty">
+                <div className="team-library-empty-message">
+                  暂无团队提示词
+                </div>
+                <button
+                  className="team-library-empty-btn"
+                  onClick={handleTeamSync}
+                  disabled={teamSyncing}
+                >
+                  {teamSyncing ? (
+                    <>
+                      <Loader2 className="team-sync-spinner" style={{ width: 12, height: 12 }} />
+                      同步中...
+                    </>
+                  ) : '同步团队库'}
+                </button>
+              </div>
+            ) : (
+              // Team prompts grid
+              <>
+                {/* Team sync header */}
+                <div className="team-library-header">
+                  <span className="team-library-count">共 {teamPrompts.length} 条团队提示词</span>
+                  <button
+                    className="team-sync-btn"
+                    onClick={handleTeamSync}
+                    disabled={teamSyncing}
+                  >
+                    {teamSyncing ? (
+                      <>
+                        <Loader2 className="team-sync-spinner" style={{ width: 12, height: 12 }} />
+                        同步中...
+                      </>
+                    ) : '同步'}
+                  </button>
+                </div>
+                {/* Team prompts grid */}
+                <div className="team-cards-grid">
+                  {teamPrompts.map((prompt) => (
+                    <TeamPromptCard
+                      key={prompt.id}
+                      prompt={prompt}
+                      language={resourceLanguage}
+                      onClick={() => {
+                        setEditingItem('teamPrompt', prompt)
+                        openModal('isPreview')
+                      }}
+                      onInject={() => handleInjectTeamPrompt(prompt)}
+                      onSave={() => handleSaveTeamPrompt(prompt)}
+                      onCopy={() => handleCopyTeamPrompt(prompt)}
+                    />
+                  ))}
+                </div>
+              </>
+            )
           ) : filteredPrompts.length === 0 ? (
             <div className="empty-state">
               <div className="empty-message">
-                {selectedCategoryId === 'all' ? '暂无提示词，点击下方按钮添加' : selectedCategoryId === 'temporary' ? '暂无临时提示词' : '该分类暂无提示词'}
+                {selectedCategoryId === 'all'
+                  ? '暂无提示词，点击下方按钮添加'
+                  : selectedCategoryId === 'temporary'
+                    ? '暂无临时提示词'
+                    : selectedCategoryId === 'team'
+                      ? '暂无团队提示词'
+                      : '该分类暂无提示词'}
               </div>
             </div>
           ) : (
