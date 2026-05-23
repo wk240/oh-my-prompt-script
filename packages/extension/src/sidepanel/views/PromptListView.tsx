@@ -2046,17 +2046,6 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                 <span>资源库</span>
               </button>
 
-              {/* "临时库" entry - as sidebar category item */}
-              <button
-                className={`sidebar-category-item ${selectedCategoryId === 'temporary' ? 'selected' : ''}`}
-                onClick={() => setSelectedCategoryId('temporary')}
-              >
-                <div className="sidebar-category-icon-wrapper">
-                  <Clock className="sidebar-category-icon" />
-                </div>
-                <span>临时库</span>
-              </button>
-
               {/* 团队库入口 */}
               <button
                 className={`sidebar-category-item team-library ${selectedCategoryId === 'team' ? 'selected' : ''}`}
@@ -2066,14 +2055,25 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                 onKeyDown={(e) => e.key === 'Enter' && setSelectedCategoryId('team')}
               >
                 <div className="sidebar-category-icon-wrapper">
-                  <Database style={{ width: 16, height: 16, color: '#7c3aed' }} />
+                  <Database className="sidebar-category-icon" />
                 </div>
-                <span>团队库</span>
+                <span className="sidebar-category-name">团队库</span>
                 {teamSyncStatus && (
                   <span style={{ fontSize: '10px', color: '#94a3b8', marginLeft: 'auto' }}>
                     {teamPrompts.length}
                   </span>
                 )}
+              </button>
+
+              {/* "临时库" entry - as sidebar category item */}
+              <button
+                className={`sidebar-category-item ${selectedCategoryId === 'temporary' ? 'selected' : ''}`}
+                onClick={() => setSelectedCategoryId('temporary')}
+              >
+                <div className="sidebar-category-icon-wrapper">
+                  <Clock className="sidebar-category-icon" />
+                </div>
+                <span>临时库</span>
               </button>
 
               <button
@@ -2294,8 +2294,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                 <div className="empty-message">
                   <p>团队库需要登录后使用</p>
                   <button
-                    className="header-action-btn"
-                    style={{ marginTop: '12px', padding: '8px 16px', background: '#7c3aed', color: '#fff', borderRadius: '6px' }}
+                    className="team-action-btn"
                     onClick={onOpenSettings}
                   >
                     前往设置登录
@@ -2307,8 +2306,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                 <div className="empty-message">
                   <p>暂无团队提示词</p>
                   <button
-                    className="header-action-btn"
-                    style={{ marginTop: '12px', padding: '8px 16px', background: '#7c3aed', color: '#fff', borderRadius: '6px' }}
+                    className="team-action-btn"
                     onClick={handleTeamSync}
                     disabled={teamSyncing}
                   >
@@ -2322,14 +2320,13 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '8px 12px', background: '#f8fafc', borderRadius: '6px' }}>
                   <span style={{ fontSize: '12px', color: '#64748b' }}>共 {displayTeamPrompts.length} 条团队提示词</span>
                   <button
-                    className="header-action-btn"
-                    style={{ padding: '6px 12px', background: teamSyncing ? '#e2e8f0' : '#7c3aed', color: teamSyncing ? '#64748b' : '#fff', borderRadius: '4px', fontSize: '12px', cursor: teamSyncing ? 'wait' : 'pointer' }}
+                    className="team-sync-btn"
                     onClick={handleTeamSync}
                     disabled={teamSyncing}
                   >
                     {teamSyncing ? (
                       <>
-                        <Loader2 style={{ width: 12, height: 12, marginRight: '4px' }} className="spin-animation" />
+                        <Loader2 style={{ width: 12, height: 12 }} className="spin-animation" />
                         同步中...
                       </>
                     ) : '同步'}
