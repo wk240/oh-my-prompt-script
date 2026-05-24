@@ -1089,7 +1089,7 @@ export class SyncOrchestrator {
 
     if (pendingHash === completedHash) {
       if (pendingVersion === this.pendingSnapshotVersion) {
-        await this.updateGuardStatus({ pendingSnapshotHash: undefined })
+        await this.clearPendingSnapshotHashIfCurrent(completedHash)
       }
       return
     }
