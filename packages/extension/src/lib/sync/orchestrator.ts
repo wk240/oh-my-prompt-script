@@ -47,6 +47,8 @@ const SYNC_IN_FLIGHT_STALE_MS = 5 * 60 * 1000
  * - Automatic retry with exponential backoff via RetryManager
  */
 export class SyncOrchestrator {
+  private static lockAcquisitionChain: Promise<void> = Promise.resolve()
+
   private cloudStrategy: CloudSyncStrategy
   private localStrategy: LocalSyncStrategy
   private cloudRetryManager: RetryManager | null = null
@@ -181,18 +183,10 @@ export class SyncOrchestrator {
       return { cloudSynced: false, localSynced: false, skipped: true }
     }
 
-    if (guard.syncInFlight) {
-      await this.updateGuardStatus({ pendingSnapshotHash: snapshotHash })
-      this.pendingSnapshot = data
+    const acquiredLock = await this.acquireGuardLock(snapshotHash)
+    if (!acquiredLock) {
       return { cloudSynced: false, localSynced: false, skipped: true }
     }
-
-    await this.updateGuardStatus({
-      syncInFlight: true,
-      lockOwnerId: this.guardOwnerId,
-      lastUploadStartedAt: Date.now(),
-      pendingSnapshotHash: undefined
-    })
 
     try {
       const result = await this.runSyncNow(data)
@@ -204,10 +198,7 @@ export class SyncOrchestrator {
       }
       return result
     } finally {
-      await this.updateGuardStatus({
-        syncInFlight: false,
-        lockOwnerId: undefined
-      })
+      await this.releaseGuardLock()
       await this.drainPendingSnapshot(snapshotHash)
     }
   }
@@ -956,6 +947,60 @@ export class SyncOrchestrator {
     if (guard.lockOwnerId === this.guardOwnerId) return true
     if (!guard.lastUploadStartedAt) return true
     return Date.now() - guard.lastUploadStartedAt > SYNC_IN_FLIGHT_STALE_MS
+  }
+
+  private async acquireGuardLock(snapshotHash: string): Promise<boolean> {
+    let acquired = false
+
+    const acquisition = SyncOrchestrator.lockAcquisitionChain.then(async () => {
+      const currentGuard = await this.getGuardStatus()
+      if (currentGuard.syncInFlight && !this.canTakeOverGuardLock(currentGuard)) {
+        await this.updateGuardStatus({ pendingSnapshotHash: snapshotHash })
+        acquired = false
+        return
+      }
+
+      await this.updateGuardStatus({
+        syncInFlight: true,
+        lockOwnerId: this.guardOwnerId,
+        lastUploadStartedAt: Date.now(),
+        pendingSnapshotHash: undefined
+      })
+
+      const guard = await this.getGuardStatus()
+      acquired = Boolean(guard.syncInFlight && guard.lockOwnerId === this.guardOwnerId)
+
+      if (!acquired) {
+        await this.updateGuardStatus({ pendingSnapshotHash: snapshotHash })
+      }
+    })
+
+    SyncOrchestrator.lockAcquisitionChain = acquisition.catch(() => undefined)
+    await acquisition
+
+    return acquired
+  }
+
+  private async releaseGuardLock(): Promise<void> {
+    await this.enqueueSyncStatusUpdate(existing => {
+      const existingGuard = existing.guard || {}
+      if (existingGuard.lockOwnerId && existingGuard.lockOwnerId !== this.guardOwnerId) {
+        return existing
+      }
+
+      const guard = {
+        ...existingGuard,
+        syncInFlight: false,
+        lockOwnerId: undefined,
+        pendingSnapshotHash: undefined
+      }
+      this.lastKnownGuard = guard
+
+      return {
+        ...existing,
+        guard
+      }
+    })
   }
 
   private hasPendingRetryNeeds(status: Partial<UnifiedSyncStatus & { initialized?: boolean }>): boolean {

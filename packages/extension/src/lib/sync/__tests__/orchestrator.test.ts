@@ -150,6 +150,45 @@ describe('SyncOrchestrator', () => {
       await firstRun
     })
 
+    it('should not run duplicate cloud syncs when two instances acquire an empty guard concurrently', async () => {
+      const first = makeBackupData({ promptId: 'p1', updatedAt: 100 })
+      const second = makeBackupData({ promptId: 'p1', updatedAt: 200 })
+      const otherCloudStrategy = new CloudSyncStrategy()
+      const otherLocalStrategy = new LocalSyncStrategy()
+      const otherOrchestrator = new SyncOrchestrator(otherCloudStrategy, otherLocalStrategy)
+
+      vi.spyOn(cloudStrategy, 'isAvailable').mockResolvedValue(true)
+      vi.spyOn(localStrategy, 'isAvailable').mockResolvedValue(true)
+      vi.spyOn(otherCloudStrategy, 'isAvailable').mockResolvedValue(true)
+      vi.spyOn(otherLocalStrategy, 'isAvailable').mockResolvedValue(true)
+
+      let releaseFirst: (() => void) | undefined
+      vi.spyOn(cloudStrategy, 'sync').mockImplementationOnce(() => new Promise(resolve => {
+        releaseFirst = () => resolve({ success: true, syncedAt: 1 })
+      }))
+      vi.spyOn(otherCloudStrategy, 'sync').mockResolvedValue({ success: true, syncedAt: 2 })
+
+      const firstRun = orchestrator.triggerSync(first)
+      const secondRun = otherOrchestrator.triggerSync(second)
+
+      await vi.waitFor(() => {
+        expect(releaseFirst).toBeTypeOf('function')
+      })
+
+      const secondResult = await secondRun
+
+      expect(cloudStrategy.sync.mock.calls.length + otherCloudStrategy.sync.mock.calls.length).toBe(1)
+      expect(secondResult.skipped).toBe(true)
+
+      releaseFirst()
+      await firstRun
+
+      expect((storageData.syncStatus as any).guard).toEqual(expect.objectContaining({
+        syncInFlight: false,
+        pendingSnapshotHash: undefined
+      }))
+    })
+
     it('should recover a stale persisted in-flight guard and clear durable pending state', async () => {
       const data = makeBackupData({ promptId: 'p1', updatedAt: 100 })
 
@@ -260,14 +299,12 @@ describe('SyncOrchestrator', () => {
     it('should recover a stale persisted in-flight guard and run sync', async () => {
       const data = makeBackupData({ promptId: 'p1', updatedAt: 100 })
 
-      vi.mocked(chrome.storage.local.get).mockResolvedValue({
-        syncStatus: {
-          guard: {
-            syncInFlight: true,
-            lastUploadStartedAt: 1
-          }
+      storageData.syncStatus = {
+        guard: {
+          syncInFlight: true,
+          lastUploadStartedAt: 1
         }
-      })
+      }
       vi.spyOn(cloudStrategy, 'isAvailable').mockResolvedValue(true)
       vi.spyOn(localStrategy, 'isAvailable').mockResolvedValue(true)
       vi.spyOn(cloudStrategy, 'sync').mockResolvedValue({ success: true, syncedAt: 1 })
@@ -292,7 +329,14 @@ describe('SyncOrchestrator', () => {
             releaseStorageRead = () => resolve({})
           })
         }
-        return Promise.resolve({})
+        if (!key) return Promise.resolve(storageData)
+        if (typeof key === 'string') {
+          return Promise.resolve({ [key]: storageData[key] })
+        }
+        return Promise.resolve(key.reduce<Record<string, unknown>>((result, storageKey) => {
+          result[storageKey] = storageData[storageKey]
+          return result
+        }, {}))
       })
       vi.spyOn(cloudStrategy, 'isAvailable').mockResolvedValue(true)
       vi.spyOn(localStrategy, 'isAvailable').mockResolvedValue(true)
@@ -317,12 +361,10 @@ describe('SyncOrchestrator', () => {
       const data = makeBackupData({ promptId: 'p1', updatedAt: 100 })
       const hash = await computeBackupDataHash(data)
 
-      vi.mocked(chrome.storage.local.get).mockResolvedValue({
-        syncStatus: {
-          guard: { lastUploadedHash: hash },
-          localError: 'PERMISSION_DENIED'
-        }
-      })
+      storageData.syncStatus = {
+        guard: { lastUploadedHash: hash },
+        localError: 'PERMISSION_DENIED'
+      }
       vi.spyOn(cloudStrategy, 'isAvailable').mockResolvedValue(true)
       vi.spyOn(localStrategy, 'isAvailable').mockResolvedValue(true)
       vi.spyOn(cloudStrategy, 'sync').mockResolvedValue({ success: true, syncedAt: 1 })
