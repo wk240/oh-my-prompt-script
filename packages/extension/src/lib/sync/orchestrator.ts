@@ -1093,7 +1093,6 @@ export class SyncOrchestrator {
       return
     }
 
-    await this.clearPendingSnapshotHashIfCurrent(pendingHash)
     await this.triggerSyncWithGuards(pendingSnapshot)
   }
 
