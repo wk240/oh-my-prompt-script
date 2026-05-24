@@ -213,8 +213,9 @@ describe('SyncOrchestrator', () => {
       }))
     })
 
-    it('should not let ordinary status writes resurrect stale guard after cleanup', async () => {
+    it('should not let ordinary status writes overwrite another live persisted lock', async () => {
       const data = makeBackupData({ promptId: 'p1', updatedAt: 100 })
+      const lockOwnerId = 'other-live-owner'
 
       vi.spyOn(cloudStrategy, 'isAvailable').mockResolvedValue(true)
       vi.spyOn(localStrategy, 'isAvailable').mockResolvedValue(true)
@@ -231,9 +232,10 @@ describe('SyncOrchestrator', () => {
       storageData.syncStatus = {
         ...(storageData.syncStatus as any),
         guard: {
-          ...cleanedGuard,
           syncInFlight: true,
-          pendingSnapshotHash: 'stale'
+          lockOwnerId,
+          lastUploadStartedAt: Date.now(),
+          pendingSnapshotHash: 'live-pending'
         }
       }
       vi.spyOn(cloudStrategy, 'getStatus').mockResolvedValue({ enabled: true, lastSyncTime: 1 })
@@ -242,8 +244,9 @@ describe('SyncOrchestrator', () => {
       await orchestrator.getStatus()
 
       expect((storageData.syncStatus as any).guard).toEqual(expect.objectContaining({
-        syncInFlight: false,
-        pendingSnapshotHash: undefined
+        syncInFlight: true,
+        lockOwnerId,
+        pendingSnapshotHash: 'live-pending'
       }))
     })
 

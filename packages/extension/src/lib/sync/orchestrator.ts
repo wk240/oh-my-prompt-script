@@ -921,8 +921,6 @@ export class SyncOrchestrator {
           ...(existing.guard || {}),
           ...(guardUpdates || {})
         }
-      } else if (this.lastKnownGuard) {
-        nextStatus.guard = this.lastKnownGuard
       } else if (existing.guard) {
         nextStatus.guard = existing.guard
       }
