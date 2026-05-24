@@ -90,6 +90,7 @@ describe('SyncOrchestrator', () => {
   })
 
   afterEach(() => {
+    vi.clearAllTimers()
     vi.useRealTimers()
   })
 
