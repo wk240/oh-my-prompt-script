@@ -44,6 +44,7 @@ describe('formatEcommercePromptBundle', () => {
 
     expect(bundle).toContain('任务目标：请根据以下 2 条提示词分别生成 2 张电商商品图')
     expect(bundle).toContain('每条提示词对应一张独立图片，不要合并成单张图。')
+    expect(bundle).toContain('按编号顺序生成。')
     expect(bundle).toContain('所有图片比例：1:1。')
     expect(bundle).toContain('目标平台：亚马逊。')
     expect(bundle).toContain('目标市场：中国。')
@@ -53,6 +54,9 @@ describe('formatEcommercePromptBundle', () => {
     expect(bundle).toContain('提示词：Create the white background hero image.')
     expect(bundle).toContain('02｜场景图｜用途：生活场景展示')
     expect(bundle).toContain('提示词：Create a lifestyle desk scene.')
+    expect(bundle.indexOf('01｜白底主图｜用途：电商主图')).toBeLessThan(
+      bundle.indexOf('02｜场景图｜用途：生活场景展示')
+    )
   })
 
   it('uses the generation snapshot instead of prompt-level ratios for global requirements', () => {

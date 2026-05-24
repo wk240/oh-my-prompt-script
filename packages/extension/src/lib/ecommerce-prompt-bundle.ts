@@ -48,6 +48,7 @@ export function formatEcommercePromptBundle(
   return [
     `任务目标：请根据以下 ${imageCount} 条提示词分别生成 ${imageCount} 张电商商品图。`,
     '每条提示词对应一张独立图片，不要合并成单张图。',
+    '按编号顺序生成。',
     '',
     '生成要求：',
     `所有图片比例：${configSnapshot.aspectRatio}。`,
