@@ -155,7 +155,6 @@ export class SyncOrchestrator {
     const snapshotHash = await computeBackupDataHash(data)
     const status = await this.getSyncStatus()
     let guard = status.guard || await this.getGuardStatus()
-    const shouldConsumeDurablePending = guard.pendingSnapshotHash === snapshotHash
 
     if (guard.syncInFlight) {
       if (!this.canTakeOverGuardLock(guard)) {
@@ -185,7 +184,7 @@ export class SyncOrchestrator {
       if (result.localSynced) {
         await this.updateGuardStatus({ lastLocalSyncedHash: snapshotHash })
       }
-      if ((result.cloudSynced || result.localSynced) && shouldConsumeDurablePending) {
+      if (result.cloudSynced || result.localSynced) {
         await this.clearPendingSnapshotHashIfCurrent(snapshotHash)
       }
       return result
@@ -1094,9 +1093,7 @@ export class SyncOrchestrator {
       return
     }
 
-    if (pendingVersion === this.pendingSnapshotVersion) {
-      await this.updateGuardStatus({ pendingSnapshotHash: undefined })
-    }
+    await this.clearPendingSnapshotHashIfCurrent(pendingHash)
     await this.triggerSyncWithGuards(pendingSnapshot)
   }
 
