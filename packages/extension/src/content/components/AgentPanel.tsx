@@ -5,9 +5,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import type { AgentTemplateCategory, Category, ProviderConfig } from '@oh-my-prompt/shared/types'
+import type { AgentTemplateCategory, Category, GeneralAgentGenerateResult, ProviderConfig } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn, ArrowUpRight } from 'lucide-react'
+import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, LogIn, ArrowUpRight, ArrowLeft } from 'lucide-react'
 import { showToast } from './ToastNotification'
 import { CategorySelectDialog } from './CategorySelectDialog'
 import { WEB_APP_URL } from '../../lib/config'
@@ -23,9 +23,21 @@ interface AgentPanelProps {
   // Persisted state from parent (survives close/reopen)
   persistedInputText?: string
   persistedResult?: string | null
+  persistedStructuredResult?: GeneralAgentGenerateResult | null
   persistedImageData?: string | null
-  onPersistStateChange?: (state: { inputText: string; result: string | null; imageData: string | null }) => void
+  onPersistStateChange?: (state: { inputText: string; result: string | null; structuredResult: GeneralAgentGenerateResult | null; imageData: string | null }) => void
 }
+
+const AGENT_SECTION_ROWS: Array<{ key: keyof GeneralAgentGenerateResult['sections']; label: string }> = [
+  { key: 'subject', label: '主体' },
+  { key: 'style', label: '风格' },
+  { key: 'lighting', label: '光影' },
+  { key: 'colors', label: '色彩' },
+  { key: 'composition', label: '构图' },
+  { key: 'materials', label: '材质' },
+  { key: 'mood', label: '氛围' },
+  { key: 'negativePrompt', label: '负面' },
+]
 
 export function AgentPanel({
   selectedTemplate,
@@ -35,33 +47,41 @@ export function AgentPanel({
   onInsert,
   persistedInputText,
   persistedResult,
+  persistedStructuredResult,
   persistedImageData,
   onPersistStateChange
 }: AgentPanelProps) {
   const [inputText, setInputTextLocal] = useState(persistedInputText ?? '')
   const [imageData, setImageDataLocal] = useState<string | null>(persistedImageData ?? null)
   const [isLoading, setIsLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<'form' | 'result'>(persistedResult ? 'result' : 'form')
   const [result, setResultLocal] = useState<string | null>(persistedResult ?? null)
+  const [structuredResult, setStructuredResultLocal] = useState<GeneralAgentGenerateResult | null>(persistedStructuredResult ?? null)
   const [error, setError] = useState<string | null>(null)
   const [errorAction, setErrorAction] = useState<'settings' | null>(null)
   const [hasConfig, setHasConfig] = useState<boolean | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
 
-  // Sync from persisted state (when parent re-mounts this component after reopen)
+  // Persist state to parent whenever it changes.
+  useEffect(() => {
+    onPersistStateChange?.({ inputText, result, structuredResult, imageData })
+  }, [inputText, result, structuredResult, imageData, onPersistStateChange])
+
   const setInputText = useCallback((value: string) => {
     setInputTextLocal(value)
-    onPersistStateChange?.({ inputText: value, result, imageData })
-  }, [result, imageData, onPersistStateChange])
+  }, [])
 
   const setImageData = useCallback((value: string | null) => {
     setImageDataLocal(value)
-    onPersistStateChange?.({ inputText, result, imageData: value })
-  }, [inputText, result, onPersistStateChange])
+  }, [])
 
   const setResult = useCallback((value: string | null) => {
     setResultLocal(value)
-    onPersistStateChange?.({ inputText, result: value, imageData })
-  }, [inputText, imageData, onPersistStateChange])
+  }, [])
+
+  const setStructuredResult = useCallback((value: GeneralAgentGenerateResult | null) => {
+    setStructuredResultLocal(value)
+  }, [])
 
   // Pre-fill extracted text
   useEffect(() => {
@@ -144,6 +164,8 @@ export function AgentPanel({
     setError(null)
     setErrorAction(null)
     setResult(null)
+    setStructuredResult(null)
+    setViewMode('form')
 
     try {
       const response = await chrome.runtime.sendMessage({
@@ -158,6 +180,8 @@ export function AgentPanel({
         throw new Error(response?.error || '生成失败')
       }
       setResult(response.data.prompt)
+      setStructuredResult(response.data.agentResult || null)
+      setViewMode('result')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '生成失败'
       if (errorMessage.startsWith('NO_CONFIG:')) {
@@ -189,6 +213,13 @@ export function AgentPanel({
     }
   }, [result])
 
+  // Handle one-click insert
+  const handleInsert = useCallback(() => {
+    if (!result || !onInsert) return
+    onInsert(result)
+    showToast('已插入提示词')
+  }, [result, onInsert])
+
   // Handle save
   const handleSave = useCallback((categoryId: string) => {
     if (!result) return
@@ -198,12 +229,16 @@ export function AgentPanel({
   }, [result, selectedTemplate, onSave])
 
   const handleRetry = useCallback(() => handleGenerate(), [handleGenerate])
+  const handleBackToForm = useCallback(() => setViewMode('form'), [])
   const isGenerateDisabled = !inputText.trim() || isLoading
+  const visibleSectionRows = structuredResult
+    ? AGENT_SECTION_ROWS.filter(row => structuredResult.sections[row.key])
+    : []
 
   return (
     <div className="agent-panel">
       {/* Setup Guide — shown when no provider config available */}
-      {hasConfig === false && (
+      {hasConfig === false && viewMode === 'form' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '24px 16px', textAlign: 'center' }}>
           <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <Settings style={{ width: 24, height: 24, color: '#A16207' }} />
@@ -230,7 +265,7 @@ export function AgentPanel({
       )}
 
       {/* Main Agent UI — shown when config exists or still checking */}
-      {(hasConfig === true || hasConfig === null) && (
+      {(hasConfig === true || hasConfig === null) && viewMode === 'form' && (
       <>
       {/* Input */}
       <div className="agent-panel-section">
@@ -315,30 +350,6 @@ export function AgentPanel({
         </div>
       )}
 
-      {/* Result */}
-      {result && !error && (
-        <div className="agent-panel-result">
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 8 }}>生成的提示词</div>
-          <div className="agent-panel-result-content">{result}</div>
-          <div className="agent-panel-result-actions">
-            {onInsert && (
-              <button className="agent-panel-action-btn agent-panel-insert-btn" onClick={() => { onInsert(result); showToast('已插入提示词') }} title="插入到输入框" style={{ color: '#A16207' }}>
-                <ArrowUpRight style={{ width: 14, height: 14 }} />
-              </button>
-            )}
-            <button className="agent-panel-action-btn" onClick={handleCopy} title="复制">
-              <Copy style={{ width: 14, height: 14 }} />
-            </button>
-            <button className="agent-panel-action-btn" onClick={() => setShowSaveDialog(true)} title="保存到库">
-              <Bookmark style={{ width: 14, height: 14 }} />
-            </button>
-            <button className="agent-panel-action-btn" onClick={handleRetry} disabled={isLoading} title="重新生成">
-              <RefreshCw style={{ width: 14, height: 14 }} />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Save dialog */}
       <CategorySelectDialog
         categories={categories}
@@ -347,6 +358,73 @@ export function AgentPanel({
         onConfirm={handleSave}
       />
       </>
+      )}
+
+      {/* Result View - full-screen overlay */}
+      {viewMode === 'result' && result && !error && (
+        <div className="agent-panel-result-view">
+          <div className="agent-panel-result-header">
+            <button className="agent-panel-result-back-btn" onClick={handleBackToForm} aria-label="返回表单">
+              <ArrowLeft style={{ width: 16, height: 16 }} />
+            </button>
+            <span className="agent-panel-result-title">提示词生成结果</span>
+          </div>
+
+          <div className="agent-panel-result-body">
+            <div className="agent-panel-result-card">
+              <div className="agent-panel-result-card-header">
+                <span className="agent-panel-result-type-tag">完整提示词</span>
+              </div>
+              <div className="agent-panel-result-text">{result}</div>
+              <div className="agent-panel-result-actions">
+                {onInsert && (
+                  <button className="agent-panel-action-btn agent-panel-insert-btn" onClick={handleInsert} title="插入到输入框" aria-label="插入到输入框">
+                    <ArrowUpRight style={{ width: 14, height: 14 }} />
+                  </button>
+                )}
+                <button className="agent-panel-action-btn" onClick={handleCopy} title="复制" aria-label="复制">
+                  <Copy style={{ width: 14, height: 14 }} />
+                </button>
+                <button className="agent-panel-action-btn" onClick={() => setShowSaveDialog(true)} title="保存到库" aria-label="保存到库">
+                  <Bookmark style={{ width: 14, height: 14 }} />
+                </button>
+              </div>
+            </div>
+
+            {visibleSectionRows.length > 0 && (
+              <div className="agent-panel-result-details">
+                {visibleSectionRows.map(row => (
+                  <div key={row.key} className="agent-panel-result-detail-row">
+                    <span className="agent-panel-result-detail-label">{row.label}</span>
+                    <span className="agent-panel-result-detail-value">{structuredResult?.sections[row.key]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="agent-panel-result-footer">
+            <button className="agent-panel-result-footer-btn-secondary" onClick={handleRetry} disabled={isLoading}>
+              {isLoading ? '生成中...' : '重新生成'}
+            </button>
+            <button className="agent-panel-result-footer-btn-secondary" onClick={handleCopy}>
+              复制
+            </button>
+            <button className="agent-panel-result-footer-btn-primary" onClick={handleInsert} disabled={!onInsert}>
+              插入提示词
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Save dialog */}
+      {viewMode === 'result' && (
+        <CategorySelectDialog
+          categories={categories}
+          isOpen={showSaveDialog}
+          onClose={() => setShowSaveDialog(false)}
+          onConfirm={handleSave}
+        />
       )}
     </div>
   )

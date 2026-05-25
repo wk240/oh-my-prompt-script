@@ -761,6 +761,7 @@ export const DROPDOWN_STYLES = `
 
   /* Agent Panel Styles */
   #${PORTAL_ID} .agent-panel {
+    position: relative;
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -978,6 +979,192 @@ export const DROPDOWN_STYLES = `
   }
 
   #${PORTAL_ID} .agent-panel-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .agent-panel-result-view {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    z-index: 10;
+  }
+
+  .agent-panel-result-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #E5E5E5;
+    flex-shrink: 0;
+  }
+
+  .agent-panel-result-back-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid #E5E5E5;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #525252;
+    padding: 0;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .agent-panel-result-back-btn:hover {
+    border-color: #A16207;
+    color: #A16207;
+  }
+
+  .agent-panel-result-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #171717;
+    flex: 1;
+  }
+
+  .agent-panel-result-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    padding-bottom: 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .agent-panel-result-card {
+    background: #f8f8f8;
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .agent-panel-result-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .agent-panel-result-type-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: #FFFBEB;
+    color: #A16207;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .agent-panel-result-text {
+    font-size: 12px;
+    line-height: 1.6;
+    color: #404040;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .agent-panel-result-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+  }
+
+  .agent-panel-result-detail-row {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .agent-panel-result-detail-label {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .agent-panel-result-detail-value {
+    min-width: 0;
+    color: #111827;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  .agent-panel-result-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(8px);
+  }
+
+  .agent-panel-result-footer button {
+    min-width: 0;
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .agent-panel-result-footer-btn-primary {
+    padding: 10px 16px;
+    background: #171717;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .agent-panel-result-footer-btn-primary:hover:not(:disabled) {
+    background: #404040;
+  }
+
+  .agent-panel-result-footer-btn-primary:disabled {
+    background: #D4D4D4;
+    cursor: not-allowed;
+  }
+
+  .agent-panel-result-footer-btn-secondary {
+    padding: 10px 16px;
+    background: white;
+    color: #525252;
+    border: 1.5px solid #E5E5E5;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .agent-panel-result-footer-btn-secondary:hover:not(:disabled) {
+    border-color: #A16207;
+    color: #A16207;
+  }
+
+  .agent-panel-result-footer-btn-secondary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }

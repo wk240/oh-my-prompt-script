@@ -10,6 +10,7 @@
 import type { ProviderConfig, AgentGeneratePayload, AgentGenerateResult } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { buildAgentSystemPrompt, buildEcommerceSystemPrompt } from './agent-templates'
+import { parseAgentGenerateResult } from './agent-result-parser'
 import { parseEcommerceGenerateResult } from './ecommerce-result-parser'
 import { extractBase64Data, extractMediaType } from './image-utils'
 import { WEB_APP_URL } from '@/lib/config'
@@ -426,6 +427,10 @@ export async function executeAgentApiCallWithProviderConfig(
       throw new Error('API 返回空内容')
     }
 
+    const parsedAgentResult = !isEcommerce
+      ? parseAgentGenerateResult({ prompt: promptText })
+      : null
+    const agentResult = parsedAgentResult?.ok ? parsedAgentResult.result : undefined
     const parsedEcommerceResult = isEcommerce
       ? parseEcommerceGenerateResult({ prompt: promptText }, payload.ecommerceConfig?.aspectRatio || '1:1')
       : null
@@ -434,8 +439,9 @@ export async function executeAgentApiCallWithProviderConfig(
     perfLog('END total flow', totalStart)
 
     return {
-      prompt: promptText,
+      prompt: agentResult?.prompt || promptText,
       templateCategory: payload.templateCategory,
+      agentResult,
       ecommercePrompts
     }
 
@@ -583,14 +589,19 @@ async function executeOfficialAgentApiCall(
     }
 
     const isEcommerce = payload.templateCategory === 'ecommerce' && payload.ecommerceConfig
+    const parsedAgentResult = !isEcommerce
+      ? parseAgentGenerateResult({ prompt: result.data.prompt })
+      : null
+    const agentResult = parsedAgentResult?.ok ? parsedAgentResult.result : undefined
     const parsedEcommerceResult = isEcommerce
       ? parseEcommerceGenerateResult({ prompt: result.data.prompt }, payload.ecommerceConfig?.aspectRatio || '1:1')
       : null
     const ecommercePrompts = parsedEcommerceResult?.ok ? parsedEcommerceResult.result : undefined
 
     return {
-      prompt: result.data.prompt,
+      prompt: agentResult?.prompt || result.data.prompt,
       templateCategory: payload.templateCategory,
+      agentResult,
       ecommercePrompts
     }
   } catch (error) {

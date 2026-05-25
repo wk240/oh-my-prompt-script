@@ -5,16 +5,26 @@
  */
 
 import { useState, useEffect, useCallback, Suspense, lazy } from 'react'
-import type { AgentTemplateCategory, Category, ProviderConfig } from '@oh-my-prompt/shared/types'
+import type { AgentTemplateCategory, Category, GeneralAgentGenerateResult, ProviderConfig } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, ArrowUpRight } from 'lucide-react'
-import { Tooltip } from '@/content/components/Tooltip'
+import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, ArrowUpRight, ArrowLeft } from 'lucide-react'
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
 import { isAgentConfigUsable } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 
 // Lazy load dialog component
 const CategorySelectDialog = lazy(() => import('@/content/components/CategorySelectDialog').then(m => ({ default: m.CategorySelectDialog })))
+
+const AGENT_SECTION_ROWS: Array<{ key: keyof GeneralAgentGenerateResult['sections']; label: string }> = [
+  { key: 'subject', label: '主体' },
+  { key: 'style', label: '风格' },
+  { key: 'lighting', label: '光影' },
+  { key: 'colors', label: '色彩' },
+  { key: 'composition', label: '构图' },
+  { key: 'materials', label: '材质' },
+  { key: 'mood', label: '氛围' },
+  { key: 'negativePrompt', label: '负面' },
+]
 
 interface AgentViewProps {
   selectedTemplate: AgentTemplateCategory
@@ -37,7 +47,9 @@ export default function AgentView({
   const [inputText, setInputText] = useState('')
   const [imageData, setImageData] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<'form' | 'result'>('form')
   const [result, setResult] = useState<string | null>(null)
+  const [structuredResult, setStructuredResult] = useState<GeneralAgentGenerateResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [errorAction, setErrorAction] = useState<'settings' | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
@@ -149,8 +161,10 @@ export default function AgentView({
 
     setIsLoading(true)
     setError(null)
-        setErrorAction(null)
+    setErrorAction(null)
     setResult(null)
+    setStructuredResult(null)
+    setViewMode('form')
 
     try {
       const response = await chrome.runtime.sendMessage({
@@ -167,6 +181,8 @@ export default function AgentView({
       }
 
       setResult(response.data.prompt)
+      setStructuredResult(response.data.agentResult || null)
+      setViewMode('result')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '生成失败'
 
@@ -222,8 +238,16 @@ export default function AgentView({
     handleGenerate()
   }, [handleGenerate])
 
+  // Handle back to form
+  const handleBackToForm = useCallback(() => {
+    setViewMode('form')
+  }, [])
+
   // Is generate button disabled
   const isGenerateDisabled = !inputText.trim() || isLoading
+  const visibleSectionRows = structuredResult
+    ? AGENT_SECTION_ROWS.filter(row => structuredResult.sections[row.key])
+    : []
 
   return (
     <div className="flex flex-col h-full">
@@ -249,7 +273,9 @@ export default function AgentView({
 
       {/* Main Agent UI — shown when config exists or still checking */}
       {(hasConfig === true || hasConfig === null) && (
-      <div className="agent-view">
+      <div className={`agent-view ${viewMode === 'result' ? 'agent-view-result-mode' : ''}`}>
+      {viewMode === 'form' && (
+      <>
       {/* Input section */}
       <div className="agent-input-section">
         <label className="agent-input-label">
@@ -333,34 +359,62 @@ export default function AgentView({
         </div>
       )}
 
-      {/* Result section */}
-      {result && !error && (
-        <div className="agent-result-section">
-          <div className="agent-result-label">生成的提示词</div>
-          <div className="agent-result-content">{result}</div>
-          <div className="agent-result-actions">
-            {onInsert && (
-              <Tooltip content="插入">
-                <button className="agent-result-btn" onClick={handleInsert}>
-                  <ArrowUpRight style={{ width: 14, height: 14 }} />
+      </>
+      )}
+
+      {/* Result view */}
+      {viewMode === 'result' && result && !error && (
+        <div className="agent-result-view">
+          <div className="agent-result-header">
+            <button className="agent-result-back-btn" onClick={handleBackToForm} aria-label="返回表单">
+              <ArrowLeft style={{ width: 16, height: 16 }} />
+            </button>
+            <span className="agent-result-title">提示词生成结果</span>
+          </div>
+
+          <div className="agent-result-body">
+            <div className="agent-result-card">
+              <div className="agent-result-card-header">
+                <span className="agent-result-type-tag">完整提示词</span>
+              </div>
+              <div className="agent-result-text">{result}</div>
+              <div className="agent-result-actions">
+                {onInsert && (
+                  <button className="agent-result-btn agent-result-insert-btn" onClick={handleInsert} title="插入到输入框" aria-label="插入">
+                    <ArrowUpRight style={{ width: 14, height: 14 }} />
+                  </button>
+                )}
+                <button className="agent-result-btn" onClick={handleCopy} title="复制" aria-label="复制">
+                  <Copy style={{ width: 14, height: 14 }} />
                 </button>
-              </Tooltip>
+                <button className="agent-result-btn" onClick={() => setShowSaveDialog(true)} title="保存到库" aria-label="保存到库">
+                  <Bookmark style={{ width: 14, height: 14 }} />
+                </button>
+              </div>
+            </div>
+
+            {visibleSectionRows.length > 0 && (
+              <div className="agent-result-details">
+                {visibleSectionRows.map(row => (
+                  <div key={row.key} className="agent-result-detail-row">
+                    <span className="agent-result-detail-label">{row.label}</span>
+                    <span className="agent-result-detail-value">{structuredResult?.sections[row.key]}</span>
+                  </div>
+                ))}
+              </div>
             )}
-            <Tooltip content="复制">
-              <button className="agent-result-btn" onClick={handleCopy}>
-                <Copy style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
-            <Tooltip content="保存到库">
-              <button className="agent-result-btn" onClick={() => setShowSaveDialog(true)}>
-                <Bookmark style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
-            <Tooltip content="重新生成">
-              <button className="agent-result-btn" onClick={handleRetry} disabled={isLoading}>
-                <RefreshCw style={{ width: 14, height: 14 }} />
-              </button>
-            </Tooltip>
+          </div>
+
+          <div className="agent-result-footer">
+            <button className="agent-result-footer-btn-secondary" onClick={handleRetry} disabled={isLoading}>
+              {isLoading ? '生成中...' : '重新生成'}
+            </button>
+            <button className="agent-result-footer-btn-secondary" onClick={handleCopy}>
+              复制
+            </button>
+            <button className="agent-result-footer-btn-primary" onClick={handleInsert} disabled={!onInsert}>
+              插入提示词
+            </button>
           </div>
         </div>
       )}

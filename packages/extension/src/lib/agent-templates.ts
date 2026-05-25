@@ -32,6 +32,26 @@ export function buildAgentSystemPrompt(
   }
 
   const keywordsText = template.keywords.join('、')
+  const outputFormat = `## 输出格式
+请严格输出 JSON，不要包含 Markdown 代码块或任何额外说明：
+{
+  "prompt": "可直接用于图片生成的一整段完整提示词",
+  "sections": {
+    "subject": "主体描述",
+    "style": "风格定义",
+    "lighting": "光影效果",
+    "colors": "色彩方案",
+    "composition": "构图布局",
+    "materials": "材质纹理",
+    "mood": "氛围情绪",
+    "negativePrompt": "负面提示词/需要避免的内容"
+  }
+}
+
+要求：
+- prompt 必须整合 sections 中的关键信息，适合一键插入使用。
+- sections 的每个字段都用简洁短句，便于前端解析成直观布局。
+- 输出语言与输入语言一致。如果用户用中文描述，输出中文；如果用英文描述，输出英文。`
 
   if (hasImage) {
     return `你是提示词增强专家。用户正在生成${template.name}类型的提示词。
@@ -47,7 +67,7 @@ export function buildAgentSystemPrompt(
 - 材质纹理（什么质感）
 - 氛围情绪（什么感觉）
 
-输出语言与输入语言一致。如果用户用中文描述，输出中文提示词；如果用英文描述，输出英文提示词。`
+${outputFormat}`
   }
 
   return `你是提示词增强专家。用户正在生成${template.name}类型的提示词。
@@ -63,7 +83,7 @@ export function buildAgentSystemPrompt(
 - 材质纹理（什么质感）
 - 氛围情绪（什么感觉）
 
-输出语言与输入语言一致。如果用户用中文描述，输出中文提示词；如果用英文描述，输出英文提示词。`
+${outputFormat}`
 }
 
 /**

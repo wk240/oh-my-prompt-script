@@ -34,6 +34,7 @@ export interface AgentGeneratePayload {
 export interface AgentGenerateResult {
   prompt: string // Generated prompt text
   templateCategory: AgentTemplateCategory
+  agentResult?: GeneralAgentGenerateResult // 结构化通用 Agent 结果
   ecommercePrompts?: EcommerceGenerateResult  // 结构化多提示词结果
 }
 
@@ -88,6 +89,25 @@ export interface EcommerceGenerateResult {
     details?: EcommercePromptDetails
   }>
   templateCategory: 'ecommerce'
+  rawText?: string
+}
+
+export interface GeneralAgentPromptSections {
+  subject?: string
+  style?: string
+  lighting?: string
+  colors?: string
+  composition?: string
+  materials?: string
+  mood?: string
+  negativePrompt?: string
+}
+
+// 通用 Agent 结构化生成结果
+export interface GeneralAgentGenerateResult {
+  prompt: string
+  sections: GeneralAgentPromptSections
+  templateCategory: 'general'
   rawText?: string
 }
 

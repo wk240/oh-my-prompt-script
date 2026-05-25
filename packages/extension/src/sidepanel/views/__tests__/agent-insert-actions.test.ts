@@ -12,9 +12,27 @@ describe('Agent sidepanel insert actions', () => {
     )
 
     expect(source).toContain('onInsert?: (text: string) => Promise<void>')
+    expect(source).toContain("const [viewMode, setViewMode] = useState<'form' | 'result'>('form')")
+    expect(source).toContain("setViewMode('result')")
+    expect(source).toContain("className={`agent-view ${viewMode === 'result' ? 'agent-view-result-mode' : ''}`}")
+    expect(source).toContain('className="agent-result-view"')
+    expect(source).toContain('aria-label="返回表单"')
     expect(source).toContain('const handleInsert = useCallback(async () => {')
     expect(source).toContain('await onInsert(result)')
-    expect(source).toContain('Tooltip content="插入"')
+    expect(source).toContain('插入提示词')
+  })
+
+  it('wires normal Agent dropdown results to the standalone result view', () => {
+    const source = readFileSync(
+      resolve(repoRoot, 'src/content/components/AgentPanel.tsx'),
+      'utf8',
+    )
+
+    expect(source).toContain("const [viewMode, setViewMode] = useState<'form' | 'result'>")
+    expect(source).toContain("setViewMode('result')")
+    expect(source).toContain('className="agent-panel-result-view"')
+    expect(source).toContain('aria-label="返回表单"')
+    expect(source).toContain('插入提示词')
   })
 
   it('wires ecommerce Agent single prompts and bundles to one-click insert', () => {

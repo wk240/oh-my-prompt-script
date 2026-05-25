@@ -6,7 +6,7 @@
 
 import { useRef, useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
-import type { Prompt, Category } from '@oh-my-prompt/shared/types'
+import type { Prompt, Category, GeneralAgentGenerateResult } from '@oh-my-prompt/shared/types'
 import type { TeamPrompt } from '@oh-my-prompt/shared/types'
 import type { AgentTemplateCategory } from '@oh-my-prompt/shared/types/agent'
 import type { ResourcePrompt, ResourceCategory, UpdateStatus } from '@oh-my-prompt/shared/types'
@@ -390,8 +390,8 @@ export function DropdownContainer({
   const [agentExtractedText, setAgentExtractedText] = useState<string>('')
 
   // Persisted state for Agent/Ecommerce panels (survives close/reopen)
-  const [agentPanelState, setAgentPanelState] = useState<{ inputText: string; result: string | null; imageData: string | null }>({
-    inputText: '', result: null, imageData: null
+  const [agentPanelState, setAgentPanelState] = useState<{ inputText: string; result: string | null; structuredResult: GeneralAgentGenerateResult | null; imageData: string | null }>({
+    inputText: '', result: null, structuredResult: null, imageData: null
   })
   const [ecommercePanelState, setEcommercePanelState] = useState<EcommercePersistedState>({
     productImage: null, productImageName: '', platform: 'amazon', market: 'china',
@@ -400,7 +400,7 @@ export function DropdownContainer({
     result: null, generationConfigSnapshot: null, expandedPromptIndexes: [], viewMode: 'form'
   })
 
-  const handleAgentStateChange = useCallback((state: { inputText: string; result: string | null; imageData: string | null }) => {
+  const handleAgentStateChange = useCallback((state: { inputText: string; result: string | null; structuredResult: GeneralAgentGenerateResult | null; imageData: string | null }) => {
     setAgentPanelState(state)
   }, [])
   const handleEcommerceStateChange = useCallback((state: EcommercePersistedState) => {
@@ -1796,6 +1796,7 @@ export function DropdownContainer({
                 onInsert={onInsertText}
                 persistedInputText={agentPanelState.inputText}
                 persistedResult={agentPanelState.result}
+                persistedStructuredResult={agentPanelState.structuredResult}
                 persistedImageData={agentPanelState.imageData}
                 onPersistStateChange={handleAgentStateChange}
               />
