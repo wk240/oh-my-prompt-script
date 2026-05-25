@@ -1420,6 +1420,43 @@ describe('SyncOrchestrator', () => {
       expect(result.localOnlyItems.pendingImageDeleteKeys).toEqual([])
     })
 
+    it('tracks same-key local-newer pending image deletes for follow-up upload', async () => {
+      const cloudData = {
+        prompts: [],
+        categories: [],
+        temporaryPrompts: [],
+        timestamp: 1,
+        imageAssets: {},
+        pendingImageDeletes: [{
+          imageId: 'image-1',
+          cloudPath: 'users/u/images/image-1.webp',
+          attempts: 1,
+          lastError: 'old',
+          updatedAt: 1
+        }]
+      }
+      const localData = {
+        ...cloudData,
+        timestamp: 2,
+        pendingImageDeletes: [{
+          imageId: 'image-1',
+          cloudPath: 'users/u/images/image-1.webp',
+          attempts: 2,
+          lastError: 'new',
+          updatedAt: 2
+        }]
+      }
+
+      const result = orchestrator['mergeFullBackupData'](cloudData, localData)
+
+      expect(result.data.pendingImageDeletes).toEqual([expect.objectContaining({
+        attempts: 2,
+        lastError: 'new',
+        updatedAt: 2
+      })])
+      expect(result.localOnlyItems.pendingImageDeleteKeys).toEqual(['image-1\nusers/u/images/image-1.webp'])
+    })
+
     it('preserves existing image metadata when applying legacy snapshots without metadata fields', async () => {
       storageData.prompt_script_data = {
         userData: { prompts: [], categories: [] },

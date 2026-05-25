@@ -1052,6 +1052,19 @@ export class SyncOrchestrator {
       this.stableStringify(localAsset) !== this.stableStringify(cloudAsset)
   }
 
+  private pendingImageDeleteNeedsCloudUpload(
+    localItem: NonNullable<FullBackupData['pendingImageDeletes']>[number],
+    cloudItems: NonNullable<FullBackupData['pendingImageDeletes']>
+  ): boolean {
+    const cloudItem = cloudItems.find(other =>
+      other.imageId === localItem.imageId && other.cloudPath === localItem.cloudPath
+    )
+    if (!cloudItem) return true
+
+    return (localItem.updatedAt || 0) > (cloudItem.updatedAt || 0) ||
+      this.stableStringify(localItem) !== this.stableStringify(cloudItem)
+  }
+
   private mergeFullBackupData(
     cloud: FullBackupData,
     local: FullBackupData
@@ -1096,9 +1109,7 @@ export class SyncOrchestrator {
           imageAssets: localImageAssets
         })),
         pendingImageDeleteKeys: (localPendingImageDeletes || [])
-          .filter(item => !(cloudPendingImageDeletes || []).some(other =>
-            other.imageId === item.imageId && other.cloudPath === item.cloudPath
-          ))
+          .filter(item => this.pendingImageDeleteNeedsCloudUpload(item, cloudPendingImageDeletes || []))
           .map(item => `${item.imageId}\n${item.cloudPath}`)
       },
       conflicts: [
