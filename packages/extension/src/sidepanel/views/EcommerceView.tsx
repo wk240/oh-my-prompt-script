@@ -442,7 +442,9 @@ export default function EcommerceView({
 
       {/* Main Ecommerce UI — shown when config exists or still checking */}
       {(hasConfig === true || hasConfig === null) && (
-      <div className="ecommerce-view">
+      <div className={`ecommerce-view ${viewMode === 'result' ? 'ecommerce-view-result-mode' : ''}`}>
+        {viewMode === 'form' && (
+          <>
         {/* Product Image Upload - Single image */}
         <div className="ecommerce-panel-section">
           <label className="ecommerce-panel-label">
@@ -680,6 +682,8 @@ export default function EcommerceView({
               <span>重试</span>
             </button>
           </div>
+        )}
+          </>
         )}
 
         {viewMode === 'result' && result && (
