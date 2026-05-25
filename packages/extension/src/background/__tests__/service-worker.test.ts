@@ -319,6 +319,26 @@ describe('service worker message handling', () => {
     })
   })
 
+  it('updates settings without triggering an extra backup sync', async () => {
+    mocks.storageManager.updateSettings.mockResolvedValue(undefined)
+    const sendResponse = vi.fn()
+
+    dispatchRuntimeMessage({
+      type: MessageType.SET_SETTINGS_ONLY,
+      payload: { settings: { syncEnabled: true, hasUnsyncedChanges: false } }
+    }, sendResponse)
+
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalledWith({ success: true })
+    })
+
+    expect(mocks.storageManager.updateSettings).toHaveBeenCalledWith(
+      { syncEnabled: true, hasUnsyncedChanges: false },
+      { triggerSync: false }
+    )
+    expect(mocks.orchestratorTriggerSync).not.toHaveBeenCalled()
+  })
+
   it('routes temporary prompt transfer through debounced orchestrator sync only', async () => {
     const data: StorageSchema = {
       ...existingData,

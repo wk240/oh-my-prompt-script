@@ -985,7 +985,7 @@ chrome.runtime.onMessage.addListener(
           sendResponse({ success: false, error: 'No settings provided' })
           return true
         }
-        storageManager.updateSettings(settingsPayload.settings)
+        storageManager.updateSettings(settingsPayload.settings, { triggerSync: false })
           .then(() => sendResponse({ success: true } as MessageResponse))
           .catch(error => {
             console.error('[Oh My Prompt] SET_SETTINGS_ONLY error:', error)
