@@ -386,7 +386,7 @@ export function DropdownContainer({
 
   // Agent mode state
   const [agentViewMode, setAgentViewMode] = useState<'default' | 'agent'>('default')
-  const [agentSelectedTemplate, setAgentSelectedTemplate] = useState<AgentTemplateCategory>('ecommerce')
+  const [agentSelectedTemplate, setAgentSelectedTemplate] = useState<AgentTemplateCategory>('general')
   const [agentExtractedText, setAgentExtractedText] = useState<string>('')
 
   // Persisted state for Agent/Ecommerce panels (survives close/reopen)

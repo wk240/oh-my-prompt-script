@@ -694,7 +694,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
 
   // Agent state
   const [agentViewMode, setAgentViewMode] = useState<AgentViewMode>('default')
-  const [agentSelectedTemplate, setAgentSelectedTemplate] = useState<AgentTemplateCategory>('ecommerce')
+  const [agentSelectedTemplate, setAgentSelectedTemplate] = useState<AgentTemplateCategory>('general')
   const [agentExtractedText, _setAgentExtractedText] = useState<string>('')
 
   // Sync status for permission restore and UI

@@ -2,12 +2,8 @@
  * Agent template categories
  */
 export type AgentTemplateCategory =
+  | 'general'      // 通用
   | 'ecommerce'    // 电商套图
-  | 'poster'       // 海报图
-  | 'illustration' // 插画
-  | 'logo'         // Logo
-  | 'ui'           // UI界面
-  | '3d'           // 3D渲染
 
 /**
  * Agent template definition
