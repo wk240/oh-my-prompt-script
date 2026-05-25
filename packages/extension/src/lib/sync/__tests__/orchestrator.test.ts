@@ -1350,6 +1350,52 @@ describe('SyncOrchestrator', () => {
       }))
     })
 
+    it('merges image metadata from cloud and local snapshots', async () => {
+      const cloudData = {
+        prompts: [],
+        categories: [],
+        temporaryPrompts: [],
+        timestamp: 1,
+        imageAssets: {
+          'image-1': {
+            id: 'image-1',
+            promptId: 'prompt-1',
+            localPath: 'images/image-1.webp',
+            cloudUrl: 'https://blob/img.webp',
+            cloudPath: 'users/u/images/image-1.webp',
+            mimeType: 'image/webp' as const,
+            width: 100,
+            height: 80,
+            size: 1000,
+            hash: 'hash-1',
+            status: 'synced' as const,
+            updatedAt: 1
+          }
+        },
+        pendingImageDeletes: []
+      }
+      const localData = {
+        ...cloudData,
+        imageAssets: {
+          'image-1': {
+            ...cloudData.imageAssets['image-1'],
+            cloudUrl: undefined,
+            cloudPath: undefined,
+            status: 'pending_upload' as const,
+            updatedAt: 2
+          }
+        }
+      }
+
+      const result = orchestrator['mergeFullBackupData'](cloudData, localData)
+
+      expect(result.data.imageAssets?.['image-1']).toMatchObject({
+        status: 'pending_upload',
+        cloudUrl: 'https://blob/img.webp',
+        cloudPath: 'users/u/images/image-1.webp'
+      })
+    })
+
     it('should return local data when cloud unavailable', async () => {
       const localData: FullBackupData = {
         prompts: [{ id: '1', name: 'Local', content: 'local', categoryId: 'c1', order: 0 }],

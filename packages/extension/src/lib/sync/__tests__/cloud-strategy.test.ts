@@ -488,4 +488,79 @@ describe('CloudSyncStrategy', () => {
     const status = await strategy.getStatus()
     expect(status.enabled).toBe(false)
   })
+
+  it('uploads and restores image metadata through cloud sync payloads', async () => {
+    const mockGet = vi.fn().mockResolvedValue({
+      'sb-futfxudabvjfldlismun-auth-token': JSON.stringify({
+        access_token: 'test-token',
+        user: { id: 'user-123' },
+        expires_at: Math.floor(Date.now() / 1000) + 3600
+      })
+    })
+    global.chrome = {
+      storage: {
+        local: {
+          get: mockGet,
+          set: vi.fn().mockResolvedValue(undefined)
+        }
+      }
+    } as any
+    global.fetch = vi.fn()
+
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, timestamp: 1700000000001 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: {
+          prompts: [],
+          categories: [],
+          temporaryPrompts: [],
+          imageAssets: {
+            'image-1': {
+              id: 'image-1',
+              promptId: 'prompt-1',
+              localPath: 'images/image-1.webp',
+              mimeType: 'image/webp',
+              width: 100,
+              height: 80,
+              size: 1000,
+              hash: 'hash-1',
+              status: 'synced',
+              updatedAt: 1,
+              cloudUrl: 'https://blob/img.webp',
+              cloudPath: 'users/u/images/image-1.webp'
+            }
+          },
+          pendingImageDeletes: [],
+          timestamp: 1700000000002
+        }
+      }), { status: 200 }))
+
+    await strategy.sync({
+      prompts: [],
+      categories: [],
+      temporaryPrompts: [],
+      imageAssets: {
+        'image-1': {
+          id: 'image-1',
+          promptId: 'prompt-1',
+          localPath: 'images/image-1.webp',
+          mimeType: 'image/webp',
+          width: 100,
+          height: 80,
+          size: 1000,
+          hash: 'hash-1',
+          status: 'pending_upload',
+          updatedAt: 1
+        }
+      },
+      pendingImageDeletes: [],
+      timestamp: 1700000000000
+    })
+    const uploadedBody = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string)
+    const restored = await strategy.restore()
+
+    expect(uploadedBody.imageAssets['image-1'].localPath).toBe('images/image-1.webp')
+    expect(restored?.imageAssets?.['image-1'].cloudUrl).toBe('https://blob/img.webp')
+  })
 })

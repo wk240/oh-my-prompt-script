@@ -116,6 +116,8 @@ export class CloudSyncStrategy extends BaseSyncStrategy {
           prompts: data.prompts,
           categories: data.categories,
           temporaryPrompts: data.temporaryPrompts,
+          imageAssets: data.imageAssets || {},
+          pendingImageDeletes: data.pendingImageDeletes || [],
           timestamp: data.timestamp
         })
       })
@@ -182,6 +184,8 @@ export class CloudSyncStrategy extends BaseSyncStrategy {
         prompts: result.data.prompts || [],
         categories: result.data.categories || [],
         temporaryPrompts: result.data.temporaryPrompts || [],
+        imageAssets: result.data.imageAssets || {},
+        pendingImageDeletes: result.data.pendingImageDeletes || [],
         timestamp: result.data.timestamp || Date.now()
       }
     } catch (error) {
@@ -229,6 +233,8 @@ export class CloudSyncStrategy extends BaseSyncStrategy {
     prompts?: FullBackupData['prompts']
     categories?: FullBackupData['categories']
     temporaryPrompts?: FullBackupData['temporaryPrompts']
+    imageAssets?: FullBackupData['imageAssets']
+    pendingImageDeletes?: FullBackupData['pendingImageDeletes']
     timestamp: number
   }): Promise<SyncResult> {
     const token = await getAuthTokenDirect()

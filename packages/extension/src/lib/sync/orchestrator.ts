@@ -6,6 +6,7 @@ import { RetryManager } from './retry-manager'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { getCachedAuthState, invalidateSyncStatusCache } from '../cloud-sync/auth-service'
 import { computeBackupDataHash } from './hash'
+import { mergeImageAssets, mergePendingImageDeletes } from './image-metadata-merge'
 import {
   FullBackupData,
   IdAliasMap,
@@ -14,6 +15,11 @@ import {
   SyncResult,
   SyncGuardStatus
 } from './types'
+
+type SyncStatusLocalOnlyItems = UnifiedSyncStatus['localOnlyItems'] & {
+  imageAssetIds?: string[]
+  pendingImageDeleteKeys?: string[]
+}
 
 /**
  * Local sync result from executeLocalSync.
@@ -656,65 +662,35 @@ export class SyncOrchestrator {
       }
     }
 
-    // Bidirectional merge - keeps latest version based on updatedAt
-    const categoryMerge = this.mergeBidirectional(
-      cloudData.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 })),
-      localData.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 }))
-    )
-
-    const promptMerge = this.mergeBidirectional(
-      cloudData.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
-      localData.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
-    )
-
-    const tempMerge = this.mergeBidirectional(
-      cloudData.temporaryPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
-      localData.temporaryPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
-    )
-
-    const result: MergeResult = {
-      data: {
-        prompts: promptMerge.merged as typeof cloudData.prompts,
-        categories: categoryMerge.merged as typeof cloudData.categories,
-        temporaryPrompts: tempMerge.merged as typeof cloudData.temporaryPrompts,
-        timestamp: Date.now()
-      },
-      // Items to upload to cloud: both truly local-only AND locally-newer versions
-      localOnlyItems: {
-        prompts: [...promptMerge.localOnly, ...promptMerge.localNewer] as typeof cloudData.prompts,
-        categories: [...categoryMerge.localOnly, ...categoryMerge.localNewer] as typeof cloudData.categories,
-        temporaryPrompts: [...tempMerge.localOnly, ...tempMerge.localNewer] as typeof cloudData.temporaryPrompts,
-        imageAssetIds: [],
-        pendingImageDeleteKeys: []
-      }
-    }
+    const result = this.mergeFullBackupData(cloudData, localData)
 
     // Apply merged data to storage
     await this.applyData(result.data)
 
     // Mark pending upload if there are items to upload to cloud (local-only OR locally-newer)
     const itemsToUploadCount =
-      promptMerge.localOnly.length + promptMerge.localNewer.length +
-      categoryMerge.localOnly.length + categoryMerge.localNewer.length +
-      tempMerge.localOnly.length + tempMerge.localNewer.length
+      result.localOnlyItems.prompts.length +
+      result.localOnlyItems.categories.length +
+      result.localOnlyItems.temporaryPrompts.length +
+      result.localOnlyItems.imageAssetIds.length +
+      result.localOnlyItems.pendingImageDeleteKeys.length
 
     if (itemsToUploadCount > 0) {
       await this.updateSyncStatus({
         pendingUpload: true,
         localOnlyItems: {
-          promptIds: [...promptMerge.localOnly, ...promptMerge.localNewer].map(p => p.id),
-          categoryIds: [...categoryMerge.localOnly, ...categoryMerge.localNewer].map(c => c.id),
-          temporaryPromptIds: [...tempMerge.localOnly, ...tempMerge.localNewer].map(p => p.id)
-        }
+          promptIds: result.localOnlyItems.prompts.map(p => p.id),
+          categoryIds: result.localOnlyItems.categories.map(c => c.id),
+          temporaryPromptIds: result.localOnlyItems.temporaryPrompts.map(p => p.id),
+          imageAssetIds: result.localOnlyItems.imageAssetIds,
+          pendingImageDeleteKeys: result.localOnlyItems.pendingImageDeleteKeys
+        } as SyncStatusLocalOnlyItems
       })
     }
 
     return {
       ...result,
-      conflicts: [
-        ...promptMerge.conflicts.map(c => ({ type: 'prompt' as const, cloud: c.cloud, local: c.local })),
-        ...categoryMerge.conflicts.map(c => ({ type: 'category' as const, cloud: c.cloud, local: c.local }))
-      ]
+      conflicts: result.conflicts
     }
   }
 
@@ -737,11 +713,22 @@ export class SyncOrchestrator {
     const localOnlyTemporaryPrompts = localData.temporaryPrompts.filter(p =>
       status.localOnlyItems?.temporaryPromptIds?.includes(p.id)
     )
+    const localOnlyMetadata = status.localOnlyItems as SyncStatusLocalOnlyItems | undefined
+    const localOnlyImageAssets = Object.fromEntries(
+      Object.entries(localData.imageAssets || {}).filter(([id]) =>
+        localOnlyMetadata?.imageAssetIds?.includes(id)
+      )
+    )
+    const localOnlyPendingImageDeletes = (localData.pendingImageDeletes || []).filter(item =>
+      localOnlyMetadata?.pendingImageDeleteKeys?.includes(`${item.imageId}\n${item.cloudPath}`)
+    )
 
     const result = await this.cloudStrategy.uploadPartial({
       prompts: localOnlyPrompts,
       categories: localOnlyCategories,
       temporaryPrompts: localOnlyTemporaryPrompts,
+      imageAssets: localOnlyImageAssets,
+      pendingImageDeletes: localOnlyPendingImageDeletes,
       timestamp: Date.now()
     })
 
@@ -751,8 +738,10 @@ export class SyncOrchestrator {
         localOnlyItems: {
           promptIds: [],
           categoryIds: [],
-          temporaryPromptIds: []
-        }
+          temporaryPromptIds: [],
+          imageAssetIds: [],
+          pendingImageDeleteKeys: []
+        } as SyncStatusLocalOnlyItems
       })
     }
   }
@@ -856,6 +845,8 @@ export class SyncOrchestrator {
       prompts: data.userData?.prompts || [],
       categories: data.userData?.categories || [],
       temporaryPrompts: data.temporaryPrompts || [],
+      imageAssets: data.imageAssets || {},
+      pendingImageDeletes: data.pendingImageDeletes || [],
       timestamp: Date.now()
     }
   }
@@ -882,7 +873,9 @@ export class SyncOrchestrator {
           prompts: data.prompts,
           categories: data.categories
         },
-        temporaryPrompts: data.temporaryPrompts
+        temporaryPrompts: data.temporaryPrompts,
+        imageAssets: data.imageAssets || {},
+        pendingImageDeletes: data.pendingImageDeletes || []
       }
     })
   }
@@ -1012,7 +1005,7 @@ export class SyncOrchestrator {
     return this.stableStringify(candidate) < this.stableStringify(existing)
   }
 
-  private preserveMissingImageMetadata<T extends { localImage?: string; remoteImageUrl?: string }>(
+  private preserveMissingImageMetadata<T extends { imageId?: string; localImage?: string; remoteImageUrl?: string }>(
     preferred: T,
     fallback?: T
   ): T {
@@ -1020,8 +1013,55 @@ export class SyncOrchestrator {
 
     return {
       ...preferred,
+      imageId: preferred.imageId || fallback.imageId,
       localImage: preferred.localImage || fallback.localImage,
       remoteImageUrl: preferred.remoteImageUrl || fallback.remoteImageUrl
+    }
+  }
+
+  private mergeFullBackupData(
+    cloud: FullBackupData,
+    local: FullBackupData
+  ): MergeResult & { conflicts: Array<{ type: 'prompt' | 'category'; cloud: unknown; local: unknown }> } {
+    const categoryMerge = this.mergeBidirectional(
+      cloud.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 })),
+      local.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 }))
+    )
+
+    const promptMerge = this.mergeBidirectional(
+      cloud.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
+      local.prompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
+    )
+
+    const tempMerge = this.mergeBidirectional(
+      cloud.temporaryPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 })),
+      local.temporaryPrompts.map(p => ({ ...p, updatedAt: p.updatedAt || 0 }))
+    )
+
+    return {
+      data: {
+        prompts: promptMerge.merged as typeof cloud.prompts,
+        categories: categoryMerge.merged as typeof cloud.categories,
+        temporaryPrompts: tempMerge.merged as typeof cloud.temporaryPrompts,
+        imageAssets: mergeImageAssets(cloud.imageAssets, local.imageAssets),
+        pendingImageDeletes: mergePendingImageDeletes(cloud.pendingImageDeletes, local.pendingImageDeletes),
+        timestamp: Date.now()
+      },
+      localOnlyItems: {
+        prompts: [...promptMerge.localOnly, ...promptMerge.localNewer] as typeof cloud.prompts,
+        categories: [...categoryMerge.localOnly, ...categoryMerge.localNewer] as typeof cloud.categories,
+        temporaryPrompts: [...tempMerge.localOnly, ...tempMerge.localNewer] as typeof cloud.temporaryPrompts,
+        imageAssetIds: Object.keys(local.imageAssets || {}).filter(id => !(cloud.imageAssets || {})[id]),
+        pendingImageDeleteKeys: (local.pendingImageDeletes || [])
+          .filter(item => !(cloud.pendingImageDeletes || []).some(other =>
+            other.imageId === item.imageId && other.cloudPath === item.cloudPath
+          ))
+          .map(item => `${item.imageId}\n${item.cloudPath}`)
+      },
+      conflicts: [
+        ...promptMerge.conflicts.map(c => ({ type: 'prompt' as const, cloud: c.cloud, local: c.local })),
+        ...categoryMerge.conflicts.map(c => ({ type: 'category' as const, cloud: c.cloud, local: c.local }))
+      ]
     }
   }
 
@@ -1274,7 +1314,7 @@ export class SyncOrchestrator {
    * - cloudNewer: items where cloud version is newer than local (need to update local)
    * - conflicts: items with same timestamp
    */
-  private mergeBidirectional<T extends { id: string; updatedAt?: number; name?: string; localImage?: string; remoteImageUrl?: string }>(
+  private mergeBidirectional<T extends { id: string; updatedAt?: number; name?: string; imageId?: string; localImage?: string; remoteImageUrl?: string }>(
     cloud: T[],
     local: T[],
     onConflict?: (cloudItem: T, localItem: T) => T
