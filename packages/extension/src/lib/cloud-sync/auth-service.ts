@@ -2,7 +2,7 @@
 import { getSupabaseClient, clearSupabaseClient } from './supabase-client'
 import { WEB_APP_URL, SUPABASE_PROJECT_REF } from '@/lib/config'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import type { CloudAuthState } from '@oh-my-prompt/shared/types'
+import type { CloudAuthState, OfficialApiQuota } from '@oh-my-prompt/shared/types'
 
 /**
  * Check if user has logged in via Web App (cookie session).
@@ -73,6 +73,7 @@ let cachedSyncStatus: {
     status: 'active' | 'inactive' | 'expired' | 'canceled'
     currentPeriodEnd?: number
     optimizationQuota?: { used: number; remaining: number; limit: number }
+    officialApiQuota?: OfficialApiQuota
   }
   cloudSyncEnabled?: boolean
   lastSyncAt?: number
@@ -226,6 +227,7 @@ export async function getAuthState(): Promise<CloudAuthState> {
           currentPeriodEnd?: number
         }
         optimizationQuota?: { used: number; remaining: number; limit: number }
+        officialApiQuota?: OfficialApiQuota
         cloudSyncEnabled?: boolean
         lastSyncedAt?: number
       }
@@ -235,7 +237,8 @@ export async function getAuthState(): Promise<CloudAuthState> {
         user: statusData.user,
         subscription: statusData.subscription ? {
           ...statusData.subscription,
-          optimizationQuota: statusData.optimizationQuota
+          optimizationQuota: statusData.optimizationQuota,
+          officialApiQuota: statusData.officialApiQuota
         } : undefined,
         cloudSyncEnabled: statusData.cloudSyncEnabled,
         lastSyncAt: statusData.lastSyncedAt,

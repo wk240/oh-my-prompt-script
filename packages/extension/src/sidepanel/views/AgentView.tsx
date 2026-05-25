@@ -9,7 +9,7 @@ import type { AgentTemplateCategory, Category, GeneralAgentGenerateResult, Provi
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, ArrowUpRight, ArrowLeft } from 'lucide-react'
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
-import { isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { getOfficialQuotaRemaining, isAgentConfigUsable } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 
 // Lazy load dialog component
@@ -85,7 +85,7 @@ export default function AgentView({
         ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
+          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
         } else {
           setHasConfig(false)
         }
@@ -108,7 +108,7 @@ export default function AgentView({
           .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
+              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
             } else {
               setHasConfig(false)
             }

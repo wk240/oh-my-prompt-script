@@ -26,7 +26,7 @@ import { CategorySelectDialog } from './CategorySelectDialog'
 import { WEB_APP_URL } from '../../lib/config'
 import { parseEcommerceGenerateResult } from '@/lib/ecommerce-result-parser'
 import { formatEcommercePromptBundle } from '@/lib/ecommerce-prompt-bundle'
-import { isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { getOfficialQuotaRemaining, isAgentConfigUsable } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 import ecommerceConfigData from '@/data/ecommerce-config.json'
 
@@ -171,7 +171,7 @@ export function EcommercePanel({
         ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
+          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
         } else {
           setHasConfig(false)
         }
@@ -193,7 +193,7 @@ export function EcommercePanel({
           .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
+              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
             } else {
               setHasConfig(false)
             }
