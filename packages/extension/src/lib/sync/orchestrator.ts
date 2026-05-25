@@ -698,36 +698,15 @@ export class SyncOrchestrator {
     if (!status.pendingUpload) return
 
     const localData = await this.getLocalData()
-
-    const localOnlyPrompts = localData.prompts.filter(p =>
-      status.localOnlyItems?.promptIds?.includes(p.id)
-    )
-    const localOnlyCategories = localData.categories.filter(c =>
-      status.localOnlyItems?.categoryIds?.includes(c.id)
-    )
-    const localOnlyTemporaryPrompts = localData.temporaryPrompts.filter(p =>
-      status.localOnlyItems?.temporaryPromptIds?.includes(p.id)
-    )
-    const localOnlyImageAssets = Object.fromEntries(
-      Object.entries(localData.imageAssets || {}).filter(([id]) =>
-        status.localOnlyItems?.imageAssetIds?.includes(id)
-      )
-    )
-    const localOnlyPendingImageDeletes = (localData.pendingImageDeletes || []).filter(item =>
-      status.localOnlyItems?.pendingImageDeleteKeys?.includes(`${item.imageId}\n${item.cloudPath}`)
-    )
-
-    const result = await this.cloudStrategy.uploadPartial({
-      prompts: localOnlyPrompts,
-      categories: localOnlyCategories,
-      temporaryPrompts: localOnlyTemporaryPrompts,
-      imageAssets: localOnlyImageAssets,
-      pendingImageDeletes: localOnlyPendingImageDeletes,
+    const result = await this.cloudStrategy.sync({
+      ...localData,
       timestamp: Date.now()
     })
 
     if (result.success) {
       await this.updateSyncStatus({
+        lastCloudSyncTime: result.syncedAt,
+        pendingCloudSync: false,
         pendingUpload: false,
         localOnlyItems: {
           promptIds: [],

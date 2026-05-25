@@ -1871,7 +1871,8 @@ describe('SyncOrchestrator', () => {
   })
 
   describe('uploadLocalOnlyItems', () => {
-    it('should upload local-only items when pending', async () => {
+    it('should upload the full local snapshot when local-only upload is pending', async () => {
+      const syncedAt = Date.now()
       vi.mocked(chrome.storage.local.get).mockImplementation(async (keys: string | string[]) => {
         const key = Array.isArray(keys) ? keys[0] : keys
         if (key === 'syncStatus') {
@@ -1881,7 +1882,9 @@ describe('SyncOrchestrator', () => {
               localOnlyItems: {
                 promptIds: ['local-1'],
                 categoryIds: [],
-                temporaryPromptIds: []
+                temporaryPromptIds: [],
+                imageAssetIds: ['image-1'],
+                pendingImageDeleteKeys: ['image-1\nusers/u/images/image-1.webp']
               }
             }
           }
@@ -1890,21 +1893,84 @@ describe('SyncOrchestrator', () => {
           return {
             prompt_script_data: {
               userData: {
-                prompts: [{ id: 'local-1', name: 'Local Only', content: 'test', categoryId: 'c1', order: 0 }],
-                categories: []
+                prompts: [
+                  { id: 'local-1', name: 'Local Only', content: 'test', categoryId: 'c1', order: 0 },
+                  { id: 'existing-1', name: 'Existing', content: 'keep me', categoryId: 'c1', order: 1 }
+                ],
+                categories: [{ id: 'c1', name: 'Category', order: 0 }]
               },
-              temporaryPrompts: []
+              temporaryPrompts: [
+                { id: 'temp-1', name: 'Temp', content: 'temporary', categoryId: 'temporary', order: 0 }
+              ],
+              imageAssets: {
+                'image-1': {
+                  id: 'image-1',
+                  mimeType: 'image/webp',
+                  size: 10,
+                  createdAt: 1,
+                  updatedAt: 2,
+                  status: 'pending_upload'
+                },
+                'image-2': {
+                  id: 'image-2',
+                  mimeType: 'image/png',
+                  size: 20,
+                  createdAt: 1,
+                  updatedAt: 2,
+                  status: 'uploaded'
+                }
+              },
+              pendingImageDeletes: [
+                { imageId: 'image-1', cloudPath: 'users/u/images/image-1.webp', updatedAt: 3 },
+                { imageId: 'image-2', cloudPath: 'users/u/images/image-2.png', updatedAt: 4 }
+              ]
             }
           }
         }
         return {}
       })
 
-      vi.spyOn(cloudStrategy, 'uploadPartial').mockResolvedValue({ success: true, syncedAt: Date.now() })
+      vi.spyOn(cloudStrategy, 'sync').mockResolvedValue({ success: true, syncedAt })
+      vi.spyOn(cloudStrategy, 'uploadPartial').mockResolvedValue({ success: true, syncedAt })
 
       await orchestrator.uploadLocalOnlyItems()
 
-      expect(cloudStrategy.uploadPartial).toHaveBeenCalled()
+      expect(cloudStrategy.uploadPartial).not.toHaveBeenCalled()
+      expect(cloudStrategy.sync).toHaveBeenCalledTimes(1)
+      expect(cloudStrategy.sync).toHaveBeenCalledWith(expect.objectContaining({
+        prompts: [
+          expect.objectContaining({ id: 'local-1' }),
+          expect.objectContaining({ id: 'existing-1' })
+        ],
+        categories: [expect.objectContaining({ id: 'c1' })],
+        temporaryPrompts: [expect.objectContaining({ id: 'temp-1' })],
+        imageAssets: expect.objectContaining({
+          'image-1': expect.objectContaining({ id: 'image-1' }),
+          'image-2': expect.objectContaining({ id: 'image-2' })
+        }),
+        pendingImageDeletes: [
+          expect.objectContaining({ imageId: 'image-1' }),
+          expect.objectContaining({ imageId: 'image-2' })
+        ],
+        imageMetadataFields: {
+          imageAssets: true,
+          pendingImageDeletes: true
+        }
+      }))
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(expect.objectContaining({
+        syncStatus: expect.objectContaining({
+          lastCloudSyncTime: syncedAt,
+          pendingCloudSync: false,
+          pendingUpload: false,
+          localOnlyItems: {
+            promptIds: [],
+            categoryIds: [],
+            temporaryPromptIds: [],
+            imageAssetIds: [],
+            pendingImageDeleteKeys: []
+          }
+        })
+      }))
     })
 
     it('should skip upload when not pending', async () => {
@@ -1919,6 +1985,7 @@ describe('SyncOrchestrator', () => {
 
       await orchestrator.uploadLocalOnlyItems()
 
+      expect(cloudStrategy.sync).not.toHaveBeenCalled()
       expect(cloudStrategy.uploadPartial).not.toHaveBeenCalled()
     })
   })
