@@ -992,9 +992,14 @@ export class SyncOrchestrator {
 
   private preserveMissingImageMetadata<T extends { updatedAt?: number; imageId?: string; localImage?: string; remoteImageUrl?: string }>(
     preferred: T,
-    fallback?: T
+    fallback?: T,
+    options: { allowFallbackImageMetadata?: boolean } = {}
   ): T {
     if (!fallback) return preferred
+
+    if (options.allowFallbackImageMetadata === false) {
+      return preferred
+    }
 
     if ((preferred.updatedAt || 0) > (fallback.updatedAt || 0)) {
       return preferred
@@ -1395,7 +1400,12 @@ export class SyncOrchestrator {
           conflicts.push({ cloud: cloudItem, local: localItem })
           // Default: use conflict resolver or keep cloud
           const resolved = onConflict?.(cloudItem, localItem) ?? cloudItem
-          merged.set(id, this.preserveMissingImageMetadata(resolved, resolved === localItem ? cloudItem : localItem))
+          // Equal timestamps can represent an explicit image clear on the chosen side.
+          merged.set(id, this.preserveMissingImageMetadata(
+            resolved,
+            resolved === localItem ? cloudItem : localItem,
+            { allowFallbackImageMetadata: false }
+          ))
         }
       }
     }

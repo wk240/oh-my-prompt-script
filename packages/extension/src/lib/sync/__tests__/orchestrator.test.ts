@@ -1306,13 +1306,13 @@ describe('SyncOrchestrator', () => {
       expect(result.localOnlyItems.prompts[0].id).toBe('2')
     })
 
-    it('should preserve local image metadata when cloud copy is missing it at the same timestamp', async () => {
+    it('should not resurrect local image metadata when same-timestamp cloud prompt clears it', async () => {
       const cloudData = makeBackupData({
         prompts: [
           {
             id: '1',
             name: 'Prompt',
-            content: 'content',
+            content: 'cloud cleared',
             categoryId: 'c1',
             order: 0,
             updatedAt: 1000
@@ -1344,10 +1344,45 @@ describe('SyncOrchestrator', () => {
 
       const result = await orchestrator.downloadAndMerge({ reason: 'manual' })
 
-      expect(result.data.prompts[0]).toEqual(expect.objectContaining({
+      const prompt = result.data.prompts[0]
+      expect(prompt.content).toBe('cloud cleared')
+      expect(prompt.imageId).toBeUndefined()
+      expect(prompt.localImage).toBeUndefined()
+      expect(prompt.remoteImageUrl).toBeUndefined()
+    })
+
+    it('should not resurrect cloud image metadata when same-timestamp conflict resolver chooses a local clear', () => {
+      const cloudPrompt = {
+        id: '1',
+        name: 'Prompt',
+        content: 'cloud',
+        categoryId: 'c1',
+        order: 0,
+        updatedAt: 1000,
+        imageId: 'image-1',
         localImage: 'images/1.webp',
         remoteImageUrl: 'https://example.com/1.webp'
-      }))
+      }
+      const localPrompt = {
+        id: '1',
+        name: 'Prompt',
+        content: 'local cleared',
+        categoryId: 'c1',
+        order: 0,
+        updatedAt: 1000
+      }
+
+      const result = (orchestrator as any).mergeBidirectional(
+        [cloudPrompt],
+        [localPrompt],
+        (_cloudItem: typeof cloudPrompt, localItem: typeof localPrompt) => localItem
+      )
+
+      const prompt = result.merged[0]
+      expect(prompt.content).toBe('local cleared')
+      expect(prompt.imageId).toBeUndefined()
+      expect(prompt.localImage).toBeUndefined()
+      expect(prompt.remoteImageUrl).toBeUndefined()
     })
 
     it('should not resurrect older cloud image metadata when newer local prompt clears it', async () => {
