@@ -7,7 +7,8 @@ vi.mock('../indexeddb', () => ({
 }))
 
 import { getFolderHandle, checkFolderPermission } from '../indexeddb'
-import { readImage } from '../image-sync'
+import { buildImagePath } from '../image-processing'
+import { deleteImageByPath, readImage } from '../image-sync'
 
 describe('image-sync', () => {
   beforeEach(() => {
@@ -26,5 +27,22 @@ describe('image-sync', () => {
 
     expect(result).toEqual({ success: false, error: 'PERMISSION_PROMPT' })
     expect(folderHandle.getDirectoryHandle).not.toHaveBeenCalled()
+  })
+
+  it('deletes exact image asset path without deriving extensions from prompt id', async () => {
+    const imagesDir = {
+      removeEntry: vi.fn().mockResolvedValue(undefined),
+    }
+    const folderHandle = {
+      getDirectoryHandle: vi.fn().mockResolvedValue(imagesDir),
+    }
+
+    vi.mocked(getFolderHandle).mockResolvedValue(folderHandle as unknown as FileSystemDirectoryHandle)
+
+    const result = await deleteImageByPath(buildImagePath('11111111-1111-4111-8111-111111111111'))
+
+    expect(result.success).toBe(true)
+    expect(folderHandle.getDirectoryHandle).toHaveBeenCalledWith('images')
+    expect(imagesDir.removeEntry).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111.webp')
   })
 })

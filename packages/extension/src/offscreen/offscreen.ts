@@ -15,7 +15,16 @@ import { getFolderHandle, saveFolderHandle, checkFolderPermission, requestFolder
 import { syncToLocalFolder, listBackupVersions, readBackupFile } from '../lib/sync/file-sync'
 import { syncApiConfigToFolder, readApiConfigFromFolder, syncProviderConfigsToFolder, readProviderConfigsFromFolder } from '../lib/sync/api-config-sync'
 import { IMAGE_DIR_NAME, ALLOWED_IMAGE_EXTENSIONS } from '@oh-my-prompt/shared/constants'
-
+import {
+  buildImagePath,
+  computeBlobSha256,
+  HARD_IMAGE_SIZE_LIMIT,
+  INITIAL_WEBP_QUALITY,
+  MAX_IMAGE_SIDE,
+  MIN_WEBP_QUALITY,
+  TARGET_IMAGE_SIZE,
+  type NormalizedImageResult
+} from '../lib/sync/image-processing'
 
 // Cache folder handle for synchronous access during permission requests
 // IndexedDB operations are async, so we cache the handle for gesture-preserving permission requests
@@ -160,7 +169,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return true
 
     case MessageType.OFFSCREEN_SAVE_IMAGE:
-      handleSaveImage(message.payload as { promptId: string; data: number[]; originalFilename?: string })
+      handleSaveImage(message.payload as { imageId?: string; promptId?: string; data: number[]; originalFilename?: string; mimeType?: string })
+        .then(result => sendResponse(result))
+        .catch(error => sendResponse({ success: false, error: String(error) }))
+      return true
+
+    case MessageType.OFFSCREEN_NORMALIZE_IMAGE:
+      handleNormalizeImage(message.payload as { data: number[]; mimeType?: string })
         .then(result => sendResponse(result))
         .catch(error => sendResponse({ success: false, error: String(error) }))
       return true
@@ -172,7 +187,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return true
 
     case MessageType.OFFSCREEN_DELETE_IMAGE:
-      handleDeleteImage(message.payload as { promptId: string })
+      handleDeleteImage(message.payload as { promptId?: string; relativePath?: string })
         .then(result => sendResponse(result))
         .catch(error => sendResponse({ success: false, error: String(error) }))
       return true
@@ -351,7 +366,7 @@ async function handleBackup(payload: { backupData: FullBackupData; version: stri
   }
 }
 
-async function handleSaveImage(payload: { promptId: string; data: number[]; originalFilename?: string }): Promise<MessageResponse> {
+async function handleSaveImage(payload: { imageId?: string; promptId?: string; data: number[]; originalFilename?: string; mimeType?: string }): Promise<MessageResponse> {
   const handle = await getFolderHandle()
   if (!handle) {
     return { success: false, error: 'FOLDER_NOT_CONFIGURED' }
@@ -372,7 +387,8 @@ async function handleSaveImage(payload: { promptId: string; data: number[]; orig
     const finalExt = ALLOWED_IMAGE_EXTENSIONS.includes(ext) ? (ext === 'jpeg' ? 'jpg' : ext) : 'jpg'
 
     const imagesDir = await handle.getDirectoryHandle(IMAGE_DIR_NAME, { create: true })
-    const filename = `${payload.promptId}.${finalExt}`
+    const relativePath = payload.imageId ? buildImagePath(payload.imageId) : undefined
+    const filename = relativePath ? relativePath.split('/').pop()! : `${payload.promptId}.${finalExt}`
     const fileHandle = await imagesDir.getFileHandle(filename, { create: true })
 
     const uint8Array = new Uint8Array(payload.data)
@@ -380,20 +396,60 @@ async function handleSaveImage(payload: { promptId: string; data: number[]; orig
       : finalExt === 'webp' ? 'image/webp'
       : finalExt === 'gif' ? 'image/gif'
       : 'image/jpeg'
-    const imageBlob = new Blob([uint8Array], { type: mimeType })
+    const imageBlob = new Blob([uint8Array], { type: payload.mimeType || mimeType })
 
     const writable = await fileHandle.createWritable()
     await writable.write(imageBlob)
     await writable.close()
 
-    const relativePath = `${IMAGE_DIR_NAME}/${filename}`
-    return { success: true, data: { relativePath } } as MessageResponse
+    return { success: true, data: { relativePath: relativePath || `${IMAGE_DIR_NAME}/${filename}` } } as MessageResponse
   } catch (error) {
     console.error('[Oh My Prompt] Offscreen save image failed:', error)
     if (error instanceof Error && error.name === 'NotFoundError') {
       return { success: false, error: 'FOLDER_NOT_FOUND' }
     }
     return { success: false, error: 'WRITE_FAILED' }
+  }
+}
+
+async function handleNormalizeImage(payload: { data: number[]; mimeType?: string }): Promise<MessageResponse<NormalizedImageResult>> {
+  const sourceBlob = new Blob([new Uint8Array(payload.data)], { type: payload.mimeType || 'image/jpeg' })
+  const bitmap = await createImageBitmap(sourceBlob)
+  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height))
+  const width = Math.max(1, Math.round(bitmap.width * scale))
+  const height = Math.max(1, Math.round(bitmap.height * scale))
+
+  const canvas = new OffscreenCanvas(width, height)
+  const context = canvas.getContext('2d')
+  if (!context) {
+    bitmap.close()
+    return { success: false, error: 'CANVAS_UNAVAILABLE' }
+  }
+
+  context.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close()
+
+  let output = await canvas.convertToBlob({ type: 'image/webp', quality: INITIAL_WEBP_QUALITY })
+  if (output.size > TARGET_IMAGE_SIZE) {
+    output = await canvas.convertToBlob({ type: 'image/webp', quality: MIN_WEBP_QUALITY })
+  }
+  if (output.size > HARD_IMAGE_SIZE_LIMIT) {
+    return { success: false, error: 'FILE_TOO_LARGE' }
+  }
+
+  const hash = await computeBlobSha256(output)
+  const data = Array.from(new Uint8Array(await output.arrayBuffer()))
+
+  return {
+    success: true,
+    data: {
+      data,
+      mimeType: 'image/webp',
+      width,
+      height,
+      size: output.size,
+      hash
+    }
   }
 }
 
@@ -421,7 +477,7 @@ async function handleReadImage(payload: { relativePath: string }): Promise<Messa
   }
 }
 
-async function handleDeleteImage(payload: { promptId: string }): Promise<MessageResponse> {
+async function handleDeleteImage(payload: { promptId?: string; relativePath?: string }): Promise<MessageResponse> {
   const handle = await getFolderHandle()
   if (!handle) {
     return { success: false, error: 'FOLDER_NOT_CONFIGURED' }
@@ -429,6 +485,13 @@ async function handleDeleteImage(payload: { promptId: string }): Promise<Message
 
   try {
     const imagesDir = await handle.getDirectoryHandle(IMAGE_DIR_NAME)
+    if (payload.relativePath) {
+      const filename = payload.relativePath.split('/').pop()
+      if (!filename) return { success: false, error: 'INVALID_PATH' }
+      await imagesDir.removeEntry(filename)
+      return { success: true } as MessageResponse
+    }
+
     for (const ext of ALLOWED_IMAGE_EXTENSIONS) {
       const filename = `${payload.promptId}.${ext}`
       try {

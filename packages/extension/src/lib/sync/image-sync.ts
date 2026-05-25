@@ -209,6 +209,14 @@ async function deleteImageViaServiceWorker(promptId: string): Promise<{ success:
   }
 }
 
+async function deleteImageByPathViaServiceWorker(relativePath: string): Promise<{ success: boolean; error?: string }> {
+  const response = await chrome.runtime.sendMessage({
+    type: MessageType.DELETE_IMAGE,
+    payload: { relativePath }
+  })
+  return { success: response?.success ?? false, error: response?.error }
+}
+
 /**
  * Delete image directly (extension context)
  */
@@ -234,6 +242,26 @@ async function deleteImageDirect(promptId: string): Promise<{ success: boolean; 
   }
 }
 
+async function deleteImageByPathDirect(relativePath: string): Promise<{ success: boolean; error?: string }> {
+  const handle = await getFolderHandle()
+  if (!handle) {
+    return { success: false, error: 'FOLDER_NOT_CONFIGURED' }
+  }
+
+  try {
+    const imagesDir = await handle.getDirectoryHandle(IMAGE_DIR_NAME)
+    const filename = relativePath.split('/').pop()
+    if (!filename) {
+      return { success: false, error: 'INVALID_PATH' }
+    }
+    await imagesDir.removeEntry(filename)
+    revokeCachedImageUrl(relativePath)
+    return { success: true }
+  } catch {
+    return { success: true }
+  }
+}
+
 /**
  * Delete image file from folder
  */
@@ -242,6 +270,13 @@ export async function deleteImage(promptId: string): Promise<{ success: boolean;
     return await deleteImageViaServiceWorker(promptId)
   }
   return await deleteImageDirect(promptId)
+}
+
+export async function deleteImageByPath(relativePath: string): Promise<{ success: boolean; error?: string }> {
+  if (isContentScriptContext()) {
+    return deleteImageByPathViaServiceWorker(relativePath)
+  }
+  return deleteImageByPathDirect(relativePath)
 }
 
 /**

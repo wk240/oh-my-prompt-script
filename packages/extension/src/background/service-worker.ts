@@ -619,8 +619,8 @@ chrome.runtime.onMessage.addListener(
 
       case MessageType.SAVE_IMAGE:
         // Save image to folder via offscreen document (better permission handling)
-        const saveImagePayload = message.payload as { promptId: string; data: number[]; originalFilename?: string }
-        if (!saveImagePayload || !saveImagePayload.promptId || !saveImagePayload.data) {
+        const saveImagePayload = message.payload as { imageId?: string; promptId?: string; data: number[]; originalFilename?: string; mimeType?: string }
+        if (!saveImagePayload || (!saveImagePayload.promptId && !saveImagePayload.imageId) || !saveImagePayload.data) {
           sendResponse({ success: false, error: 'Invalid payload' })
           return true
         }
@@ -649,8 +649,8 @@ chrome.runtime.onMessage.addListener(
 
       case MessageType.DELETE_IMAGE:
         // Delete image from folder via offscreen document
-        const deleteImagePayload = message.payload as { promptId: string }
-        if (!deleteImagePayload || !deleteImagePayload.promptId) {
+        const deleteImagePayload = message.payload as { promptId?: string; relativePath?: string }
+        if (!deleteImagePayload || (!deleteImagePayload.promptId && !deleteImagePayload.relativePath)) {
           sendResponse({ success: false, error: 'Invalid payload' })
           return true
         }

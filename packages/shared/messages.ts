@@ -77,6 +77,7 @@ export enum MessageType {
   OFFSCREEN_SYNC = 'OFFSCREEN_SYNC',                     // Sync user data to folder
   OFFSCREEN_BACKUP = 'OFFSCREEN_BACKUP',                  // Backup user data
   OFFSCREEN_SAVE_IMAGE = 'OFFSCREEN_SAVE_IMAGE',          // Save image to folder
+  OFFSCREEN_NORMALIZE_IMAGE = 'OFFSCREEN_NORMALIZE_IMAGE', // Normalize image to WebP
   OFFSCREEN_READ_IMAGE = 'OFFSCREEN_READ_IMAGE',          // Read image from folder
   OFFSCREEN_DELETE_IMAGE = 'OFFSCREEN_DELETE_IMAGE',      // Delete image from folder
   OFFSCREEN_CHECK_PERMISSION = 'OFFSCREEN_CHECK_PERMISSION',  // Check folder permission status
