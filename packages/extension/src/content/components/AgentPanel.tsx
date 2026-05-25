@@ -11,7 +11,7 @@ import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload,
 import { showToast } from './ToastNotification'
 import { CategorySelectDialog } from './CategorySelectDialog'
 import { WEB_APP_URL } from '../../lib/config'
-import { isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { getOfficialQuotaRemaining, isAgentConfigUsable } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 
 interface AgentPanelProps {
@@ -100,7 +100,7 @@ export function AgentPanel({
         ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', authState.subscription?.officialApiQuota?.remaining))
+          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
         } else {
           setHasConfig(false)
         }
@@ -122,7 +122,7 @@ export function AgentPanel({
           .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', authState.subscription?.officialApiQuota?.remaining))
+              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
             } else {
               setHasConfig(false)
             }

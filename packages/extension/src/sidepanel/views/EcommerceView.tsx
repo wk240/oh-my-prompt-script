@@ -22,7 +22,7 @@ import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload,
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
 import { parseEcommerceGenerateResult } from '@/lib/ecommerce-result-parser'
 import { formatEcommercePromptBundle } from '@/lib/ecommerce-prompt-bundle'
-import { isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { getOfficialQuotaRemaining, isAgentConfigUsable } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 import ecommerceConfigData from '@/data/ecommerce-config.json'
 
@@ -138,7 +138,7 @@ export default function EcommerceView({
         ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', authState.subscription?.officialApiQuota?.remaining))
+          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
         } else {
           setHasConfig(false)
         }
@@ -160,7 +160,7 @@ export default function EcommerceView({
           .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', authState.subscription?.officialApiQuota?.remaining))
+              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
             } else {
               setHasConfig(false)
             }

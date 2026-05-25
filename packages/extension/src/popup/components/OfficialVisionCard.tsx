@@ -1,6 +1,7 @@
 // packages/extension/src/popup/components/OfficialVisionCard.tsx
 import { Star, ExternalLink } from 'lucide-react'
 import type { CloudAuthState } from '@oh-my-prompt/shared/types'
+import { getOfficialQuota } from '@/lib/agent-config-availability'
 
 interface OfficialVisionCardProps {
   authState: CloudAuthState | null
@@ -60,10 +61,8 @@ export function OfficialVisionCard({
   }
 
   // Get quota info from subscription
-  // Dynamic limit based on plan type (team=200, pro/free=50)
-  const planLimits: Record<string, number> = { free: 50, pro: 50, team: 200 }
   const plan = subscription?.planType || 'free'
-  const quota = subscription?.officialApiQuota ?? subscription?.optimizationQuota ?? { remaining: 0, limit: planLimits[plan] || 50 }
+  const quota = getOfficialQuota(subscription)
   const isTeam = plan === 'team'
   const isFree = plan === 'free'
 
@@ -74,6 +73,30 @@ export function OfficialVisionCard({
       ? 'bg-gradient-to-r from-emerald-300 to-cyan-400 text-gray-900'
       : 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-gray-900'
   const badgeText = isTeam ? 'Team' : isFree ? 'Free Trial' : 'Pro'
+
+  // State: logged in while quota details are still syncing
+  if (!quota) {
+    return (
+      <div className="p-4 bg-white rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-medium text-gray-900">Oh My Prompt 官方</h3>
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${badgeClass}`}>
+              {badgeText}
+            </span>
+            <span className="text-sm text-gray-400">同步中</span>
+          </div>
+        </div>
+        <p className="text-sm text-gray-600 mb-3">专业视觉模型，无需配置 API Key</p>
+        <button
+          disabled
+          className="w-full py-2.5 rounded-md font-medium text-sm bg-gray-100 text-gray-400 cursor-not-allowed"
+        >
+          额度同步中...
+        </button>
+      </div>
+    )
+  }
 
   // State: quota exhausted
   if (quota.remaining <= 0) {

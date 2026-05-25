@@ -1,4 +1,15 @@
-import type { ProviderConfig } from '@oh-my-prompt/shared/types'
+import type { CloudAuthState, ProviderConfig } from '@oh-my-prompt/shared/types'
+
+type SubscriptionQuota = NonNullable<CloudAuthState['subscription']>['officialApiQuota']
+  | NonNullable<CloudAuthState['subscription']>['optimizationQuota']
+
+export function getOfficialQuota(subscription: CloudAuthState['subscription'] | null | undefined): SubscriptionQuota | undefined {
+  return subscription?.officialApiQuota ?? subscription?.optimizationQuota
+}
+
+export function getOfficialQuotaRemaining(subscription: CloudAuthState['subscription'] | null | undefined): number | undefined {
+  return getOfficialQuota(subscription)?.remaining
+}
 
 export function isAgentConfigUsable(
   configs: ProviderConfig[],
