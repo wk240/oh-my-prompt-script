@@ -11,6 +11,7 @@ export interface Prompt {
   order: number // 分类内排序顺序
   updatedAt?: number // Timestamp for last modification (used for bidirectional sync)
   // Image support fields (optional)
+  imageId?: string
   localImage?: string // Local image relative path, e.g. "images/{id}.jpg"
   remoteImageUrl?: string // Original network URL (record source, optional)
 }

@@ -1,4 +1,5 @@
 import type { Prompt, Category } from './prompt'
+import type { ImageAsset, PendingImageDelete } from './storage'
 
 // Sync status for tracking cloud synchronization
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error' | 'not_logged_in'
@@ -8,6 +9,8 @@ export interface SyncPayload {
   prompts: Prompt[]
   categories: Category[]
   temporaryPrompts?: Prompt[] // Temporary library prompts (optional)
+  imageAssets?: Record<string, ImageAsset>
+  pendingImageDeletes?: PendingImageDelete[]
   timestamp: number
 }
 

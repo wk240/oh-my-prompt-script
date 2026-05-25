@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { createImageMetadataContractFixture } from '../image-metadata-contract'
 import { SyncResultError, StrategyStatus, UnifiedSyncStatus } from '../types'
 
 describe('Sync types', () => {
@@ -42,5 +43,14 @@ describe('Sync types', () => {
     }
     expect(status.cloudEnabled).toBe(true)
     expect(status.localOnlyItems.promptIds).toEqual([])
+  })
+})
+
+describe('image metadata shared contracts', () => {
+  it('allows image metadata in storage and sync payloads', () => {
+    const { asset, payload } = createImageMetadataContractFixture()
+
+    expect(payload.imageAssets?.[asset.id].cloudPath).toBe(asset.cloudPath)
+    expect(payload.pendingImageDeletes?.[0].attempts).toBe(1)
   })
 })

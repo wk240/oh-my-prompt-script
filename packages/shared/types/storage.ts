@@ -13,6 +13,32 @@ export interface SyncSettings {
   visionDefaultFormat?: 'natural' | 'json' // Vision default save format
 }
 
+export interface ImageAsset {
+  id: string
+  promptId: string
+  localPath: string
+  cloudUrl?: string
+  cloudPath?: string
+  sourceUrl?: string
+  mimeType: 'image/webp'
+  width: number
+  height: number
+  size: number
+  hash: string
+  status: 'local_only' | 'synced' | 'pending_upload' | 'upload_failed' | 'missing_local'
+  updatedAt: number
+  lastUploadAttemptAt?: number
+  lastError?: string
+}
+
+export interface PendingImageDelete {
+  imageId: string
+  cloudPath: string
+  attempts: number
+  lastError?: string
+  updatedAt: number
+}
+
 // New storage schema with nested structure
 export interface StorageSchema {
   version: string // From manifest, dynamic read
@@ -21,6 +47,8 @@ export interface StorageSchema {
   temporaryPrompts?: Prompt[] // Temporary library prompts (independent storage)
   teamPrompts?: TeamPrompt[] // Team library prompts (shared from teams)
   teamSyncStatus?: TeamSyncStatus // Team sync status
+  imageAssets?: Record<string, ImageAsset>
+  pendingImageDeletes?: PendingImageDelete[]
   _migrationComplete?: boolean // Prevents re-migration
 }
 
