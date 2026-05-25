@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { UpdateStatus } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { Download, RefreshCw, Check, ExternalLink, ChevronRight, ChevronLeft, X, FileDown, FileUp } from 'lucide-react'
+import { Download, RefreshCw, Check, ExternalLink, ChevronRight, ChevronLeft, X, FolderOpen, RotateCcw } from 'lucide-react'
 
 interface UpdateGuideModalProps {
   status: UpdateStatus | null
@@ -18,9 +18,9 @@ interface UpdateGuideModalProps {
 const STEPS = [
   {
     id: 1,
-    title: '导出数据备份',
-    description: '更新前先导出当前提示词数据，防止数据丢失',
-    icon: FileDown,
+    title: '设置本地备份文件夹',
+    description: '更新前先在设置页选择一个固定文件夹，后续编辑会自动备份',
+    icon: FolderOpen,
   },
   {
     id: 2,
@@ -36,9 +36,9 @@ const STEPS = [
   },
   {
     id: 4,
-    title: '导入数据恢复',
-    description: '更新完成后导入之前备份的提示词数据',
-    icon: FileUp,
+    title: '恢复本地备份文件夹',
+    description: '更新或重新安装后，重新选择同一个备份文件夹即可恢复',
+    icon: RotateCcw,
   },
 ]
 
@@ -461,8 +461,8 @@ export function UpdateGuideModal({ status, isOpen, onClose }: UpdateGuideModalPr
             <div className="step-actions">
               {currentStep === 0 && (
                 <>
-                  <p className="step-text">点击插件图标打开管理界面，在"数据管理"选项卡中点击"导出数据"按钮，将提示词保存为 JSON 文件。</p>
-                  <p className="step-note">建议将备份文件保存到易于查找的位置，更新完成后需要导入恢复。</p>
+                  <p className="step-text">打开设置页，在"同步与备份"里点击"选择备份文件夹"。选择后，每次编辑提示词都会自动写入该文件夹。</p>
+                  <p className="step-note">如果已经设置过本地备份文件夹，可以直接进入下一步。</p>
                 </>
               )}
 
@@ -489,8 +489,8 @@ export function UpdateGuideModal({ status, isOpen, onClose }: UpdateGuideModalPr
 
               {currentStep === 3 && (
                 <>
-                  <p className="step-text">更新完成后，打开插件管理界面，在"数据管理"选项卡中点击"导入数据"按钮，选择之前导出的 JSON 备份文件。</p>
-                  <p className="step-note">导入时会自动合并数据，已有的提示词会保留，新增的会添加进来。</p>
+                  <p className="step-text">更新完成后，进入设置页并重新选择同一个备份文件夹。检测到已有备份时，选择"恢复备份数据"。</p>
+                  <p className="step-note">恢复前请确认选择的是原来的备份文件夹；如果当前也有新数据，可按弹窗提示选择合并或替换。</p>
                 </>
               )}
             </div>
