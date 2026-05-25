@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StorageSchema } from '@oh-my-prompt/shared/types'
 import { savePromptImageAsset, deletePromptImageAsset, queuePendingImageDelete, retryImageUpload } from '../image-asset-service'
-import { deleteImageByPath, getCachedImageUrl } from '../image-sync'
-import { deleteCloudImage } from '../image-cloud-client'
+import { deleteImageByPath, getCachedImageUrl, saveImage } from '../image-sync'
+import { deleteCloudImage, uploadCloudImage } from '../image-cloud-client'
 
 vi.mock('../image-sync', () => ({
   saveImage: vi.fn(async () => ({ success: true, relativePath: 'images/image-1.webp' })),
@@ -25,6 +25,11 @@ describe('image-asset-service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(saveImage).mockReset().mockResolvedValue({ success: true, relativePath: 'images/image-1.webp' })
+    vi.mocked(deleteImageByPath).mockReset().mockResolvedValue({ success: true })
+    vi.mocked(getCachedImageUrl).mockReset().mockResolvedValue('blob:local')
+    vi.mocked(uploadCloudImage).mockReset().mockResolvedValue({ success: false, error: 'NETWORK_ERROR' })
+    vi.mocked(deleteCloudImage).mockReset().mockResolvedValue({ success: false, error: 'NETWORK_ERROR' })
     storageData = {
       version: '1.0.0',
       userData: {
@@ -165,6 +170,58 @@ describe('image-asset-service', () => {
       cloudPath: 'users/u/images/old-image.webp',
       attempts: 1
     })])
+  })
+
+  it('aborts replacement and keeps old metadata when old local delete fails', async () => {
+    storageData.userData.prompts[0] = {
+      ...storageData.userData.prompts[0],
+      imageId: 'old-image',
+      localImage: 'images/old-image.webp',
+      remoteImageUrl: 'https://example.com/old.png'
+    }
+    storageData.imageAssets = {
+      'old-image': {
+        id: 'old-image',
+        promptId: 'prompt-1',
+        localPath: 'images/old-image.webp',
+        cloudPath: 'users/u/images/old-image.webp',
+        mimeType: 'image/webp',
+        width: 100,
+        height: 80,
+        size: 1000,
+        hash: 'old-hash',
+        status: 'synced',
+        updatedAt: 1
+      }
+    }
+    vi.mocked(deleteImageByPath)
+      .mockResolvedValueOnce({ success: false, error: 'PERMISSION_DENIED' })
+      .mockResolvedValueOnce({ success: true })
+
+    const result = await savePromptImageAsset({
+      promptId: 'prompt-1',
+      blob: new Blob(['new'], { type: 'image/png' }),
+      canUseCloud: false,
+      width: 120,
+      height: 90,
+      size: 1100,
+      hash: 'new-hash'
+    })
+
+    expect(result).toEqual({ success: false, error: 'PERMISSION_DENIED' })
+    expect(deleteImageByPath).toHaveBeenNthCalledWith(1, 'images/old-image.webp')
+    expect(deleteImageByPath).toHaveBeenNthCalledWith(2, 'images/image-1.webp')
+    expect(deleteCloudImage).not.toHaveBeenCalled()
+    expect(storageData.userData.prompts[0]).toMatchObject({
+      imageId: 'old-image',
+      localImage: 'images/old-image.webp',
+      remoteImageUrl: 'https://example.com/old.png'
+    })
+    expect(storageData.imageAssets?.['old-image']).toMatchObject({
+      localPath: 'images/old-image.webp',
+      lastError: 'PERMISSION_DENIED'
+    })
+    expect(storageData.imageAssets?.['image-1']).toBeUndefined()
   })
 
   it('marks retry upload as failed when local blob fetch rejects', async () => {

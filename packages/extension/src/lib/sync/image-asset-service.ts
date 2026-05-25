@@ -122,10 +122,16 @@ export async function savePromptImageAsset(
   const replacedAsset = replacedImageId ? data.imageAssets?.[replacedImageId] : undefined
 
   if (replacedAsset?.localPath) {
+    let localDelete: { success: boolean; error?: string }
     try {
-      await deleteImageByPath(replacedAsset.localPath)
-    } catch {
-      // Replacement should still move metadata forward; local cleanup can be retried manually from the old path if needed.
+      localDelete = await deleteImageByPath(replacedAsset.localPath)
+    } catch (error) {
+      localDelete = { success: false, error: getErrorMessage(error) }
+    }
+    if (!localDelete.success) {
+      await markImageAssetStatus(replacedImageId!, replacedAsset.status, localDelete.error || 'DELETE_FAILED')
+      await deleteImageByPath(saveResult.relativePath).catch(() => undefined)
+      return { success: false, error: localDelete.error || 'DELETE_FAILED' }
     }
   }
 
