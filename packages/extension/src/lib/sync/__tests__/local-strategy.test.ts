@@ -252,6 +252,32 @@ describe('LocalSyncStrategy', () => {
       expect(result?.temporaryPrompts).toHaveLength(0)
     })
 
+    it('normalizes malformed image metadata from backup file', async () => {
+      const mockDirHandle = createMockDirHandle()
+      const backupContent = JSON.stringify({
+        version: '1.0.0',
+        userData: {
+          prompts: [],
+          categories: []
+        },
+        temporaryPrompts: [],
+        imageAssets: [],
+        pendingImageDeletes: {},
+        backupTime: '2026-05-10T12:00:00Z'
+      })
+
+      const mockFileHandle = createMockFileHandle(backupContent)
+      mockDirHandle.getFileHandle.mockResolvedValue(mockFileHandle)
+      mockDirHandle.queryPermission.mockResolvedValue('granted')
+
+      vi.mocked(getFolderHandle).mockResolvedValue(mockDirHandle as any)
+
+      const result = await strategy.restore()
+
+      expect(result?.imageAssets).toEqual({})
+      expect(result?.pendingImageDeletes).toEqual([])
+    })
+
     it('should handle invalid backup format', async () => {
       const mockDirHandle = createMockDirHandle()
       const mockFileHandle = createMockFileHandle('invalid json')

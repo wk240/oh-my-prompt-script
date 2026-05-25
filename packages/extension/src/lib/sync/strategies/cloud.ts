@@ -5,6 +5,10 @@ import { FullBackupData, SyncResult, StrategyStatus, SyncResultError } from '../
 
 const AUTH_STORAGE_KEY = `sb-${SUPABASE_PROJECT_REF}-auth-token`
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
 function hasDirectCloudSyncPlan(planType: string, subscriptionStatus?: string): boolean {
   return (planType === 'pro' || planType === 'team') && subscriptionStatus === 'active'
 }
@@ -184,8 +188,12 @@ export class CloudSyncStrategy extends BaseSyncStrategy {
         prompts: result.data.prompts || [],
         categories: result.data.categories || [],
         temporaryPrompts: result.data.temporaryPrompts || [],
-        imageAssets: result.data.imageAssets || {},
-        pendingImageDeletes: result.data.pendingImageDeletes || [],
+        imageAssets: isPlainRecord(result.data.imageAssets) ? result.data.imageAssets : {},
+        pendingImageDeletes: Array.isArray(result.data.pendingImageDeletes) ? result.data.pendingImageDeletes : [],
+        imageMetadataFields: {
+          imageAssets: Object.prototype.hasOwnProperty.call(result.data, 'imageAssets'),
+          pendingImageDeletes: Object.prototype.hasOwnProperty.call(result.data, 'pendingImageDeletes')
+        },
         timestamp: result.data.timestamp || Date.now()
       }
     } catch (error) {

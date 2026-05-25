@@ -16,11 +16,6 @@ import {
   SyncGuardStatus
 } from './types'
 
-type SyncStatusLocalOnlyItems = UnifiedSyncStatus['localOnlyItems'] & {
-  imageAssetIds?: string[]
-  pendingImageDeleteKeys?: string[]
-}
-
 /**
  * Local sync result from executeLocalSync.
  */
@@ -684,7 +679,7 @@ export class SyncOrchestrator {
           temporaryPromptIds: result.localOnlyItems.temporaryPrompts.map(p => p.id),
           imageAssetIds: result.localOnlyItems.imageAssetIds,
           pendingImageDeleteKeys: result.localOnlyItems.pendingImageDeleteKeys
-        } as SyncStatusLocalOnlyItems
+        }
       })
     }
 
@@ -713,14 +708,13 @@ export class SyncOrchestrator {
     const localOnlyTemporaryPrompts = localData.temporaryPrompts.filter(p =>
       status.localOnlyItems?.temporaryPromptIds?.includes(p.id)
     )
-    const localOnlyMetadata = status.localOnlyItems as SyncStatusLocalOnlyItems | undefined
     const localOnlyImageAssets = Object.fromEntries(
       Object.entries(localData.imageAssets || {}).filter(([id]) =>
-        localOnlyMetadata?.imageAssetIds?.includes(id)
+        status.localOnlyItems?.imageAssetIds?.includes(id)
       )
     )
     const localOnlyPendingImageDeletes = (localData.pendingImageDeletes || []).filter(item =>
-      localOnlyMetadata?.pendingImageDeleteKeys?.includes(`${item.imageId}\n${item.cloudPath}`)
+      status.localOnlyItems?.pendingImageDeleteKeys?.includes(`${item.imageId}\n${item.cloudPath}`)
     )
 
     const result = await this.cloudStrategy.uploadPartial({
@@ -741,7 +735,7 @@ export class SyncOrchestrator {
           temporaryPromptIds: [],
           imageAssetIds: [],
           pendingImageDeleteKeys: []
-        } as SyncStatusLocalOnlyItems
+        }
       })
     }
   }
@@ -841,12 +835,18 @@ export class SyncOrchestrator {
   private async getLocalData(): Promise<FullBackupData> {
     const result = await chrome.storage.local.get(STORAGE_KEY)
     const data = result[STORAGE_KEY] || { userData: { prompts: [], categories: [] }, temporaryPrompts: [] }
+    const hasImageAssets = Object.prototype.hasOwnProperty.call(data, 'imageAssets')
+    const hasPendingImageDeletes = Object.prototype.hasOwnProperty.call(data, 'pendingImageDeletes')
     return {
       prompts: data.userData?.prompts || [],
       categories: data.userData?.categories || [],
       temporaryPrompts: data.temporaryPrompts || [],
-      imageAssets: data.imageAssets || {},
-      pendingImageDeletes: data.pendingImageDeletes || [],
+      imageAssets: this.normalizeImageAssets(data.imageAssets),
+      pendingImageDeletes: this.normalizePendingImageDeletes(data.pendingImageDeletes),
+      imageMetadataFields: {
+        imageAssets: hasImageAssets,
+        pendingImageDeletes: hasPendingImageDeletes
+      },
       timestamp: Date.now()
     }
   }
@@ -865,6 +865,8 @@ export class SyncOrchestrator {
   private async applyData(data: FullBackupData): Promise<void> {
     const result = await chrome.storage.local.get(STORAGE_KEY)
     const existing = result[STORAGE_KEY] || {}
+    const hasImageAssets = this.hasImageMetadataField(data, 'imageAssets')
+    const hasPendingImageDeletes = this.hasImageMetadataField(data, 'pendingImageDeletes')
 
     await chrome.storage.local.set({
       [STORAGE_KEY]: {
@@ -874,8 +876,12 @@ export class SyncOrchestrator {
           categories: data.categories
         },
         temporaryPrompts: data.temporaryPrompts,
-        imageAssets: data.imageAssets || {},
-        pendingImageDeletes: data.pendingImageDeletes || []
+        imageAssets: hasImageAssets
+          ? this.normalizeImageAssets(data.imageAssets)
+          : this.normalizeImageAssets(existing.imageAssets),
+        pendingImageDeletes: hasPendingImageDeletes
+          ? this.normalizePendingImageDeletes(data.pendingImageDeletes)
+          : this.normalizePendingImageDeletes(existing.pendingImageDeletes)
       }
     })
   }
@@ -1019,10 +1025,41 @@ export class SyncOrchestrator {
     }
   }
 
+  private isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+  }
+
+  private normalizeImageAssets(value: unknown): FullBackupData['imageAssets'] {
+    return this.isPlainRecord(value) ? value as FullBackupData['imageAssets'] : {}
+  }
+
+  private normalizePendingImageDeletes(value: unknown): FullBackupData['pendingImageDeletes'] {
+    return Array.isArray(value) ? value as FullBackupData['pendingImageDeletes'] : []
+  }
+
+  private hasImageMetadataField(data: FullBackupData, field: 'imageAssets' | 'pendingImageDeletes'): boolean {
+    return data.imageMetadataFields?.[field] ?? Object.prototype.hasOwnProperty.call(data, field)
+  }
+
+  private imageAssetNeedsCloudUpload(id: string, cloud: FullBackupData, local: FullBackupData): boolean {
+    const localAsset = this.normalizeImageAssets(local.imageAssets)?.[id]
+    if (!localAsset) return false
+
+    const cloudAsset = this.normalizeImageAssets(cloud.imageAssets)?.[id]
+    if (!cloudAsset) return true
+
+    return (localAsset.updatedAt || 0) > (cloudAsset.updatedAt || 0) ||
+      this.stableStringify(localAsset) !== this.stableStringify(cloudAsset)
+  }
+
   private mergeFullBackupData(
     cloud: FullBackupData,
     local: FullBackupData
   ): MergeResult & { conflicts: Array<{ type: 'prompt' | 'category'; cloud: unknown; local: unknown }> } {
+    const cloudImageAssets = this.normalizeImageAssets(cloud.imageAssets)
+    const localImageAssets = this.normalizeImageAssets(local.imageAssets)
+    const cloudPendingImageDeletes = this.normalizePendingImageDeletes(cloud.pendingImageDeletes)
+    const localPendingImageDeletes = this.normalizePendingImageDeletes(local.pendingImageDeletes)
     const categoryMerge = this.mergeBidirectional(
       cloud.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 })),
       local.categories.map(c => ({ ...c, updatedAt: c.updatedAt || 0 }))
@@ -1043,17 +1080,23 @@ export class SyncOrchestrator {
         prompts: promptMerge.merged as typeof cloud.prompts,
         categories: categoryMerge.merged as typeof cloud.categories,
         temporaryPrompts: tempMerge.merged as typeof cloud.temporaryPrompts,
-        imageAssets: mergeImageAssets(cloud.imageAssets, local.imageAssets),
-        pendingImageDeletes: mergePendingImageDeletes(cloud.pendingImageDeletes, local.pendingImageDeletes),
+        imageAssets: mergeImageAssets(cloudImageAssets, localImageAssets),
+        pendingImageDeletes: mergePendingImageDeletes(cloudPendingImageDeletes, localPendingImageDeletes),
         timestamp: Date.now()
       },
       localOnlyItems: {
         prompts: [...promptMerge.localOnly, ...promptMerge.localNewer] as typeof cloud.prompts,
         categories: [...categoryMerge.localOnly, ...categoryMerge.localNewer] as typeof cloud.categories,
         temporaryPrompts: [...tempMerge.localOnly, ...tempMerge.localNewer] as typeof cloud.temporaryPrompts,
-        imageAssetIds: Object.keys(local.imageAssets || {}).filter(id => !(cloud.imageAssets || {})[id]),
-        pendingImageDeleteKeys: (local.pendingImageDeletes || [])
-          .filter(item => !(cloud.pendingImageDeletes || []).some(other =>
+        imageAssetIds: Object.keys(localImageAssets || {}).filter(id => this.imageAssetNeedsCloudUpload(id, {
+          ...cloud,
+          imageAssets: cloudImageAssets
+        }, {
+          ...local,
+          imageAssets: localImageAssets
+        })),
+        pendingImageDeleteKeys: (localPendingImageDeletes || [])
+          .filter(item => !(cloudPendingImageDeletes || []).some(other =>
             other.imageId === item.imageId && other.cloudPath === item.cloudPath
           ))
           .map(item => `${item.imageId}\n${item.cloudPath}`)

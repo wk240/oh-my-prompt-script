@@ -563,4 +563,38 @@ describe('CloudSyncStrategy', () => {
     expect(uploadedBody.imageAssets['image-1'].localPath).toBe('images/image-1.webp')
     expect(restored?.imageAssets?.['image-1'].cloudUrl).toBe('https://blob/img.webp')
   })
+
+  it('normalizes malformed image metadata from cloud restore', async () => {
+    const mockGet = vi.fn().mockResolvedValue({
+      'sb-futfxudabvjfldlismun-auth-token': JSON.stringify({
+        access_token: 'test-token',
+        user: { id: 'user-123' },
+        expires_at: Math.floor(Date.now() / 1000) + 3600
+      })
+    })
+    global.chrome = {
+      storage: {
+        local: {
+          get: mockGet,
+          set: vi.fn().mockResolvedValue(undefined)
+        }
+      }
+    } as any
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: {
+        prompts: [],
+        categories: [],
+        temporaryPrompts: [],
+        imageAssets: [],
+        pendingImageDeletes: {},
+        timestamp: 1700000000002
+      }
+    }), { status: 200 }))
+
+    const restored = await strategy.restore()
+
+    expect(restored?.imageAssets).toEqual({})
+    expect(restored?.pendingImageDeletes).toEqual([])
+  })
 })

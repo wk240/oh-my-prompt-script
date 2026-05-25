@@ -10,6 +10,14 @@ import { BaseSyncStrategy } from './base'
 import { FullBackupData, SyncResult, StrategyStatus, SyncResultError } from '../types'
 import type { Prompt, Category } from '@oh-my-prompt/shared/types'
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function hasOwnBackupField(parsed: object, field: 'imageAssets' | 'pendingImageDeletes'): boolean {
+  return Object.prototype.hasOwnProperty.call(parsed, field)
+}
+
 /**
  * Local folder backup strategy using File System Access API
  * Persists folder handle in IndexedDB for browser restart recovery
@@ -123,8 +131,12 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
           prompts: userData.prompts as Prompt[],
           categories: userData.categories as Category[],
           temporaryPrompts: parsed.temporaryPrompts || [],
-          imageAssets: parsed.imageAssets || {},
-          pendingImageDeletes: parsed.pendingImageDeletes || [],
+          imageAssets: isPlainRecord(parsed.imageAssets) ? parsed.imageAssets : {},
+          pendingImageDeletes: Array.isArray(parsed.pendingImageDeletes) ? parsed.pendingImageDeletes : [],
+          imageMetadataFields: {
+            imageAssets: hasOwnBackupField(parsed, 'imageAssets'),
+            pendingImageDeletes: hasOwnBackupField(parsed, 'pendingImageDeletes')
+          },
           timestamp: parsed.backupTime ? new Date(parsed.backupTime).getTime() : Date.now(),
         }
       }
@@ -139,8 +151,12 @@ export class LocalSyncStrategy extends BaseSyncStrategy {
         prompts: parsed.prompts as Prompt[],
         categories: parsed.categories as Category[],
         temporaryPrompts: [],
-        imageAssets: parsed.imageAssets || {},
-        pendingImageDeletes: parsed.pendingImageDeletes || [],
+        imageAssets: isPlainRecord(parsed.imageAssets) ? parsed.imageAssets : {},
+        pendingImageDeletes: Array.isArray(parsed.pendingImageDeletes) ? parsed.pendingImageDeletes : [],
+        imageMetadataFields: {
+          imageAssets: hasOwnBackupField(parsed, 'imageAssets'),
+          pendingImageDeletes: hasOwnBackupField(parsed, 'pendingImageDeletes')
+        },
         timestamp: parsed.backupTime ? new Date(parsed.backupTime).getTime() : Date.now(),
       }
     } catch (error) {

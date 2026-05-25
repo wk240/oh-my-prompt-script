@@ -37,6 +37,10 @@ export interface FullBackupData {
   timestamp: number
   imageAssets?: Record<string, ImageAsset>
   pendingImageDeletes?: PendingImageDelete[]
+  imageMetadataFields?: {
+    imageAssets: boolean
+    pendingImageDeletes: boolean
+  }
 }
 
 export interface MergeResult {
@@ -114,6 +118,8 @@ export interface UnifiedSyncStatus {
     promptIds: string[]
     categoryIds: string[]
     temporaryPromptIds: string[]
+    imageAssetIds?: string[]
+    pendingImageDeleteKeys?: string[]
   }
   guard?: SyncGuardStatus
   idAliasMap?: IdAliasMap

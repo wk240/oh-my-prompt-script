@@ -1394,6 +1394,112 @@ describe('SyncOrchestrator', () => {
         cloudUrl: 'https://blob/img.webp',
         cloudPath: 'users/u/images/image-1.webp'
       })
+      expect(result.localOnlyItems.imageAssetIds).toEqual(['image-1'])
+    })
+
+    it('normalizes malformed image metadata before merging snapshots', async () => {
+      const result = orchestrator['mergeFullBackupData']({
+        prompts: [],
+        categories: [],
+        temporaryPrompts: [],
+        timestamp: 1,
+        imageAssets: [] as any,
+        pendingImageDeletes: {} as any
+      }, {
+        prompts: [],
+        categories: [],
+        temporaryPrompts: [],
+        timestamp: 2,
+        imageAssets: [] as any,
+        pendingImageDeletes: {} as any
+      })
+
+      expect(result.data.imageAssets).toEqual({})
+      expect(result.data.pendingImageDeletes).toEqual([])
+      expect(result.localOnlyItems.imageAssetIds).toEqual([])
+      expect(result.localOnlyItems.pendingImageDeleteKeys).toEqual([])
+    })
+
+    it('preserves existing image metadata when applying legacy snapshots without metadata fields', async () => {
+      storageData.prompt_script_data = {
+        userData: { prompts: [], categories: [] },
+        temporaryPrompts: [],
+        imageAssets: {
+          'image-1': {
+            id: 'image-1',
+            promptId: 'prompt-1',
+            localPath: 'images/image-1.webp',
+            mimeType: 'image/webp',
+            width: 100,
+            height: 80,
+            size: 1000,
+            hash: 'hash-1',
+            status: 'synced',
+            updatedAt: 1
+          }
+        },
+        pendingImageDeletes: [{
+          imageId: 'image-1',
+          cloudPath: 'users/u/images/image-1.webp',
+          attempts: 1,
+          updatedAt: 1
+        }]
+      }
+
+      await orchestrator['applyData']({
+        prompts: [],
+        categories: [],
+        temporaryPrompts: [],
+        timestamp: 2,
+        imageMetadataFields: {
+          imageAssets: false,
+          pendingImageDeletes: false
+        }
+      })
+
+      expect((storageData.prompt_script_data as any).imageAssets['image-1']).toMatchObject({
+        localPath: 'images/image-1.webp'
+      })
+      expect((storageData.prompt_script_data as any).pendingImageDeletes).toHaveLength(1)
+    })
+
+    it('clears existing image metadata when applying explicit empty metadata fields', async () => {
+      storageData.prompt_script_data = {
+        userData: { prompts: [], categories: [] },
+        temporaryPrompts: [],
+        imageAssets: {
+          'image-1': {
+            id: 'image-1',
+            promptId: 'prompt-1',
+            localPath: 'images/image-1.webp',
+            mimeType: 'image/webp',
+            width: 100,
+            height: 80,
+            size: 1000,
+            hash: 'hash-1',
+            status: 'synced',
+            updatedAt: 1
+          }
+        },
+        pendingImageDeletes: [{
+          imageId: 'image-1',
+          cloudPath: 'users/u/images/image-1.webp',
+          attempts: 1,
+          updatedAt: 1
+        }]
+      }
+
+      await orchestrator['applyData']({
+        prompts: [],
+        categories: [],
+        temporaryPrompts: [],
+        imageAssets: {},
+        pendingImageDeletes: [],
+        timestamp: 2
+      })
+
+      expect((storageData.prompt_script_data as any).imageAssets).toEqual({})
+      expect((storageData.prompt_script_data as any).pendingImageDeletes).toEqual([])
     })
 
     it('should return local data when cloud unavailable', async () => {
