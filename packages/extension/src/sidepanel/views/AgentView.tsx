@@ -10,6 +10,8 @@ import { MessageType } from '@oh-my-prompt/shared/messages'
 import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings } from 'lucide-react'
 import { Tooltip } from '@/content/components/Tooltip'
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
+import { isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 
 // Lazy load dialog component
 const CategorySelectDialog = lazy(() => import('@/content/components/CategorySelectDialog').then(m => ({ default: m.CategorySelectDialog })))
@@ -61,16 +63,23 @@ export default function AgentView({
 
   // Check if provider config exists
   useEffect(() => {
-    chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
-      .then(response => {
+    const refreshConfigAvailability = async () => {
+      try {
+        const [response, authState] = await Promise.all([
+          chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS }),
+          getCachedAuthState()
+        ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
         } else {
           setHasConfig(false)
         }
-      })
-      .catch(() => setHasConfig(false))
+      } catch {
+        setHasConfig(false)
+      }
+    }
+    refreshConfigAvailability()
   }, [])
 
   // Listen for auth status updates (login/logout) to refresh config check
@@ -78,11 +87,14 @@ export default function AgentView({
     const handleMessage = (message: { type: string; payload?: { logout?: boolean } }) => {
       if (message.type === MessageType.AUTH_STATUS_UPDATE) {
         // Re-check provider configs after auth change
-        chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
-          .then(response => {
+        Promise.all([
+          chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS }),
+          getCachedAuthState()
+        ])
+          .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
             } else {
               setHasConfig(false)
             }

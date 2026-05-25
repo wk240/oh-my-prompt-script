@@ -11,6 +11,8 @@ import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload,
 import { showToast } from './ToastNotification'
 import { CategorySelectDialog } from './CategorySelectDialog'
 import { WEB_APP_URL } from '../../lib/config'
+import { isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 
 interface AgentPanelProps {
   selectedTemplate: AgentTemplateCategory
@@ -70,27 +72,37 @@ export function AgentPanel({
 
   // Check if provider config exists
   useEffect(() => {
-    chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
-      .then(response => {
+    const refreshConfigAvailability = async () => {
+      try {
+        const [response, authState] = await Promise.all([
+          chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS }),
+          getCachedAuthState()
+        ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
         } else {
           setHasConfig(false)
         }
-      })
-      .catch(() => setHasConfig(false))
+      } catch {
+        setHasConfig(false)
+      }
+    }
+    refreshConfigAvailability()
   }, [])
 
   // Listen for auth status updates (login/logout) to refresh config check
   useEffect(() => {
     const handleMessage = (message: { type: string; payload?: { logout?: boolean } }) => {
       if (message.type === MessageType.AUTH_STATUS_UPDATE) {
-        chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
-          .then(response => {
+        Promise.all([
+          chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS }),
+          getCachedAuthState()
+        ])
+          .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
             } else {
               setHasConfig(false)
             }
@@ -207,7 +219,7 @@ export function AgentPanel({
               登录官方服务
             </button>
             <button
-              onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_SETTINGS })}
+              onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_MINE })}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: 'white', color: '#374151', fontSize: 13, fontWeight: 500, borderRadius: 8, border: '1px solid #E5E7EB', cursor: 'pointer' }}
             >
               <Settings style={{ width: 16, height: 16 }} />
@@ -289,7 +301,7 @@ export function AgentPanel({
           {errorAction === 'settings' && (
             <button
               className="agent-panel-error-retry"
-              onClick={() => { setError(null); setErrorAction(null); chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_SETTINGS }) }}
+              onClick={() => { setError(null); setErrorAction(null); chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_MINE }) }}
               style={{ background: '#A16207', color: 'white' }}
             >
               <Settings style={{ width: 12, height: 12 }} />

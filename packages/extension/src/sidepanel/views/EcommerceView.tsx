@@ -22,6 +22,8 @@ import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload,
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
 import { parseEcommerceGenerateResult } from '@/lib/ecommerce-result-parser'
 import { formatEcommercePromptBundle } from '@/lib/ecommerce-prompt-bundle'
+import { isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 import ecommerceConfigData from '@/data/ecommerce-config.json'
 
 // Lazy load dialog component
@@ -126,27 +128,37 @@ export default function EcommerceView({
 
   // Check if provider config exists on mount
   useEffect(() => {
-    chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
-      .then(response => {
+    const refreshConfigAvailability = async () => {
+      try {
+        const [response, authState] = await Promise.all([
+          chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS }),
+          getCachedAuthState()
+        ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
         } else {
           setHasConfig(false)
         }
-      })
-      .catch(() => setHasConfig(false))
+      } catch {
+        setHasConfig(false)
+      }
+    }
+    refreshConfigAvailability()
   }, [])
 
   // Listen for auth status updates (login/logout) to refresh config check
   useEffect(() => {
     const handleMessage = (message: { type: string; payload?: { logout?: boolean } }) => {
       if (message.type === MessageType.AUTH_STATUS_UPDATE) {
-        chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS })
-          .then(response => {
+        Promise.all([
+          chrome.runtime.sendMessage({ type: MessageType.GET_PROVIDER_CONFIGS }),
+          getCachedAuthState()
+        ])
+          .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(activeConfigId !== null && configs.some(c => c.id === activeConfigId) || configs.some(c => c.apiFormat === 'omp_official'))
+              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in'))
             } else {
               setHasConfig(false)
             }
