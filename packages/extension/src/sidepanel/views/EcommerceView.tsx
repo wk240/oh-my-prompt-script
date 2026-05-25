@@ -64,6 +64,7 @@ interface EcommerceViewProps {
   extractedText?: string
   categories: Category[]
   onSave: (prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => void
+  onInsert?: (text: string) => Promise<void>
   onOpenSettings?: () => void
 }
 
@@ -72,6 +73,7 @@ export default function EcommerceView({
   extractedText,
   categories,
   onSave,
+  onInsert,
   onOpenSettings
 }: EcommerceViewProps) {
   // Form state
@@ -382,26 +384,26 @@ export default function EcommerceView({
     handleGenerate()
   }, [handleGenerate])
 
-  // Handle insert - copy to clipboard and show toast
+  // Handle insert
   const handleInsert = useCallback(async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      showToast('已复制，请在输入框中粘贴')
-    } catch {
-      showToast('复制失败')
+    if (onInsert) {
+      await onInsert(text)
+      return
     }
-  }, [showToast])
+
+    await handleCopy(text)
+  }, [handleCopy, onInsert])
 
   const handleInsertAll = useCallback(async () => {
     const bundle = getPromptBundle()
     if (!bundle) return
-    try {
-      await navigator.clipboard.writeText(bundle)
-      showToast('当前页面暂不可直接插入，已复制任务包')
-    } catch {
-      showToast('插入通道不可用，且复制失败')
+    if (onInsert) {
+      await onInsert(bundle)
+      return
     }
-  }, [getPromptBundle, showToast])
+
+    await handleCopy(bundle)
+  }, [getPromptBundle, handleCopy, onInsert])
 
   // Handle back to form
   const handleBackToForm = useCallback(() => {
@@ -747,8 +749,8 @@ export default function EcommerceView({
                       <button
                         className="ecommerce-panel-action-btn ecommerce-panel-insert-btn"
                         onClick={() => handleInsert(p.prompt)}
-                        title="复制用于粘贴"
-                        aria-label="复制用于粘贴"
+                        title="插入"
+                        aria-label="插入"
                       >
                         <ArrowUpRight style={{ width: 14, height: 14 }} />
                       </button>
@@ -782,7 +784,7 @@ export default function EcommerceView({
                 复制全部
               </button>
               <button className="ecommerce-panel-result-footer-btn-primary" onClick={handleInsertAll}>
-                复制任务包
+                插入全部
               </button>
             </div>
           </div>

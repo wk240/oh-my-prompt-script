@@ -1355,8 +1355,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     }
   }, [selectedResourceCategoryId, isResourceLibrary])
 
-  // Handle prompt insertion
-  const handleSelectPrompt = useCallback(async (prompt: Prompt) => {
+  const insertTextToCurrentTab = useCallback(async (text: string, successMessage = '已插入提示词') => {
     if (inputStatus === 'available' && currentTabId) {
       // Send to content script for insertion
       try {
@@ -1366,7 +1365,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
           setInputStatus('unavailable')
           setCurrentTabId(null)
           findAvailableTabRef.current()
-          await navigator.clipboard.writeText(prompt.content)
+          await navigator.clipboard.writeText(text)
           setToastMessage('已复制到剪贴板（页面已切换）')
           setTimeout(hideToast, 2000)
           return
@@ -1374,14 +1373,14 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
 
         const response = await chrome.tabs.sendMessage(currentTabId, {
           type: MessageType.INSERT_PROMPT_TO_CS,
-          payload: { prompt: prompt.content }
+          payload: { prompt: text }
         })
         if (response?.success) {
-          setToastMessage('已插入提示词')
+          setToastMessage(successMessage)
           setTimeout(hideToast, 2000)
         } else if (response?.error === 'INPUT_NOT_FOUND') {
           // Input not found - copy to clipboard as fallback
-          await navigator.clipboard.writeText(prompt.content)
+          await navigator.clipboard.writeText(text)
           setToastMessage('已复制到剪贴板（无输入框）')
           setTimeout(hideToast, 2000)
         } else {
@@ -1394,7 +1393,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
         setCurrentTabId(null)
         findAvailableTabRef.current()
         try {
-          await navigator.clipboard.writeText(prompt.content)
+          await navigator.clipboard.writeText(text)
           setToastMessage('已复制到剪贴板')
           setTimeout(hideToast, 2000)
         } catch {
@@ -1402,10 +1401,25 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
           setTimeout(hideToast, 2000)
         }
       }
+      return
     }
+
+    try {
+      await navigator.clipboard.writeText(text)
+      setToastMessage('已复制到剪贴板（当前页面不可插入）')
+      setTimeout(hideToast, 2000)
+    } catch {
+      setToastMessage('复制失败')
+      setTimeout(hideToast, 2000)
+    }
+  }, [inputStatus, currentTabId, setToastMessage, hideToast, isSpecialPage])
+
+  // Handle prompt insertion
+  const handleSelectPrompt = useCallback(async (prompt: Prompt) => {
+    await insertTextToCurrentTab(prompt.content)
     setSelectedPromptId(prompt.id)
     setTimeout(() => setSelectedPromptId(null), 2000)
-  }, [inputStatus, currentTabId, setToastMessage, hideToast, isSpecialPage])
+  }, [insertTextToCurrentTab])
 
   // Handle copy prompt to clipboard
   const handleCopyPrompt = useCallback(async (prompt: Prompt) => {
@@ -2284,6 +2298,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                 selectedTemplate={agentSelectedTemplate}
                 extractedText={agentExtractedText}
                 categories={sortableCategories}
+                onInsert={insertTextToCurrentTab}
                 onSave={(prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => {
                   const template = getAgentTemplate(templateCategory)
                   usePromptStore.getState().addPrompt({
@@ -2303,6 +2318,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
                 extractedText={agentExtractedText}
                 categories={sortableCategories}
                 onOpenSettings={onOpenSettings}
+                onInsert={insertTextToCurrentTab}
                 onSave={(prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => {
                   const template = getAgentTemplate(templateCategory)
                   usePromptStore.getState().addPrompt({

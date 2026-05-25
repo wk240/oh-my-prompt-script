@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, Suspense, lazy } from 'react'
 import type { AgentTemplateCategory, Category, ProviderConfig } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings } from 'lucide-react'
+import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, ArrowUpRight } from 'lucide-react'
 import { Tooltip } from '@/content/components/Tooltip'
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
 import { isAgentConfigUsable } from '@/lib/agent-config-availability'
@@ -21,6 +21,7 @@ interface AgentViewProps {
   extractedText?: string  // Pre-filled from Content Script
   categories: Category[]
   onSave: (prompt: string, categoryId: string, templateCategory: AgentTemplateCategory) => void
+  onInsert?: (text: string) => Promise<void>
   onOpenSettings?: () => void
 }
 
@@ -29,6 +30,7 @@ export default function AgentView({
   extractedText,
   categories,
   onSave,
+  onInsert,
   onOpenSettings
 }: AgentViewProps) {
   // State
@@ -199,6 +201,13 @@ export default function AgentView({
     }
   }, [result, showToast])
 
+  // Handle one-click insert result
+  const handleInsert = useCallback(async () => {
+    if (!result || !onInsert) return
+
+    await onInsert(result)
+  }, [result, onInsert])
+
   // Handle save
   const handleSave = useCallback((categoryId: string) => {
     if (!result) return
@@ -330,6 +339,13 @@ export default function AgentView({
           <div className="agent-result-label">生成的提示词</div>
           <div className="agent-result-content">{result}</div>
           <div className="agent-result-actions">
+            {onInsert && (
+              <Tooltip content="插入">
+                <button className="agent-result-btn" onClick={handleInsert}>
+                  <ArrowUpRight style={{ width: 14, height: 14 }} />
+                </button>
+              </Tooltip>
+            )}
             <Tooltip content="复制">
               <button className="agent-result-btn" onClick={handleCopy}>
                 <Copy style={{ width: 14, height: 14 }} />
