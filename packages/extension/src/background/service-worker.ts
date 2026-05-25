@@ -19,8 +19,9 @@ import { handleAgentGenerate, handleEcommerceAiWrite } from './agent-handler'
 const syncOrchestrator = createSyncOrchestrator()
 
 /**
- * Ensure the official (omp_official) provider config exists and is active.
- * Called after successful OAuth login so Agent/Vision features work immediately.
+ * Ensure the official (omp_official) provider config exists.
+ * Called after successful OAuth login so official service can be used,
+ * but must not override user-selected active third-party config.
  */
 async function ensureOfficialConfig(): Promise<void> {
   const officialConfigId = 'omp-official-default'
@@ -32,16 +33,7 @@ async function ensureOfficialConfig(): Promise<void> {
     const existingOfficial = configs.find(c => c.id === officialConfigId || c.apiFormat === 'omp_official')
 
     if (existingOfficial) {
-      // Official config already exists, just make sure it's active
-      if (storage?.activeConfigId !== existingOfficial.id) {
-        const updatedStorage: ProviderConfigsStorage = {
-          ...storage,
-          configs,
-          activeConfigId: existingOfficial.id
-        }
-        await chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: updatedStorage })
-        console.log('[Oh My Prompt] Official config activated')
-      }
+      // Official config already exists; keep current active selection unchanged.
       return
     }
 
@@ -60,10 +52,11 @@ async function ensureOfficialConfig(): Promise<void> {
 
     const updatedStorage: ProviderConfigsStorage = {
       configs: [...configs, officialConfig],
-      activeConfigId: officialConfig.id
+      // Preserve existing active config. If no active config exists, fallback to official.
+      activeConfigId: storage?.activeConfigId || officialConfig.id
     }
     await chrome.storage.local.set({ [PROVIDER_CONFIGS_STORAGE_KEY]: updatedStorage })
-    console.log('[Oh My Prompt] Official config created and activated')
+    console.log('[Oh My Prompt] Official config created')
   } catch (error) {
     console.error('[Oh My Prompt] Failed to ensure official config:', error)
   }
