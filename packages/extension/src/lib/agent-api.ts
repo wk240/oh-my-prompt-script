@@ -17,6 +17,8 @@ import { getSupabaseClient } from '@/lib/cloud-sync/supabase-client'
 
 // API call timeout in milliseconds (5 minutes)
 const API_TIMEOUT_MS = 300000
+const DEFAULT_AGENT_MAX_TOKENS = 4096
+const ECOMMERCE_AGENT_MAX_TOKENS = 8192
 
 // Anthropic API version header
 const ANTHROPIC_VERSION = '2023-06-01'
@@ -37,7 +39,7 @@ async function getActiveProviderConfig(): Promise<ProviderConfig | null> {
  * @param apiFormat - 'anthropic_messages' or 'chat_completions'
  * @returns Full endpoint URL
  */
-function getFullEndpoint(baseUrl: string, apiFormat: 'anthropic_messages' | 'chat_completions'): string {
+function getFullEndpoint(baseUrl: string, apiFormat: 'anthropic_messages' | 'chat_completions' | 'openai_responses'): string {
   const normalizedBase = baseUrl.replace(/\/$/, '') // Remove trailing slash
 
   if (apiFormat === 'anthropic_messages') {
@@ -49,6 +51,16 @@ function getFullEndpoint(baseUrl: string, apiFormat: 'anthropic_messages' | 'cha
       return normalizedBase + '/messages'
     }
     return normalizedBase + '/v1/messages'
+  }
+
+  if (apiFormat === 'openai_responses') {
+    if (normalizedBase.includes('/responses')) {
+      return normalizedBase
+    }
+    if (normalizedBase.includes('/v1')) {
+      return normalizedBase + '/responses'
+    }
+    return normalizedBase + '/v1/responses'
   }
 
   // OpenAI chat_completions: append /v1/chat/completions if not present
@@ -71,11 +83,12 @@ function getFullEndpoint(baseUrl: string, apiFormat: 'anthropic_messages' | 'cha
 function buildAnthropicRequest(
   systemPrompt: string,
   userContent: Array<{ type: 'text' | 'image'; text?: string; source?: { type: 'base64'; media_type: string; data: string } }>,
-  modelName: string
+  modelName: string,
+  maxTokens: number
 ): object {
   return {
     model: modelName,
-    max_tokens: 1024,
+    max_tokens: maxTokens,
     system: systemPrompt,
     messages: [{
       role: 'user',
@@ -97,6 +110,7 @@ function buildOpenAIRequest(
   systemPrompt: string,
   userText: string,
   modelName: string,
+  maxTokens: number,
   imageData?: string,
   productImage?: string
 ): object {
@@ -131,10 +145,41 @@ function buildOpenAIRequest(
 
   return {
     model: modelName,
-    max_tokens: 1024,
+    max_tokens: maxTokens,
     messages: [{
       role: 'user',
       content: userContent
+    }]
+  }
+}
+
+function buildOpenAIResponsesRequest(
+  systemPrompt: string,
+  userText: string,
+  modelName: string,
+  maxTokens: number,
+  imageData?: string,
+  productImage?: string
+): object {
+  const content: Array<{ type: 'input_text'; text: string } | { type: 'input_image'; image_url: string }> = [
+    { type: 'input_text', text: userText }
+  ]
+
+  if (productImage) {
+    content.push({ type: 'input_image', image_url: productImage })
+  }
+
+  if (imageData) {
+    content.push({ type: 'input_image', image_url: imageData })
+  }
+
+  return {
+    model: modelName,
+    instructions: systemPrompt,
+    max_output_tokens: maxTokens,
+    input: [{
+      role: 'user',
+      content
     }]
   }
 }
@@ -145,7 +190,7 @@ function buildOpenAIRequest(
  * @param apiKey - API key
  * @returns Headers object
  */
-function buildHeaders(apiFormat: 'anthropic_messages' | 'chat_completions', apiKey: string): HeadersInit {
+function buildHeaders(apiFormat: 'anthropic_messages' | 'chat_completions' | 'openai_responses', apiKey: string): HeadersInit {
   if (apiFormat === 'anthropic_messages') {
     return {
       'Content-Type': 'application/json',
@@ -167,17 +212,38 @@ function buildHeaders(apiFormat: 'anthropic_messages' | 'chat_completions', apiK
  * @param response - API response JSON
  * @returns Text content from response
  */
-function extractTextContent(apiFormat: 'anthropic_messages' | 'chat_completions', response: unknown): string {
+export function extractAgentTextContent(apiFormat: 'anthropic_messages' | 'chat_completions' | 'openai_responses', response: unknown): string {
   if (apiFormat === 'anthropic_messages') {
     // Anthropic response: { content: [{ type: 'text', text: '...' }] }
     const anthropicResponse = response as { content?: Array<{ type?: string; text?: string }> }
-    const textContent = anthropicResponse.content?.find(c => c.type === 'text')
-    return textContent?.text || ''
+    return joinTextParts(anthropicResponse.content)
+  }
+
+  if (apiFormat === 'openai_responses') {
+    const responsesResponse = response as {
+      output_text?: string
+      output?: Array<{ content?: Array<{ type?: string; text?: string }> }>
+    }
+    if (typeof responsesResponse.output_text === 'string' && responsesResponse.output_text.trim()) {
+      return responsesResponse.output_text.trim()
+    }
+    return joinTextParts(responsesResponse.output?.flatMap(item => item.content || []))
   }
 
   // OpenAI response: { choices: [{ message: { content: '...' }] } }
-  const openaiResponse = response as { choices?: Array<{ message?: { content?: string } }> }
-  return openaiResponse.choices?.[0]?.message?.content || ''
+  const openaiResponse = response as { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> }
+  const content = openaiResponse.choices?.[0]?.message?.content
+  if (typeof content === 'string') {
+    return content.trim()
+  }
+  return joinTextParts(content)
+}
+
+function joinTextParts(parts: Array<{ type?: string; text?: string }> | undefined): string {
+  return (parts || [])
+    .filter(part => (part.type === undefined || part.type === 'text' || part.type === 'output_text') && typeof part.text === 'string' && part.text.trim())
+    .map(part => part.text!.trim())
+    .join('\n')
 }
 
 /**
@@ -228,9 +294,9 @@ export async function executeAgentApiCallWithProviderConfig(
     return result
   }
 
-  // Only support anthropic_messages and chat_completions for third-party APIs
-  if (config.apiFormat !== 'anthropic_messages' && config.apiFormat !== 'chat_completions') {
-    throw new Error('UNSUPPORTED_FORMAT: Agent 功能仅支持 Anthropic Messages、OpenAI Chat Completions 和官方服务 API 格式')
+  // Only support anthropic_messages, chat_completions and openai_responses for third-party APIs
+  if (config.apiFormat !== 'anthropic_messages' && config.apiFormat !== 'chat_completions' && config.apiFormat !== 'openai_responses') {
+    throw new Error('UNSUPPORTED_FORMAT: Agent 功能仅支持 Anthropic Messages、OpenAI Chat Completions、OpenAI Responses 和官方服务 API 格式')
   }
 
   // Validate endpoint security (HTTPS)
@@ -247,7 +313,8 @@ export async function executeAgentApiCallWithProviderConfig(
   perfLog('END build system prompt (third-party)', promptStart)
 
   // Get full endpoint URL
-  const endpointUrl = getFullEndpoint(config.apiEndpoint, config.apiFormat as 'anthropic_messages' | 'chat_completions')
+  const endpointUrl = getFullEndpoint(config.apiEndpoint, config.apiFormat as 'anthropic_messages' | 'chat_completions' | 'openai_responses')
+  const maxTokens = isEcommerce ? ECOMMERCE_AGENT_MAX_TOKENS : DEFAULT_AGENT_MAX_TOKENS
 
   // Build request body
   const buildStart = perfLog('START build request body')
@@ -286,15 +353,17 @@ export async function executeAgentApiCallWithProviderConfig(
       })
     }
 
-    requestBody = buildAnthropicRequest(systemPrompt, userContent, config.selectedModel)
+    requestBody = buildAnthropicRequest(systemPrompt, userContent, config.selectedModel, maxTokens)
+  } else if (config.apiFormat === 'openai_responses') {
+    requestBody = buildOpenAIResponsesRequest(systemPrompt, payload.inputText, config.selectedModel, maxTokens, payload.imageData, payload.productImage)
   } else {
     // OpenAI: system prompt in user message prefix
-    requestBody = buildOpenAIRequest(systemPrompt, payload.inputText, config.selectedModel, payload.imageData, payload.productImage)
+    requestBody = buildOpenAIRequest(systemPrompt, payload.inputText, config.selectedModel, maxTokens, payload.imageData, payload.productImage)
   }
   perfLog('END build request body', buildStart)
 
   // Build headers
-  const headers = buildHeaders(config.apiFormat as 'anthropic_messages' | 'chat_completions', config.apiKey)
+  const headers = buildHeaders(config.apiFormat as 'anthropic_messages' | 'chat_completions' | 'openai_responses', config.apiKey)
 
   // Execute with timeout and optional external signal
   const abortController = new AbortController()
@@ -351,7 +420,7 @@ export async function executeAgentApiCallWithProviderConfig(
     perfLog('END parse JSON response (third-party)', parseStart)
 
     // Extract result
-    const promptText = extractTextContent(config.apiFormat as 'anthropic_messages' | 'chat_completions', data)
+    const promptText = extractAgentTextContent(config.apiFormat as 'anthropic_messages' | 'chat_completions' | 'openai_responses', data)
 
     if (!promptText) {
       throw new Error('API 返回空内容')

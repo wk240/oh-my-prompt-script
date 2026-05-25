@@ -13,6 +13,33 @@ import { buildEcommerceAiWritePrompt } from '../lib/agent-templates'
 import { WEB_APP_URL } from '@/lib/config'
 import { getSupabaseClient } from '@/lib/cloud-sync/supabase-client'
 
+function getFullEndpoint(baseUrl: string, apiFormat: 'anthropic_messages' | 'chat_completions' | 'openai_responses'): string {
+  const normalizedBase = baseUrl.replace(/\/$/, '')
+
+  if (apiFormat === 'anthropic_messages') {
+    if (normalizedBase.includes('/messages')) return normalizedBase
+    if (normalizedBase.includes('/v1')) return normalizedBase + '/messages'
+    return normalizedBase + '/v1/messages'
+  }
+
+  if (apiFormat === 'openai_responses') {
+    if (normalizedBase.includes('/responses')) return normalizedBase
+    if (normalizedBase.includes('/v1')) return normalizedBase + '/responses'
+    return normalizedBase + '/v1/responses'
+  }
+
+  if (normalizedBase.includes('/chat/completions')) return normalizedBase
+  if (normalizedBase.includes('/v1')) return normalizedBase + '/chat/completions'
+  return normalizedBase + '/v1/chat/completions'
+}
+
+function joinTextParts(parts: Array<{ type?: string; text?: string }> | undefined): string {
+  return (parts || [])
+    .filter(part => (part.type === undefined || part.type === 'text' || part.type === 'output_text') && typeof part.text === 'string' && part.text.trim())
+    .map(part => part.text!.trim())
+    .join('\n')
+}
+
 /**
  * Handle AGENT_GENERATE message from content script or sidepanel
  * Reads active provider config directly from storage (avoids nested chrome.runtime.sendMessage
@@ -161,6 +188,21 @@ export async function handleEcommerceAiWrite(
         'x-api-key': activeConfig.apiKey,
         'anthropic-version': '2023-06-01'
       }
+    } else if (activeConfig.apiFormat === 'openai_responses') {
+      const content: Array<Record<string, unknown>> = [
+        { type: 'input_image', image_url: imageData },
+        { type: 'input_text', text: '请根据商品图片生成卖点描述' }
+      ]
+      requestBody = {
+        model: activeConfig.selectedModel || 'gpt-4o',
+        instructions: systemPrompt,
+        max_output_tokens: 2048,
+        input: [{ role: 'user', content }]
+      }
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${activeConfig.apiKey}`
+      }
     } else {
       // chat_completions format
       const content: Array<Record<string, unknown>> = [
@@ -181,7 +223,12 @@ export async function handleEcommerceAiWrite(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 300000)
 
-    const response = await fetch(activeConfig.apiEndpoint, {
+    const endpointUrl = getFullEndpoint(
+      activeConfig.apiEndpoint,
+      activeConfig.apiFormat as 'anthropic_messages' | 'chat_completions' | 'openai_responses'
+    )
+
+    const response = await fetch(endpointUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
@@ -198,9 +245,14 @@ export async function handleEcommerceAiWrite(
     let text: string
 
     if (activeConfig.apiFormat === 'anthropic_messages') {
-      text = data.content?.[0]?.text || ''
+      text = joinTextParts(data.content)
+    } else if (activeConfig.apiFormat === 'openai_responses') {
+      text = typeof data.output_text === 'string' && data.output_text.trim()
+        ? data.output_text.trim()
+        : joinTextParts(data.output?.flatMap((item: { content?: Array<{ type?: string; text?: string }> }) => item.content || []))
     } else {
-      text = data.choices?.[0]?.message?.content || ''
+      const content = data.choices?.[0]?.message?.content
+      text = typeof content === 'string' ? content.trim() : joinTextParts(content)
     }
 
     sendResponse({ success: true, data: text })
