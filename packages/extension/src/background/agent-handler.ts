@@ -105,7 +105,8 @@ export async function handleEcommerceAiWrite(
 ): Promise<boolean> {
   try {
     const { imageDataList, imageData, platform, language } = payload
-    const images = imageDataList?.length ? imageDataList.filter(Boolean) : imageData ? [imageData] : []
+    const filteredImageDataList = imageDataList?.filter(Boolean) || []
+    const images = filteredImageDataList.length ? filteredImageDataList : imageData ? [imageData] : []
 
     if (images.length === 0) {
       sendResponse({ success: false, error: '请先上传参考图片' })
