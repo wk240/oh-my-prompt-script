@@ -2,6 +2,14 @@
 
 export type AuthStatus = 'checking' | 'logged_in' | 'not_logged_in'
 
+export interface OfficialApiQuota {
+  kind: 'trial' | 'monthly'
+  used: number
+  remaining: number
+  limit: number
+  resetsAt: string | null
+}
+
 export interface CloudAuthState {
   status: AuthStatus
   user?: {
@@ -17,6 +25,7 @@ export interface CloudAuthState {
       remaining: number
       limit: number
     }
+    officialApiQuota?: OfficialApiQuota
   }
   cloudSyncEnabled?: boolean
   lastSyncAt?: number
