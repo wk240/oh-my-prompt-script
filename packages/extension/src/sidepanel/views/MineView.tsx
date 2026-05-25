@@ -10,6 +10,7 @@ import { WEB_APP_URL } from '@/lib/config'
 import { SavedConfigsList } from '@/popup/components/SavedConfigsList'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/popup/components/ui/dialog'
 import { loadSupportedProviders, groupProvidersByType } from '@/lib/provider-data'
+import { getOfficialQuota } from '@/lib/agent-config-availability'
 
 export default function MineView() {
   // Auth state
@@ -393,6 +394,13 @@ export default function MineView() {
     }
   }
 
+  const officialQuota = getOfficialQuota(authState?.subscription)
+  const quotaPlanLabel = authState?.subscription?.planType === 'team'
+    ? 'Team 月额度'
+    : authState?.subscription?.planType === 'pro'
+      ? 'Pro 月额度'
+      : 'Free 试用额度'
+
   return (
     <div className="w-full p-4 space-y-4">
       {/* 账号状态区 */}
@@ -430,6 +438,21 @@ export default function MineView() {
                 {authState.user?.email && (
                   <p className="text-[11px] text-gray-400 mt-0.5">{authState.user.email}</p>
                 )}
+                <div className="mt-2 flex items-center gap-2 text-[11px]">
+                  <span className="text-gray-500">官方 API 额度</span>
+                  {officialQuota ? (
+                    <>
+                      <span className="px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 font-medium">
+                        {quotaPlanLabel}
+                      </span>
+                      <span className={officialQuota.remaining > 0 ? 'text-gray-700' : 'text-red-500'}>
+                        剩余 {officialQuota.remaining}/{officialQuota.limit} 次
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-400">额度同步中</span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="mt-2.5 flex justify-between items-center">
