@@ -21,6 +21,7 @@
 
 import { execSync } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -102,7 +103,27 @@ function getZipPath(version: string): string | null {
   return null;
 }
 
+function getChangelogReleaseNotes(version: string): string {
+  const changelogPath = path.join(rootDir, 'CHANGELOG.md');
+  if (!fs.existsSync(changelogPath)) {
+    return '';
+  }
+
+  const changelog = fs.readFileSync(changelogPath, 'utf-8');
+  const escapedVersion = version.replace(/\./g, '\\.');
+  const match = changelog.match(
+    new RegExp(`## \\[${escapedVersion}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n## \\[|$)`)
+  );
+
+  return match ? match[1].trim() : '';
+}
+
 function generateReleaseNotes(version: string): string {
+  const changelogNotes = getChangelogReleaseNotes(version);
+  if (changelogNotes) {
+    return `## What's Changed\n\n${changelogNotes}`;
+  }
+
   // 获取上一个 tag
   const lastTag = runCommandSilent('git describe --tags --abbrev=0 HEAD^');
 
@@ -177,9 +198,11 @@ function createRelease(version: string, zipPath: string): boolean {
 
   // 生成 release notes
   const releaseNotes = generateReleaseNotes(version);
+  const notesPath = path.join(os.tmpdir(), `oh-my-prompt-${tagName}-release-notes.md`);
+  fs.writeFileSync(notesPath, releaseNotes);
 
   // 创建 release 并上传 asset
-  const releaseCommand = `gh release create ${tagName} "${zipPath}" --title "${releaseTitle}" --notes "${releaseNotes}"`;
+  const releaseCommand = `gh release create ${tagName} "${zipPath}" --title "${releaseTitle}" --notes-file "${notesPath}"`;
 
   if (!runCommand(releaseCommand, '创建 GitHub Release')) {
     // 如果 release 已存在，尝试更新
