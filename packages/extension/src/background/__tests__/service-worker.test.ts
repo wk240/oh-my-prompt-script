@@ -125,6 +125,31 @@ describe('service worker message handling', () => {
       categories: [{ id: 'cat-1', name: 'Category', order: 0 }]
     }
   }
+  const imageMetadata = {
+    imageAssets: {
+      'image-1': {
+        id: 'image-1',
+        promptId: 'prompt-1',
+        localPath: 'images/image-1.webp',
+        cloudUrl: 'https://cdn.example.com/image-1.webp',
+        cloudPath: 'users/user-1/images/image-1.webp',
+        sourceUrl: 'https://example.com/source.png',
+        mimeType: 'image/webp',
+        width: 640,
+        height: 480,
+        size: 12345,
+        hash: 'hash-1',
+        status: 'synced' as const,
+        updatedAt: 1710000000000
+      }
+    },
+    pendingImageDeletes: [{
+      imageId: 'image-2',
+      cloudPath: 'users/user-1/images/image-2.webp',
+      attempts: 1,
+      updatedAt: 1710000001000
+    }]
+  }
 
   beforeEach(async () => {
     vi.resetModules()
@@ -264,29 +289,7 @@ describe('service worker message handling', () => {
   it('preserves image metadata when SET_STORAGE saves and auto-syncs', async () => {
     const imagePayload: StorageSchema = {
       ...payload,
-      imageAssets: {
-        'image-1': {
-          id: 'image-1',
-          promptId: 'prompt-1',
-          localPath: 'images/image-1.webp',
-          cloudUrl: 'https://cdn.example.com/image-1.webp',
-          cloudPath: 'users/user-1/images/image-1.webp',
-          sourceUrl: 'https://example.com/source.png',
-          mimeType: 'image/webp',
-          width: 640,
-          height: 480,
-          size: 12345,
-          hash: 'hash-1',
-          status: 'synced',
-          updatedAt: 1710000000000
-        }
-      },
-      pendingImageDeletes: [{
-        imageId: 'image-2',
-        cloudPath: 'users/user-1/images/image-2.webp',
-        attempts: 1,
-        updatedAt: 1710000001000
-      }]
+      ...imageMetadata
     }
     vi.mocked(chrome.storage.local.get).mockResolvedValue({ [STORAGE_KEY]: existingData })
     mocks.orchestratorTriggerSync.mockResolvedValue({
@@ -310,6 +313,36 @@ describe('service worker message handling', () => {
         syncError: undefined
       }
     })
+  })
+
+  it('includes image metadata when TRIGGER_SYNC builds the backup payload', async () => {
+    const data: StorageSchema = {
+      ...payload,
+      ...imageMetadata
+    }
+    mocks.storageManager.getData.mockResolvedValue(data)
+    mocks.storageManager.updateSettings.mockResolvedValue(undefined)
+    mocks.orchestratorTriggerSync.mockResolvedValue({
+      cloudSynced: true,
+      localSynced: false
+    })
+    const sendResponse = vi.fn()
+
+    dispatchRuntimeMessage({ type: MessageType.TRIGGER_SYNC }, sendResponse)
+
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        error: undefined
+      })
+    })
+    expect(mocks.orchestratorTriggerSync).toHaveBeenCalledWith(expect.objectContaining({
+      prompts: data.userData.prompts,
+      categories: data.userData.categories,
+      temporaryPrompts: data.temporaryPrompts,
+      imageAssets: imageMetadata.imageAssets,
+      pendingImageDeletes: imageMetadata.pendingImageDeletes
+    }))
   })
 
   it('treats local-only orchestrator sync as successful SET_STORAGE auto-sync', async () => {
@@ -431,6 +464,38 @@ describe('service worker message handling', () => {
       prompts: [expect.objectContaining({ id: 'temp-1', categoryId: 'cat-1' })],
       categories: data.userData.categories,
       temporaryPrompts: []
+    }))
+    expect(sendResponse).toHaveBeenCalledWith({ success: true })
+  })
+
+  it('preserves existing image metadata when direct-write callers omit it', async () => {
+    const data: StorageSchema = {
+      ...existingData,
+      temporaryPrompts: [
+        { id: 'temp-1', name: 'Temp 1', content: 'Draft 1', categoryId: 'temporary', order: 0 }
+      ],
+      ...imageMetadata
+    }
+    vi.mocked(chrome.storage.local.get).mockResolvedValue({ [STORAGE_KEY]: data })
+    mocks.orchestratorTriggerSync.mockResolvedValue({ cloudSynced: true, localSynced: true })
+    const sendResponse = vi.fn()
+
+    dispatchRuntimeMessage({ type: MessageType.CLEAR_TEMPORARY_PROMPTS }, sendResponse)
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      [STORAGE_KEY]: {
+        version: '1.0.0',
+        userData: data.userData,
+        settings: data.settings,
+        temporaryPrompts: [],
+        imageAssets: imageMetadata.imageAssets,
+        pendingImageDeletes: imageMetadata.pendingImageDeletes
+      }
+    })
+    expect(mocks.orchestratorTriggerSync).toHaveBeenCalledWith(expect.objectContaining({
+      imageAssets: imageMetadata.imageAssets,
+      pendingImageDeletes: imageMetadata.pendingImageDeletes
     }))
     expect(sendResponse).toHaveBeenCalledWith({ success: true })
   })

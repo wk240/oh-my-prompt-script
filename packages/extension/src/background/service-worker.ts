@@ -168,13 +168,22 @@ async function getStorageDataForDirectWrite(): Promise<StorageSchema> {
 }
 
 async function saveDataAndDebouncedSync(data: StorageSchema): Promise<{ success: boolean; error?: { type: string; message: string } }> {
-  await chrome.storage.local.set({ [STORAGE_KEY]: data })
+  const existingData = await getStorageDataForDirectWrite()
+  const hasImageAssets = Object.prototype.hasOwnProperty.call(data, 'imageAssets')
+  const hasPendingImageDeletes = Object.prototype.hasOwnProperty.call(data, 'pendingImageDeletes')
+  const dataToSave: StorageSchema = {
+    ...data,
+    ...(!hasImageAssets && existingData.imageAssets !== undefined ? { imageAssets: existingData.imageAssets } : {}),
+    ...(!hasPendingImageDeletes && existingData.pendingImageDeletes !== undefined ? { pendingImageDeletes: existingData.pendingImageDeletes } : {})
+  }
+
+  await chrome.storage.local.set({ [STORAGE_KEY]: dataToSave })
   return debouncedTriggerSync({
-    prompts: data.userData?.prompts || [],
-    categories: data.userData?.categories || [],
-    temporaryPrompts: data.temporaryPrompts || [],
-    imageAssets: data.imageAssets || {},
-    pendingImageDeletes: data.pendingImageDeletes || [],
+    prompts: dataToSave.userData?.prompts || [],
+    categories: dataToSave.userData?.categories || [],
+    temporaryPrompts: dataToSave.temporaryPrompts || [],
+    imageAssets: dataToSave.imageAssets || {},
+    pendingImageDeletes: dataToSave.pendingImageDeletes || [],
     timestamp: Date.now()
   })
 }
@@ -584,6 +593,8 @@ chrome.runtime.onMessage.addListener(
               prompts: data.userData?.prompts || [],
               categories: data.userData?.categories || [],
               temporaryPrompts: data.temporaryPrompts || [],
+              imageAssets: data.imageAssets || {},
+              pendingImageDeletes: data.pendingImageDeletes || [],
               timestamp: Date.now()
             }
             return syncOrchestrator.triggerSync(backupData)
