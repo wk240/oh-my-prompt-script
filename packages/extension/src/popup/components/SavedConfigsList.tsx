@@ -4,7 +4,7 @@ import type { ProviderConfig, Provider, ProviderGroup, CloudAuthState } from '@o
 import { ConfigCard } from './ConfigCard'
 import { ThirdPartyApiDialog } from './ThirdPartyApiDialog'
 import { Button } from './ui/button'
-import { Check } from 'lucide-react'
+import { ArrowUpRight, Check } from 'lucide-react'
 
 interface SavedConfigsListProps {
   configs: ProviderConfig[]
@@ -18,6 +18,7 @@ interface SavedConfigsListProps {
   loading: boolean
   onSaveQuickConfig: (provider: Provider, model: string, apiKey: string) => Promise<void>
   onSaveCustomConfig: (name: string, format: 'anthropic_messages' | 'chat_completions', endpoint: string, model: string, apiKey: string) => Promise<void>
+  onUpgrade: () => void
   error: string | null
   success: string | null
   authState: CloudAuthState | null
@@ -35,6 +36,7 @@ export function SavedConfigsList({
   loading,
   onSaveQuickConfig,
   onSaveCustomConfig,
+  onUpgrade,
   error,
   success,
   authState
@@ -45,9 +47,12 @@ export function SavedConfigsList({
   const isOfficialActive = activeConfigId === officialConfigId
   const isLoggedIn = authState?.status === 'logged_in'
   const officialQuota = authState?.subscription?.officialApiQuota ?? authState?.subscription?.optimizationQuota
+  const isFreeQuotaExhausted = authState?.subscription?.planType === 'free' && officialQuota?.remaining === 0
   const canUseOfficial = isLoggedIn && (officialQuota?.remaining ?? 0) > 0
   const officialDescription = isLoggedIn
-    ? officialQuota
+    ? isFreeQuotaExhausted
+      ? '试用额度已用完 · 升级 Pro 后继续使用'
+      : officialQuota
       ? `专业视觉模型 · 剩余 ${officialQuota.remaining}/${officialQuota.limit} 次`
       : '专业视觉模型 · 额度同步中'
     : '需要登录使用'
@@ -98,7 +103,20 @@ export function SavedConfigsList({
               {canUseOfficial && isOfficialActive && (
                 <span className="text-xs text-purple-600 font-medium">已激活</span>
               )}
-              {isLoggedIn && !canUseOfficial && (
+              {isFreeQuotaExhausted && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onUpgrade}
+                  disabled={loading}
+                  className="h-7 px-2 text-xs bg-gray-900 text-white hover:bg-gray-800 hover:text-white"
+                  title="升级 Pro 后继续使用官方服务"
+                >
+                  升级 Pro
+                  <ArrowUpRight style={{ width: 12, height: 12 }} />
+                </Button>
+              )}
+              {isLoggedIn && !canUseOfficial && !isFreeQuotaExhausted && (
                 <span className="text-xs text-red-500 font-medium">{officialQuota ? '额度已用尽' : '额度同步中'}</span>
               )}
               {!isLoggedIn && (

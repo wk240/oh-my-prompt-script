@@ -11,7 +11,7 @@ import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload,
 import { showToast } from './ToastNotification'
 import { CategorySelectDialog } from './CategorySelectDialog'
 import { WEB_APP_URL } from '../../lib/config'
-import { getOfficialQuotaRemaining, isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { getAgentConfigAvailability, type AgentConfigAvailability } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 
 interface AgentPanelProps {
@@ -58,8 +58,8 @@ export function AgentPanel({
   const [result, setResultLocal] = useState<string | null>(persistedResult ?? null)
   const [structuredResult, setStructuredResultLocal] = useState<GeneralAgentGenerateResult | null>(persistedStructuredResult ?? null)
   const [error, setError] = useState<string | null>(null)
-  const [errorAction, setErrorAction] = useState<'settings' | null>(null)
-  const [hasConfig, setHasConfig] = useState<boolean | null>(null)
+  const [errorAction, setErrorAction] = useState<'settings' | 'upgrade' | null>(null)
+  const [configAvailability, setConfigAvailability] = useState<AgentConfigAvailability | 'checking'>('checking')
   const [showSaveDialog, setShowSaveDialog] = useState(false)
 
   // Persist state to parent whenever it changes.
@@ -100,12 +100,12 @@ export function AgentPanel({
         ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
+          setConfigAvailability(getAgentConfigAvailability(configs, activeConfigId, authState.status === 'logged_in', authState.subscription))
         } else {
-          setHasConfig(false)
+          setConfigAvailability('config_required')
         }
       } catch {
-        setHasConfig(false)
+        setConfigAvailability('config_required')
       }
     }
     refreshConfigAvailability()
@@ -122,12 +122,12 @@ export function AgentPanel({
           .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
+              setConfigAvailability(getAgentConfigAvailability(configs, activeConfigId, authState.status === 'logged_in', authState.subscription))
             } else {
-              setHasConfig(false)
+              setConfigAvailability('config_required')
             }
           })
-          .catch(() => setHasConfig(false))
+          .catch(() => setConfigAvailability('config_required'))
       }
     }
     chrome.runtime.onMessage.addListener(handleMessage)
@@ -190,6 +190,9 @@ export function AgentPanel({
       } else if (errorMessage.startsWith('NOT_LOGGED_IN:')) {
         setError('请先登录会员账号')
         setErrorAction('settings')
+      } else if (errorMessage.startsWith('FREE_QUOTA_EXHAUSTED:')) {
+        setError('免费额度已用完，升级 Pro 后可继续使用官方服务')
+        setErrorAction('upgrade')
       } else if (errorMessage.startsWith('UNSUPPORTED_FORMAT:')) {
         setError('不支持当前 API 格式')
       } else if (errorMessage === 'timeout') {
@@ -231,6 +234,8 @@ export function AgentPanel({
   const handleRetry = useCallback(() => handleGenerate(), [handleGenerate])
   const handleBackToForm = useCallback(() => setViewMode('form'), [])
   const isGenerateDisabled = !inputText.trim() || isLoading
+  const isFreeQuotaExhausted = configAvailability === 'free_quota_exhausted'
+  const shouldShowSetupGuide = configAvailability !== 'usable' && configAvailability !== 'checking' && viewMode === 'form'
   const visibleSectionRows = structuredResult
     ? AGENT_SECTION_ROWS.filter(row => structuredResult.sections[row.key])
     : []
@@ -238,20 +243,20 @@ export function AgentPanel({
   return (
     <div className="agent-panel">
       {/* Setup Guide — shown when no provider config available */}
-      {hasConfig === false && viewMode === 'form' && (
+      {shouldShowSetupGuide && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '24px 16px', textAlign: 'center' }}>
           <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <Settings style={{ width: 24, height: 24, color: '#A16207' }} />
           </div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#171717', marginBottom: 4 }}>尚未配置 API</div>
-          <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5, marginBottom: 20 }}>使用 Agent 生成提示词前，需要登录官方服务或配置第三方 API</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#171717', marginBottom: 4 }}>{isFreeQuotaExhausted ? '免费额度已用完' : '尚未配置 API'}</div>
+          <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5, marginBottom: 20 }}>{isFreeQuotaExhausted ? '升级 Pro 后可继续使用官方服务，也可以配置第三方 API' : '使用 Agent 生成提示词前，需要登录官方服务或配置第三方 API'}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
             <button
-              onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
+              onClick={() => window.open(isFreeQuotaExhausted ? `${WEB_APP_URL}/subscription` : `${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: '#171717', color: 'white', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer' }}
             >
-              <LogIn style={{ width: 16, height: 16 }} />
-              登录官方服务
+              {isFreeQuotaExhausted ? <ArrowUpRight style={{ width: 16, height: 16 }} /> : <LogIn style={{ width: 16, height: 16 }} />}
+              {isFreeQuotaExhausted ? '升级 Pro' : '登录官方服务'}
             </button>
             <button
               onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_MINE })}
@@ -265,7 +270,7 @@ export function AgentPanel({
       )}
 
       {/* Main Agent UI — shown when config exists or still checking */}
-      {(hasConfig === true || hasConfig === null) && viewMode === 'form' && (
+      {(configAvailability === 'usable' || configAvailability === 'checking') && viewMode === 'form' && (
       <>
       {/* Input */}
       <div className="agent-panel-section">
@@ -341,6 +346,16 @@ export function AgentPanel({
             >
               <Settings style={{ width: 12, height: 12 }} />
               <span>去设置</span>
+            </button>
+          )}
+          {errorAction === 'upgrade' && (
+            <button
+              className="agent-panel-error-retry"
+              onClick={() => { setError(null); setErrorAction(null); window.open(`${WEB_APP_URL}/subscription`, '_blank') }}
+              style={{ background: '#171717', color: 'white' }}
+            >
+              <ArrowUpRight style={{ width: 12, height: 12 }} />
+              <span>去升级</span>
             </button>
           )}
           <button className="agent-panel-error-retry" onClick={handleRetry}>

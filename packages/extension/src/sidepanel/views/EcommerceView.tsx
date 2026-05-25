@@ -22,7 +22,8 @@ import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload,
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
 import { parseEcommerceGenerateResult } from '@/lib/ecommerce-result-parser'
 import { formatEcommercePromptBundle } from '@/lib/ecommerce-prompt-bundle'
-import { getOfficialQuotaRemaining, isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { WEB_APP_URL } from '@/lib/config'
+import { getAgentConfigAvailability, type AgentConfigAvailability } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 import ecommerceConfigData from '@/data/ecommerce-config.json'
 
@@ -108,8 +109,8 @@ export default function EcommerceView({
   const [generationConfigSnapshot, setGenerationConfigSnapshot] = useState<EcommerceConfig | null>(null)
   const [expandedPromptIndexes, setExpandedPromptIndexes] = useState<Set<number>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
-  const [errorAction, setErrorAction] = useState<'settings' | null>(null)
-  const [hasConfig, setHasConfig] = useState<boolean | null>(null)
+  const [errorAction, setErrorAction] = useState<'settings' | 'upgrade' | null>(null)
+  const [configAvailability, setConfigAvailability] = useState<AgentConfigAvailability | 'checking'>('checking')
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [savePromptIndex, setSavePromptIndex] = useState<number | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -129,6 +130,10 @@ export default function EcommerceView({
     onOpenSettings?.()
   }
 
+  const handleUpgrade = () => {
+    chrome.tabs.create({ url: `${WEB_APP_URL}/subscription` })
+  }
+
   // Pre-fill selling points from extracted text
   useEffect(() => {
     if (extractedText) {
@@ -146,12 +151,12 @@ export default function EcommerceView({
         ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
+          setConfigAvailability(getAgentConfigAvailability(configs, activeConfigId, authState.status === 'logged_in', authState.subscription))
         } else {
-          setHasConfig(false)
+          setConfigAvailability('config_required')
         }
       } catch {
-        setHasConfig(false)
+        setConfigAvailability('config_required')
       }
     }
     refreshConfigAvailability()
@@ -168,12 +173,12 @@ export default function EcommerceView({
           .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
+              setConfigAvailability(getAgentConfigAvailability(configs, activeConfigId, authState.status === 'logged_in', authState.subscription))
             } else {
-              setHasConfig(false)
+              setConfigAvailability('config_required')
             }
           })
-          .catch(() => setHasConfig(false))
+          .catch(() => setConfigAvailability('config_required'))
       }
     }
     chrome.runtime.onMessage.addListener(handleMessage)
@@ -349,6 +354,9 @@ export default function EcommerceView({
       } else if (errorMessage.startsWith('NOT_LOGGED_IN:')) {
         setError('请先登录会员账号')
         setErrorAction('settings')
+      } else if (errorMessage.startsWith('FREE_QUOTA_EXHAUSTED:')) {
+        setError('免费额度已用完，升级 Pro 后可继续使用官方服务')
+        setErrorAction('upgrade')
       } else if (errorMessage.startsWith('UNSUPPORTED_FORMAT:')) {
         setError('不支持当前 API 格式')
       } else if (errorMessage === 'timeout') {
@@ -457,18 +465,21 @@ export default function EcommerceView({
 
   // Is generate button disabled
   const isGenerateDisabled = productImages.length === 0 || !sellingPoints.trim() || isLoading
+  const isFreeQuotaExhausted = configAvailability === 'free_quota_exhausted'
+  const shouldShowSetupGuide = configAvailability !== 'usable' && configAvailability !== 'checking'
 
   return (
     <div className="flex flex-col h-full">
       {/* Setup Guide — shown when no provider config available */}
-      {hasConfig === false && (
+      {shouldShowSetupGuide && (
         <div className="flex flex-col items-center justify-center flex-1 px-6 py-8 text-center">
           <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-4">
             <Settings className="w-6 h-6 text-amber-600" />
           </div>
-          <h3 className="text-sm font-medium text-gray-900 mb-2">尚未配置 API</h3>
+          <h3 className="text-sm font-medium text-gray-900 mb-2">{isFreeQuotaExhausted ? '免费额度已用完' : '尚未配置 API'}</h3>
           <p className="text-xs text-gray-500 leading-relaxed">
-            使用电商套图生成前，请先
+            {isFreeQuotaExhausted ? '升级 Pro 后可继续使用官方服务，也可以配置第三方 API。' : '使用电商套图生成前，请先'}
+            {!isFreeQuotaExhausted && (
             <button
               onClick={handleNavigateToMine}
               className="text-blue-600 hover:underline mx-1"
@@ -476,12 +487,25 @@ export default function EcommerceView({
             >
               登录或配置API
             </button>
+            )}
           </p>
+          {isFreeQuotaExhausted && (
+            <div className="flex flex-col gap-2 w-full max-w-60 mt-5">
+              <button onClick={handleUpgrade} className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800">
+                <ArrowUpRight className="w-4 h-4" />
+                升级 Pro
+              </button>
+              <button onClick={handleNavigateToMine} className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <Settings className="w-4 h-4" />
+                配置第三方 API
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Main Ecommerce UI — shown when config exists or still checking */}
-      {(hasConfig === true || hasConfig === null) && (
+      {(configAvailability === 'usable' || configAvailability === 'checking') && (
       <div className={`ecommerce-view ${viewMode === 'result' ? 'ecommerce-view-result-mode' : ''}`}>
         {viewMode === 'form' && (
           <>
@@ -729,6 +753,16 @@ export default function EcommerceView({
               >
                 <Settings style={{ width: 12, height: 12 }} />
                 <span>去设置</span>
+              </button>
+            )}
+            {errorAction === 'upgrade' && (
+              <button
+                className="agent-error-retry"
+                onClick={() => { setError(null); setErrorAction(null); handleUpgrade() }}
+                style={{ background: '#171717', color: 'white', marginLeft: 8 }}
+              >
+                <ArrowUpRight style={{ width: 12, height: 12 }} />
+                <span>去升级</span>
               </button>
             )}
             <button className="agent-error-retry" onClick={handleRetry} style={{ marginLeft: 8 }}>

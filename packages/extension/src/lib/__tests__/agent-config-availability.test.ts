@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProviderConfig } from '@oh-my-prompt/shared/types'
-import { getOfficialQuota, getOfficialQuotaRemaining, isAgentConfigUsable } from '../agent-config-availability'
+import { getAgentConfigAvailability, getOfficialQuota, getOfficialQuotaRemaining, isAgentConfigUsable } from '../agent-config-availability'
 
 const officialConfig: ProviderConfig = {
   id: 'omp-official-default',
@@ -41,6 +41,38 @@ describe('isAgentConfigUsable', () => {
 
   it('keeps third-party API usable without official quota', () => {
     expect(isAgentConfigUsable([thirdPartyConfig], 'third-party', false, 0)).toBe(true)
+  })
+})
+
+describe('getAgentConfigAvailability', () => {
+  it('identifies exhausted FREE official quota as an upgrade state', () => {
+    const subscription = {
+      planType: 'free' as const,
+      status: 'active' as const,
+      officialApiQuota: { kind: 'trial' as const, used: 50, remaining: 0, limit: 50, resetsAt: null },
+    }
+
+    expect(getAgentConfigAvailability([officialConfig], 'omp-official-default', true, subscription)).toBe('free_quota_exhausted')
+  })
+
+  it('keeps exhausted paid official quota as a quota state instead of an upgrade-only state', () => {
+    const subscription = {
+      planType: 'pro' as const,
+      status: 'active' as const,
+      officialApiQuota: { kind: 'monthly' as const, used: 200, remaining: 0, limit: 200, resetsAt: '2026-06-01T00:00:00.000Z' },
+    }
+
+    expect(getAgentConfigAvailability([officialConfig], 'omp-official-default', true, subscription)).toBe('quota_exhausted')
+  })
+
+  it('keeps third-party API usable even when FREE official quota is exhausted', () => {
+    const subscription = {
+      planType: 'free' as const,
+      status: 'active' as const,
+      officialApiQuota: { kind: 'trial' as const, used: 50, remaining: 0, limit: 50, resetsAt: null },
+    }
+
+    expect(getAgentConfigAvailability([officialConfig, thirdPartyConfig], 'third-party', true, subscription)).toBe('usable')
   })
 })
 

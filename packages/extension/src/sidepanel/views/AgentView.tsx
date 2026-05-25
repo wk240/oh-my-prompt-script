@@ -9,7 +9,8 @@ import type { AgentTemplateCategory, Category, GeneralAgentGenerateResult, Provi
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { Sparkles, Loader2, AlertTriangle, Copy, Bookmark, RefreshCw, X, Upload, Settings, ArrowUpRight, ArrowLeft } from 'lucide-react'
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
-import { getOfficialQuotaRemaining, isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { WEB_APP_URL } from '@/lib/config'
+import { getAgentConfigAvailability, type AgentConfigAvailability } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 
 // Lazy load dialog component
@@ -51,15 +52,19 @@ export default function AgentView({
   const [result, setResult] = useState<string | null>(null)
   const [structuredResult, setStructuredResult] = useState<GeneralAgentGenerateResult | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [errorAction, setErrorAction] = useState<'settings' | null>(null)
+  const [errorAction, setErrorAction] = useState<'settings' | 'upgrade' | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
-  const [hasConfig, setHasConfig] = useState<boolean | null>(null) // null = checking
+  const [configAvailability, setConfigAvailability] = useState<AgentConfigAvailability | 'checking'>('checking')
 
   // Navigate to Mine tab for login/config
   const handleNavigateToMine = () => {
     chrome.storage.session.set({ sidepanelIntent: 'mine' })
     onOpenSettings?.()  // Open settings view (which will show mine tab)
+  }
+
+  const handleUpgrade = () => {
+    chrome.tabs.create({ url: `${WEB_APP_URL}/subscription` })
   }
 
   // Helper for toast notifications
@@ -85,12 +90,12 @@ export default function AgentView({
         ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
+          setConfigAvailability(getAgentConfigAvailability(configs, activeConfigId, authState.status === 'logged_in', authState.subscription))
         } else {
-          setHasConfig(false)
+          setConfigAvailability('config_required')
         }
       } catch {
-        setHasConfig(false)
+        setConfigAvailability('config_required')
       }
     }
     refreshConfigAvailability()
@@ -108,12 +113,12 @@ export default function AgentView({
           .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
+              setConfigAvailability(getAgentConfigAvailability(configs, activeConfigId, authState.status === 'logged_in', authState.subscription))
             } else {
-              setHasConfig(false)
+              setConfigAvailability('config_required')
             }
           })
-          .catch(() => setHasConfig(false))
+          .catch(() => setConfigAvailability('config_required'))
       }
     }
     chrome.runtime.onMessage.addListener(handleMessage)
@@ -193,6 +198,9 @@ export default function AgentView({
       } else if (errorMessage.startsWith('NOT_LOGGED_IN:')) {
         setError('请先登录会员账号')
         setErrorAction('settings')
+      } else if (errorMessage.startsWith('FREE_QUOTA_EXHAUSTED:')) {
+        setError('免费额度已用完，升级 Pro 后可继续使用官方服务')
+        setErrorAction('upgrade')
       } else if (errorMessage.startsWith('UNSUPPORTED_FORMAT:')) {
         setError('不支持当前 API 格式')
       } else if (errorMessage === 'timeout') {
@@ -245,6 +253,8 @@ export default function AgentView({
 
   // Is generate button disabled
   const isGenerateDisabled = !inputText.trim() || isLoading
+  const isFreeQuotaExhausted = configAvailability === 'free_quota_exhausted'
+  const shouldShowSetupGuide = configAvailability !== 'usable' && configAvailability !== 'checking'
   const visibleSectionRows = structuredResult
     ? AGENT_SECTION_ROWS.filter(row => structuredResult.sections[row.key])
     : []
@@ -252,14 +262,15 @@ export default function AgentView({
   return (
     <div className="flex flex-col h-full">
       {/* Setup Guide — shown when no provider config available */}
-      {hasConfig === false && (
+      {shouldShowSetupGuide && (
         <div className="flex flex-col items-center justify-center flex-1 px-6 py-8 text-center">
           <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-4">
             <Settings className="w-6 h-6 text-amber-600" />
           </div>
-          <h3 className="text-sm font-medium text-gray-900 mb-2">尚未配置 API</h3>
+          <h3 className="text-sm font-medium text-gray-900 mb-2">{isFreeQuotaExhausted ? '免费额度已用完' : '尚未配置 API'}</h3>
           <p className="text-xs text-gray-500 leading-relaxed">
-            使用 Agent 生成提示词前，请先
+            {isFreeQuotaExhausted ? '升级 Pro 后可继续使用官方服务，也可以配置第三方 API。' : '使用 Agent 生成提示词前，请先'}
+            {!isFreeQuotaExhausted && (
             <button
               onClick={handleNavigateToMine}
               className="text-blue-600 hover:underline mx-1"
@@ -267,12 +278,25 @@ export default function AgentView({
             >
               登录或配置API
             </button>
+            )}
           </p>
+          {isFreeQuotaExhausted && (
+            <div className="flex flex-col gap-2 w-full max-w-60 mt-5">
+              <button onClick={handleUpgrade} className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800">
+                <ArrowUpRight className="w-4 h-4" />
+                升级 Pro
+              </button>
+              <button onClick={handleNavigateToMine} className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <Settings className="w-4 h-4" />
+                配置第三方 API
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Main Agent UI — shown when config exists or still checking */}
-      {(hasConfig === true || hasConfig === null) && (
+      {(configAvailability === 'usable' || configAvailability === 'checking') && (
       <div className={`agent-view ${viewMode === 'result' ? 'agent-view-result-mode' : ''}`}>
       {viewMode === 'form' && (
       <>
@@ -350,6 +374,12 @@ export default function AgentView({
             <button className="agent-error-retry" onClick={() => { setError(null); setErrorAction(null); onOpenSettings() }} style={{ background: '#A16207', color: 'white' }}>
               <Settings style={{ width: 12, height: 12 }} />
               <span>去设置</span>
+            </button>
+          )}
+          {errorAction === 'upgrade' && (
+            <button className="agent-error-retry" onClick={() => { setError(null); setErrorAction(null); handleUpgrade() }} style={{ background: '#171717', color: 'white' }}>
+              <ArrowUpRight style={{ width: 12, height: 12 }} />
+              <span>去升级</span>
             </button>
           )}
           <button className="agent-error-retry" onClick={handleRetry}>

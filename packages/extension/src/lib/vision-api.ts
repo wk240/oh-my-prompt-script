@@ -733,18 +733,22 @@ async function executeOfficialVisionApiCall(
         const errorData = await response.json()
         // API returns: { success: false, error: 'ERROR_CODE', message?: '...' }
         if (errorData && errorData.error) {
-          // Map error codes to user-friendly messages
-          const errorMessages: Record<string, string> = {
-            'NOT_LOGGED_IN': '请先登录',
-            'NOT_MEMBER': '此功能需要会员订阅',
-            'SUBSCRIPTION_INACTIVE': '订阅已过期',
-            'QUOTA_EXCEEDED': '本月额度已用完',
-            'INVALID_REQUEST': '请求格式无效',
-            'INVALID_IMAGE': '图片格式无效',
-            'VISION_API_NOT_CONFIGURED': '官方识图服务暂未配置，请联系管理员检查 VISION_API_KEY 和 VISION_API_ENDPOINT',
-            'VISION_API_ERROR': errorData.message || 'Vision API 错误'
+          if (errorData.error === 'QUOTA_EXCEEDED' && errorData.quota?.kind === 'trial') {
+            errorMessage = 'FREE_QUOTA_EXHAUSTED:试用额度已用完，升级 Pro 后可继续使用'
+          } else {
+            // Map error codes to user-friendly messages
+            const errorMessages: Record<string, string> = {
+              'NOT_LOGGED_IN': '请先登录',
+              'NOT_MEMBER': '此功能需要会员订阅',
+              'SUBSCRIPTION_INACTIVE': '订阅已过期',
+              'QUOTA_EXCEEDED': '本月额度已用完',
+              'INVALID_REQUEST': '请求格式无效',
+              'INVALID_IMAGE': '图片格式无效',
+              'VISION_API_NOT_CONFIGURED': '官方识图服务暂未配置，请联系管理员检查 VISION_API_KEY 和 VISION_API_ENDPOINT',
+              'VISION_API_ERROR': errorData.message || 'Vision API 错误'
+            }
+            errorMessage = errorMessages[errorData.error] || errorData.error
           }
-          errorMessage = errorMessages[errorData.error] || errorData.error
         }
       } catch {
         // Failed to parse error body (HTML error page, etc.)

@@ -26,7 +26,7 @@ import { CategorySelectDialog } from './CategorySelectDialog'
 import { WEB_APP_URL } from '../../lib/config'
 import { parseEcommerceGenerateResult } from '@/lib/ecommerce-result-parser'
 import { formatEcommercePromptBundle } from '@/lib/ecommerce-prompt-bundle'
-import { getOfficialQuotaRemaining, isAgentConfigUsable } from '@/lib/agent-config-availability'
+import { getAgentConfigAvailability, type AgentConfigAvailability } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 import ecommerceConfigData from '@/data/ecommerce-config.json'
 
@@ -137,7 +137,8 @@ export function EcommercePanel({
   const [generationConfigSnapshot, setGenerationConfigSnapshot] = useState<EcommerceConfig | null>(initState.generationConfigSnapshot)
   const [expandedPromptIndexes, setExpandedPromptIndexes] = useState<Set<number>>(() => new Set(initState.expandedPromptIndexes))
   const [error, setError] = useState<string | null>(null)
-  const [hasConfig, setHasConfig] = useState<boolean | null>(null) // null = checking
+  const [errorAction, setErrorAction] = useState<'upgrade' | null>(null)
+  const [configAvailability, setConfigAvailability] = useState<AgentConfigAvailability | 'checking'>('checking')
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [savePromptIndex, setSavePromptIndex] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -171,12 +172,12 @@ export function EcommercePanel({
         ])
         if (response?.success && response?.data) {
           const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-          setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
+          setConfigAvailability(getAgentConfigAvailability(configs, activeConfigId, authState.status === 'logged_in', authState.subscription))
         } else {
-          setHasConfig(false)
+          setConfigAvailability('config_required')
         }
       } catch {
-        setHasConfig(false)
+        setConfigAvailability('config_required')
       }
     }
     refreshConfigAvailability()
@@ -193,12 +194,12 @@ export function EcommercePanel({
           .then(([response, authState]) => {
             if (response?.success && response?.data) {
               const { configs, activeConfigId } = response.data as { configs: ProviderConfig[]; activeConfigId: string | null }
-              setHasConfig(isAgentConfigUsable(configs, activeConfigId, authState.status === 'logged_in', getOfficialQuotaRemaining(authState.subscription)))
+              setConfigAvailability(getAgentConfigAvailability(configs, activeConfigId, authState.status === 'logged_in', authState.subscription))
             } else {
-              setHasConfig(false)
+              setConfigAvailability('config_required')
             }
           })
-          .catch(() => setHasConfig(false))
+          .catch(() => setConfigAvailability('config_required'))
       }
     }
     chrome.runtime.onMessage.addListener(handleMessage)
@@ -319,6 +320,7 @@ export function EcommercePanel({
     }
     setIsLoading(true)
     setError(null)
+    setErrorAction(null)
     setResult(null)
     setViewMode('form')
 
@@ -355,6 +357,9 @@ export function EcommercePanel({
         setError('请先配置 API 或登录官方服务')
       } else if (errorMessage.startsWith('NOT_LOGGED_IN:')) {
         setError('请先登录会员账号')
+      } else if (errorMessage.startsWith('FREE_QUOTA_EXHAUSTED:')) {
+        setError('免费额度已用完，升级 Pro 后可继续使用官方服务')
+        setErrorAction('upgrade')
       } else if (errorMessage.startsWith('UNSUPPORTED_FORMAT:')) {
         setError('不支持当前 API 格式')
       } else if (errorMessage === 'timeout') {
@@ -456,6 +461,8 @@ export function EcommercePanel({
   }, [])
 
   const isGenerateDisabled = productImages.length === 0 || !sellingPoints.trim() || isLoading
+  const isFreeQuotaExhausted = configAvailability === 'free_quota_exhausted'
+  const shouldShowSetupGuide = configAvailability !== 'usable' && configAvailability !== 'checking' && viewMode === 'form'
 
   // Counter row configuration
   const counterRows: Array<{ key: keyof EcommerceCustomCounts; label: string; desc: string; aiTag?: boolean }> = [
@@ -468,20 +475,20 @@ export function EcommercePanel({
   return (
     <div className="ecommerce-panel">
       {/* Setup Guide - shown when no provider config available */}
-      {hasConfig === false && viewMode === 'form' && (
+      {shouldShowSetupGuide && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '24px 16px', textAlign: 'center' }}>
           <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <Settings style={{ width: 24, height: 24, color: '#A16207' }} />
           </div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#171717', marginBottom: 4 }}>尚未配置 API</div>
-          <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5, marginBottom: 20 }}>使用电商套图生成前，需要登录官方服务或配置第三方 API</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#171717', marginBottom: 4 }}>{isFreeQuotaExhausted ? '免费额度已用完' : '尚未配置 API'}</div>
+          <div style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5, marginBottom: 20 }}>{isFreeQuotaExhausted ? '升级 Pro 后可继续使用官方服务，也可以配置第三方 API' : '使用电商套图生成前，需要登录官方服务或配置第三方 API'}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
             <button
-              onClick={() => window.open(`${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
+              onClick={() => window.open(isFreeQuotaExhausted ? `${WEB_APP_URL}/subscription` : `${WEB_APP_URL}/auth/login?source=extension`, '_blank')}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 16px', background: '#171717', color: 'white', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer' }}
             >
-              <LogIn style={{ width: 16, height: 16 }} />
-              登录官方服务
+              {isFreeQuotaExhausted ? <ArrowUpRight style={{ width: 16, height: 16 }} /> : <LogIn style={{ width: 16, height: 16 }} />}
+              {isFreeQuotaExhausted ? '升级 Pro' : '登录官方服务'}
             </button>
             <button
               onClick={() => chrome.runtime.sendMessage({ type: MessageType.OPEN_SIDEPANEL_FOR_SETTINGS })}
@@ -495,7 +502,7 @@ export function EcommercePanel({
       )}
 
       {/* Main Form - shown when config exists or still checking */}
-      {(hasConfig === true || hasConfig === null) && viewMode === 'form' && (
+      {(configAvailability === 'usable' || configAvailability === 'checking') && viewMode === 'form' && (
         <>
           {/* Product reference images */}
           <div className="ecommerce-panel-section">
@@ -731,6 +738,16 @@ export function EcommercePanel({
             <div className="ecommerce-panel-error">
               <AlertTriangle style={{ width: 14, height: 14, color: '#dc2626', flexShrink: 0, marginRight: 8 }} />
               <span style={{ flex: 1 }}>{error}</span>
+              {errorAction === 'upgrade' && (
+                <button
+                  className="agent-panel-error-retry"
+                  onClick={() => { setError(null); setErrorAction(null); window.open(`${WEB_APP_URL}/subscription`, '_blank') }}
+                  style={{ background: '#171717', color: 'white', marginLeft: 8 }}
+                >
+                  <ArrowUpRight style={{ width: 12, height: 12 }} />
+                  <span>去升级</span>
+                </button>
+              )}
               <button
                 className="ecommerce-panel-action-btn"
                 onClick={handleGenerate}
