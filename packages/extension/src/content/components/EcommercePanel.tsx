@@ -30,9 +30,17 @@ import { isAgentConfigUsable } from '@/lib/agent-config-availability'
 import { getCachedAuthState } from '@/lib/cloud-sync/auth-service'
 import ecommerceConfigData from '@/data/ecommerce-config.json'
 
+interface EcommerceReferenceImage {
+  id: string
+  dataUrl: string
+  name: string
+}
+
+const MAX_REFERENCE_IMAGES = 6
+const MAX_REFERENCE_IMAGE_SIZE = 5 * 1024 * 1024
+
 export interface EcommercePersistedState {
-  productImage: string | null
-  productImageName: string
+  productImages: EcommerceReferenceImage[]
   platform: string
   market: string
   language: string
@@ -47,8 +55,7 @@ export interface EcommercePersistedState {
 }
 
 const DEFAULT_PERSISTED_STATE: EcommercePersistedState = {
-  productImage: null,
-  productImageName: '',
+  productImages: [],
   platform: 'amazon',
   market: 'china',
   language: 'zh',
@@ -113,8 +120,7 @@ export function EcommercePanel({
 }: EcommercePanelProps) {
   const initState = persistedState ?? DEFAULT_PERSISTED_STATE
   // Form state
-  const [productImage, setProductImage] = useState<string | null>(initState.productImage)
-  const [productImageName, setProductImageName] = useState(initState.productImageName)
+  const [productImages, setProductImages] = useState<EcommerceReferenceImage[]>(initState.productImages)
   const [platform, setPlatform] = useState<EcommercePlatform>(initState.platform as EcommercePlatform)
   const [market, setMarket] = useState<EcommerceMarket>(initState.market as EcommerceMarket)
   const [language, setLanguage] = useState<EcommerceLanguage>(initState.language as EcommerceLanguage)
@@ -138,10 +144,10 @@ export function EcommercePanel({
 
   // Helper to build persisted state snapshot
   const buildPersistedState = useCallback((): EcommercePersistedState => ({
-    productImage, productImageName, platform, market, language, aspectRatio,
+    productImages, platform, market, language, aspectRatio,
     sellingPoints, setStructure, customCounts, result, generationConfigSnapshot,
     expandedPromptIndexes: Array.from(expandedPromptIndexes), viewMode,
-  }), [productImage, productImageName, platform, market, language, aspectRatio, sellingPoints, setStructure, customCounts, result, generationConfigSnapshot, expandedPromptIndexes, viewMode])
+  }), [productImages, platform, market, language, aspectRatio, sellingPoints, setStructure, customCounts, result, generationConfigSnapshot, expandedPromptIndexes, viewMode])
 
   // Persist state to parent whenever it changes
   useEffect(() => {
@@ -200,30 +206,65 @@ export function EcommercePanel({
   }, [])
 
   // Handle product image upload
-  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      showToast('请上传图片文件')
-      return
-    }
-    const MAX_IMAGE_SIZE = 5 * 1024 * 1024
-    if (file.size > MAX_IMAGE_SIZE) {
-      showToast('图片大小不能超过 5MB')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setProductImage(e.target?.result as string)
-      setProductImageName(file.name)
-    }
-    reader.onerror = () => showToast('图片读取失败')
-    reader.readAsDataURL(file)
+  const readImageFile = useCallback((file: File): Promise<EcommerceReferenceImage> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result
+        if (typeof dataUrl === 'string') {
+          resolve({ id: crypto.randomUUID(), dataUrl, name: file.name })
+          return
+        }
+        reject(new Error('图片读取失败'))
+      }
+      reader.onerror = () => reject(new Error('图片读取失败'))
+      reader.readAsDataURL(file)
+    })
   }, [])
 
-  const handleRemoveImage = useCallback(() => {
-    setProductImage(null)
-    setProductImageName('')
+  const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    try {
+      const remainingSlots = MAX_REFERENCE_IMAGES - productImages.length
+      if (remainingSlots <= 0) {
+        showToast('最多上传 6 张参考图')
+        return
+      }
+
+      if (files.length > remainingSlots) {
+        showToast('最多上传 6 张参考图')
+      }
+
+      const acceptedFiles = files.slice(0, remainingSlots)
+      const images: EcommerceReferenceImage[] = []
+
+      for (const file of acceptedFiles) {
+        if (!file.type.startsWith('image/')) {
+          showToast('请上传图片文件')
+          continue
+        }
+        if (file.size > MAX_REFERENCE_IMAGE_SIZE) {
+          showToast('单张图片不能超过 5MB')
+          continue
+        }
+        images.push(await readImageFile(file))
+      }
+
+      if (images.length > 0) {
+        setProductImages(prev => [...prev, ...images].slice(0, MAX_REFERENCE_IMAGES))
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '图片读取失败'
+      showToast(errorMessage)
+    } finally {
+      event.target.value = ''
+    }
+  }, [productImages.length, readImageFile])
+
+  const handleRemoveImage = useCallback((imageId: string) => {
+    setProductImages(prev => prev.filter(image => image.id !== imageId))
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -231,13 +272,13 @@ export function EcommercePanel({
 
   // AI write selling points
   const handleAiWrite = useCallback(async () => {
-    if (isAiWriting || !productImage) return
+    if (isAiWriting || productImages.length === 0) return
     setIsAiWriting(true)
     try {
       const response = await chrome.runtime.sendMessage({
         type: MessageType.AGENT_ECOMMERCE_AI_WRITE,
         payload: {
-          imageData: productImage,
+          imageDataList: productImages.map(image => image.dataUrl),
           platform,
           language,
         },
@@ -256,7 +297,7 @@ export function EcommercePanel({
     } finally {
       setIsAiWriting(false)
     }
-  }, [isAiWriting, productImage, platform, language])
+  }, [isAiWriting, productImages, platform, language])
 
   // Build ecommerce config
   const buildEcommerceConfig = useCallback((): EcommerceConfig => ({
@@ -272,6 +313,10 @@ export function EcommercePanel({
   // Handle generate
   const handleGenerate = useCallback(async () => {
     if (isLoading) return
+    if (productImages.length === 0) {
+      showToast('请先上传参考图片')
+      return
+    }
     setIsLoading(true)
     setError(null)
     setResult(null)
@@ -283,7 +328,7 @@ export function EcommercePanel({
         type: MessageType.AGENT_GENERATE,
         payload: {
           inputText: sellingPoints,
-          productImage: productImage || undefined,
+          productImages: productImages.map(image => image.dataUrl),
           templateCategory: 'ecommerce',
           ecommerceConfig: configSnapshot,
         },
@@ -320,7 +365,7 @@ export function EcommercePanel({
     } finally {
       setIsLoading(false)
     }
-  }, [isLoading, sellingPoints, productImage, buildEcommerceConfig])
+  }, [isLoading, productImages, sellingPoints, buildEcommerceConfig])
 
   const getPromptBundle = useCallback(() => {
     if (!result || !generationConfigSnapshot) return ''
@@ -410,7 +455,7 @@ export function EcommercePanel({
     }))
   }, [])
 
-  const isGenerateDisabled = !sellingPoints.trim() || isLoading
+  const isGenerateDisabled = productImages.length === 0 || !sellingPoints.trim() || isLoading
 
   // Counter row configuration
   const counterRows: Array<{ key: keyof EcommerceCustomCounts; label: string; desc: string; aiTag?: boolean }> = [
@@ -452,37 +497,51 @@ export function EcommercePanel({
       {/* Main Form - shown when config exists or still checking */}
       {(hasConfig === true || hasConfig === null) && viewMode === 'form' && (
         <>
-          {/* Product Image Upload */}
+          {/* Product reference images */}
           <div className="ecommerce-panel-section">
-            <label className="ecommerce-panel-label">
-              商品原图<span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>
-            </label>
-            {productImage ? (
-              <div className="ecommerce-panel-upload-area">
-                <div className="ecommerce-panel-upload-preview">
-                  <img src={productImage} alt="商品图" className="ecommerce-panel-upload-thumb" />
-                  <span className="ecommerce-panel-upload-info">{productImageName}</span>
-                  <button className="ecommerce-panel-upload-remove" onClick={handleRemoveImage} aria-label="移除图片">
-                    <X style={{ width: 14, height: 14 }} />
+            <div className="ecommerce-panel-reference-header">
+              <label className="ecommerce-panel-label">
+                参考图片<span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>
+              </label>
+              <span className="ecommerce-panel-reference-count">{productImages.length}/{MAX_REFERENCE_IMAGES}</span>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+              style={{ display: 'none' }}
+              disabled={isLoading || productImages.length >= MAX_REFERENCE_IMAGES}
+            />
+            <div className="ecommerce-panel-reference-grid">
+              {productImages.map(image => (
+                <div key={image.id} className="ecommerce-panel-reference-thumb" title={image.name}>
+                  <img src={image.dataUrl} alt={image.name} className="ecommerce-panel-reference-img" />
+                  <button
+                    type="button"
+                    className="ecommerce-panel-reference-remove"
+                    onClick={() => handleRemoveImage(image.id)}
+                    aria-label="移除图片"
+                    disabled={isLoading}
+                  >
+                    <X style={{ width: 12, height: 12 }} />
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="ecommerce-panel-upload-area" onClick={() => fileInputRef.current?.click()}>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  style={{ display: 'none' }}
+              ))}
+              {productImages.length < MAX_REFERENCE_IMAGES && (
+                <button
+                  type="button"
+                  className="ecommerce-panel-reference-add"
+                  onClick={() => fileInputRef.current?.click()}
                   disabled={isLoading}
-                />
-                <div className="ecommerce-panel-upload-placeholder">
-                  <Upload style={{ width: 18, height: 18 }} />
-                  <span>上传商品原图（5MB以内）</span>
-                </div>
-              </div>
-            )}
+                  aria-label="上传参考图片"
+                >
+                  <Upload style={{ width: 16, height: 16 }} />
+                </button>
+              )}
+            </div>
+            <div className="ecommerce-panel-reference-hint">最多 6 张，单张 5MB 以内</div>
           </div>
 
           {/* Selectors: Platform + Market */}
@@ -559,7 +618,7 @@ export function EcommercePanel({
               <button
                 className="ecommerce-panel-ai-write-btn ecommerce-panel-ai-write-btn-inline"
                 onClick={handleAiWrite}
-                disabled={isAiWriting || !productImage}
+                disabled={isAiWriting || productImages.length === 0}
               >
                 {isAiWriting ? (
                   <>

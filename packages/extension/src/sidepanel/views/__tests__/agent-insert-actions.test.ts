@@ -48,6 +48,24 @@ describe('Agent sidepanel insert actions', () => {
     expect(source).toContain('插入全部')
   })
 
+  it('persists ecommerce dropdown reference images as an array', () => {
+    const panelSource = readFileSync(
+      resolve(repoRoot, 'src/content/components/EcommercePanel.tsx'),
+      'utf8',
+    )
+    const containerSource = readFileSync(
+      resolve(repoRoot, 'src/content/components/DropdownContainer.tsx'),
+      'utf8',
+    )
+
+    expect(panelSource).toContain('interface EcommerceReferenceImage')
+    expect(panelSource).toContain('productImages: EcommerceReferenceImage[]')
+    expect(panelSource).toContain('productImages: productImages.map(image => image.dataUrl)')
+    expect(panelSource).toContain('imageDataList: productImages.map(image => image.dataUrl)')
+    expect(containerSource).toContain('productImages: []')
+    expect(containerSource).not.toContain('productImage: null, productImageName')
+  })
+
   it('passes the shared sidepanel insert function into both Agent views', () => {
     const source = readFileSync(
       resolve(repoRoot, 'src/sidepanel/views/PromptListView.tsx'),

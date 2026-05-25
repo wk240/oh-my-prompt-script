@@ -394,7 +394,7 @@ export function DropdownContainer({
     inputText: '', result: null, structuredResult: null, imageData: null
   })
   const [ecommercePanelState, setEcommercePanelState] = useState<EcommercePersistedState>({
-    productImage: null, productImageName: '', platform: 'amazon', market: 'china',
+    productImages: [], platform: 'amazon', market: 'china',
     language: 'zh', aspectRatio: '1:1', sellingPoints: '', setStructure: 'smart',
     customCounts: { whiteBg: 1, scene: 2, sellingPoint: 2, other: 2 },
     result: null, generationConfigSnapshot: null, expandedPromptIndexes: [], viewMode: 'form'
