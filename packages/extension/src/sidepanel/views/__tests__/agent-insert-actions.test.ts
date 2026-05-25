@@ -90,4 +90,13 @@ describe('Agent sidepanel insert actions', () => {
     expect(storeSource).toContain('if (options?.showLoading !== false) {')
     expect(promptListSource).toContain('loadFromStorage({ showLoading: false })')
   })
+
+  it('keeps the normal Agent upload affordance from blocking file picker clicks', () => {
+    const css = readFileSync(
+      resolve(repoRoot, 'src/sidepanel/index.css'),
+      'utf8',
+    )
+
+    expect(css).toMatch(/\.agent-image-upload-content\s*\{[^}]*pointer-events:\s*none;/s)
+  })
 })
