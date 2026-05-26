@@ -94,9 +94,9 @@ export function PromptPreviewModal({
     let mounted = true
 
     async function loadImage() {
-      if (isUserPrompt && prompt.localImage) {
-        const { getCachedImageUrl } = await import('../../lib/sync/image-sync')
-        const url = await getCachedImageUrl(prompt.localImage)
+      if (isUserPrompt) {
+        const { getDisplayUrl } = await import('../../lib/sync/image-asset-service')
+        const url = await getDisplayUrl(prompt as Prompt)
         if (mounted) {
           setImageUrl(url)
         }

@@ -11,13 +11,11 @@ import { BaseModal } from './BaseModal'
 import type { Prompt, Category } from '@oh-my-prompt/shared/types'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import {
-  saveImage,
-  deleteImage,
   downloadImageFromUrl,
   isFolderConfigured,
-  getCachedImageUrl,
 } from '../../lib/sync/image-sync'
-import type { ImageSaveResult } from '../../lib/sync/image-sync'
+import { deletePromptImageAsset, getDisplayUrl, savePromptImageAsset } from '../../lib/sync/image-asset-service'
+import { usePromptStore } from '../../lib/store'
 import { MAX_IMAGE_SIZE, ALLOWED_IMAGE_EXTENSIONS } from '@oh-my-prompt/shared/constants'
 
 // Preview offset from mouse cursor
@@ -45,6 +43,7 @@ interface PromptEditModalProps {
     content: string
     contentEn?: string
     categoryId: string
+    imageId?: string
     localImage?: string
     remoteImageUrl?: string
   }) => void
@@ -93,6 +92,7 @@ export function PromptEditModal({
   const [contentEn, setContentEn] = useState('')
 
   // Image state
+  const [imageId, setImageId] = useState<string | undefined>(undefined)
   const [localImage, setLocalImage] = useState<string | undefined>(undefined)
   const [remoteImageUrl, setRemoteImageUrl] = useState<string | undefined>(undefined)
   const [imageUrlInput, setImageUrlInput] = useState('')
@@ -102,6 +102,7 @@ export function PromptEditModal({
   const [showFolderWarning, setShowFolderWarning] = useState(false)
   const [showPermissionWarning, setShowPermissionWarning] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const authState = usePromptStore((state) => state.authState)
 
   // Hover preview state
   const [showImagePreview, setShowImagePreview] = useState(false)
@@ -137,11 +138,12 @@ export function PromptEditModal({
         setDescriptionEn(prompt.descriptionEn || '')
         setContentEn(prompt.contentEn || '')
         // Reset image state from prompt
+        setImageId(prompt.imageId)
         setLocalImage(prompt.localImage)
         setRemoteImageUrl(prompt.remoteImageUrl)
-        if (prompt.localImage) {
+        if (prompt.imageId || prompt.localImage || prompt.remoteImageUrl) {
           // Load preview for existing image
-          getCachedImageUrl(prompt.localImage)
+          getDisplayUrl(prompt)
             .then((url) => {
               if (!cancelled) {
                 setImagePreviewUrl(url || undefined)
@@ -173,6 +175,7 @@ export function PromptEditModal({
         setDescriptionEn('')
         setContentEn('')
         // Reset image state for add mode
+        setImageId(undefined)
         setLocalImage(undefined)
         setRemoteImageUrl(undefined)
         setImagePreviewUrl(undefined)
@@ -221,10 +224,16 @@ export function PromptEditModal({
         // Generate temporary ID for new prompts (use timestamp)
         const tempId = prompt?.id || `temp-${Date.now()}`
 
-        const result: ImageSaveResult = await saveImage(tempId, file, file.name)
+        const result = await savePromptImageAsset({
+          promptId: tempId,
+          blob: file,
+          sourceUrl: remoteImageUrl,
+          canUseCloud: authState?.status === 'logged_in' && Boolean(authState.cloudSyncEnabled)
+        })
 
-        if (result.success && result.relativePath) {
-          setLocalImage(result.relativePath)
+        if (result.success && result.localPath) {
+          setImageId(result.imageId)
+          setLocalImage(result.localPath)
           setImagePreviewUrl(URL.createObjectURL(file))
         } else {
           if (result.error === 'PERMISSION_DENIED') {
@@ -239,7 +248,7 @@ export function PromptEditModal({
 
       setIsUploadingImage(false)
     },
-    [prompt?.id]
+    [authState, prompt?.id, remoteImageUrl]
   )
 
   // Handle URL download
@@ -262,10 +271,16 @@ export function PromptEditModal({
 
       if (downloadResult.success && downloadResult.blob) {
         const tempId = prompt?.id || `temp-${Date.now()}`
-        const result = await saveImage(tempId, downloadResult.blob)
+        const result = await savePromptImageAsset({
+          promptId: tempId,
+          blob: downloadResult.blob,
+          sourceUrl: imageUrlInput.trim(),
+          canUseCloud: authState?.status === 'logged_in' && Boolean(authState.cloudSyncEnabled)
+        })
 
-        if (result.success && result.relativePath) {
-          setLocalImage(result.relativePath)
+        if (result.success && result.localPath) {
+          setImageId(result.imageId)
+          setLocalImage(result.localPath)
           setRemoteImageUrl(imageUrlInput.trim()) // Record source URL
           setImagePreviewUrl(URL.createObjectURL(downloadResult.blob))
           setImageUrlInput('')
@@ -284,17 +299,18 @@ export function PromptEditModal({
     }
 
     setIsUploadingImage(false)
-  }, [imageUrlInput, prompt?.id])
+  }, [authState, imageUrlInput, prompt?.id])
 
   // Handle image delete
   const handleImageDelete = useCallback(async () => {
-    if (prompt?.id && localImage) {
-      await deleteImage(prompt.id)
+    if ((prompt?.id || imageId) && localImage) {
+      await deletePromptImageAsset(prompt?.id || imageId!)
     }
+    setImageId(undefined)
     setLocalImage(undefined)
     setRemoteImageUrl(undefined)
     setImagePreviewUrl(undefined)
-  }, [prompt?.id, localImage])
+  }, [imageId, prompt?.id, localImage])
 
   // Handle drag over
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -356,6 +372,7 @@ export function PromptEditModal({
       content: trimmedContent,
       contentEn: trimmedContentEn || undefined,
       categoryId,
+      imageId,
       localImage,
       remoteImageUrl,
     })

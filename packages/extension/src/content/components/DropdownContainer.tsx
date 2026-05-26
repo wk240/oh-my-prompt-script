@@ -35,7 +35,8 @@ const PromptEditModal = lazy(() => import('./PromptEditModal').then(m => ({ defa
 import { usePromptStore } from '../../lib/store'
 import { getResourcePrompts, getResourceCategories } from '../../lib/resource-library'
 import { MessageType } from '@oh-my-prompt/shared/messages'
-import { clearImageUrlCache, isFolderConfigured, downloadImageFromUrl, saveImage } from '../../lib/sync/image-sync'
+import { clearImageUrlCache, isFolderConfigured, downloadImageFromUrl } from '../../lib/sync/image-sync'
+import { savePromptImageAsset } from '../../lib/sync/image-asset-service'
 import { clearLoadQueue } from '../../lib/sync/image-loader-queue'
 import { clearSupabaseClient } from '../../lib/cloud-sync/supabase-client'
 import { PromptThumbnail } from './PromptThumbnail'
@@ -254,7 +255,7 @@ function SortableDropdownItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`dropdown-item${isSelected ? ' selected' : ''}${isLast ? ' last' : ''}${isDragging ? ' dragging' : ''}${prompt.localImage ? ' dropdown-item-with-thumbnail' : ''}`}
+      className={`dropdown-item${isSelected ? ' selected' : ''}${isLast ? ' last' : ''}${isDragging ? ' dragging' : ''}${(prompt.imageId || prompt.localImage || prompt.remoteImageUrl) ? ' dropdown-item-with-thumbnail' : ''}`}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => onSelect(prompt)}
       role="button"
@@ -276,8 +277,9 @@ function SortableDropdownItem({
         <IconComponent className="dropdown-item-icon" />
       </div>
       {/* Thumbnail - 60x40 image preview, lazy-loaded with Intersection Observer */}
-      {prompt.localImage && (
+      {(prompt.imageId || prompt.localImage || prompt.remoteImageUrl) && (
         <PromptThumbnail
+          prompt={prompt}
           relativePath={prompt.localImage}
           promptName={prompt.name}
           onClick={onThumbnailClick ? () => onThumbnailClick(prompt) : undefined}
@@ -823,6 +825,7 @@ export function DropdownContainer({
 
     // Generate prompt ID upfront for image save
     const promptId = crypto.randomUUID()
+    let imageId: string | undefined = undefined
     let localImage: string | undefined = undefined
 
     // Auto-download and save image if folder configured and prompt has preview image
@@ -832,9 +835,15 @@ export function DropdownContainer({
         try {
           const downloadResult = await downloadImageFromUrl(resourcePrompt.previewImage)
           if (downloadResult.success && downloadResult.blob) {
-            const imageResult = await saveImage(promptId, downloadResult.blob)
-            if (imageResult.success && imageResult.relativePath) {
-              localImage = imageResult.relativePath
+            const imageResult = await savePromptImageAsset({
+              promptId,
+              blob: downloadResult.blob,
+              sourceUrl: resourcePrompt.previewImage,
+              canUseCloud: authState?.status === 'logged_in' && Boolean(authState.cloudSyncEnabled)
+            })
+            if (imageResult.success && imageResult.localPath) {
+              imageId = imageResult.imageId
+              localImage = imageResult.localPath
             }
           }
         } catch (error) {
@@ -858,6 +867,7 @@ export function DropdownContainer({
       description: resourcePrompt.description,
       descriptionEn: resourcePrompt.descriptionEn,
       order: 0,
+      imageId,
       remoteImageUrl: resourcePrompt.previewImage,
       localImage,
     }
@@ -872,7 +882,7 @@ export function DropdownContainer({
     closeModal('isCategoryDialog')
     closeModal('isPreview')
     clearEditingItem('resourcePrompt')
-  }, [editingStates.teamPrompt, editingStates.resourcePrompt])
+  }, [authState, editingStates.teamPrompt, editingStates.resourcePrompt])
 
   const dropdownGap = 8
   const dropdownMaxHeight = 600
@@ -1156,6 +1166,7 @@ export function DropdownContainer({
     content: string
     contentEn?: string
     categoryId: string
+    imageId?: string
     localImage?: string
     remoteImageUrl?: string
   }) => {
@@ -1168,6 +1179,7 @@ export function DropdownContainer({
       contentEn: data.contentEn,
       categoryId: data.categoryId,
       order: localPrompts.filter(p => p.categoryId === data.categoryId).length,
+      imageId: data.imageId,
       localImage: data.localImage,
       remoteImageUrl: data.remoteImageUrl,
     })
@@ -1182,6 +1194,7 @@ export function DropdownContainer({
     content: string
     contentEn?: string
     categoryId: string
+    imageId?: string
     localImage?: string
     remoteImageUrl?: string
   }) => {
@@ -1194,6 +1207,7 @@ export function DropdownContainer({
       content: data.content,
       contentEn: data.contentEn,
       categoryId: data.categoryId,
+      imageId: data.imageId,
       localImage: data.localImage,
       remoteImageUrl: data.remoteImageUrl,
     })

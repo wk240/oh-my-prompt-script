@@ -10,10 +10,13 @@
 import { useRef, useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Shapes } from 'lucide-react'
-import { queueImageLoad } from '@/lib/sync/image-loader-queue'
+import type { Prompt } from '@oh-my-prompt/shared/types'
+import { getDisplayUrl } from '../../lib/sync/image-asset-service'
+import { getCachedImageUrl } from '../../lib/sync/image-sync'
 
 interface PromptThumbnailProps {
-  relativePath: string      // Image path relative to backup folder
+  prompt?: Prompt           // Preferred image source for asset-backed prompts
+  relativePath?: string     // Legacy image path relative to backup folder
   promptName: string        // Prompt name for alt text
   onClick?: () => void      // Click handler for preview modal
 }
@@ -32,6 +35,7 @@ const PREVIEW_MAX_HEIGHT = 480
 const FALLBACK_IMAGE_SVG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480"%3E%3Crect fill="%23f0f0f0" width="720" height="480"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="14" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E'
 
 export function PromptThumbnail({
+  prompt,
   relativePath,
   promptName,
   onClick,
@@ -76,7 +80,11 @@ export function PromptThumbnail({
     if (!isInView || isLoaded) return
 
     const loadImage = async () => {
-      const url = await queueImageLoad(relativePath)
+      const url = prompt
+        ? await getDisplayUrl(prompt)
+        : relativePath
+          ? await getCachedImageUrl(relativePath)
+          : null
       if (url) {
         setImageUrl(url)
       }
@@ -84,7 +92,7 @@ export function PromptThumbnail({
     }
 
     loadImage()
-  }, [isInView, isLoaded, relativePath])
+  }, [isInView, isLoaded, prompt, relativePath])
 
   // Handle thumbnail mouse enter - show preview immediately
   const handleThumbnailMouseEnter = () => {

@@ -18,8 +18,8 @@ import { MessageType } from '@oh-my-prompt/shared/messages'
 import { STORAGE_KEY } from '@oh-my-prompt/shared/constants'
 import { Tooltip } from '@/content/components/Tooltip'
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
-import { queueImageLoad } from '@/lib/sync/image-loader-queue'
-import { downloadImageFromUrl, saveImage } from '@/lib/sync/image-sync'
+import { downloadImageFromUrl } from '@/lib/sync/image-sync'
+import { getDisplayUrl, savePromptImageAsset } from '@/lib/sync/image-asset-service'
 import { getFolderHandle } from '@/lib/sync/indexeddb'
 import { useAutoPermissionRestore } from '@/sidepanel/hooks/useAutoPermissionRestore'
 import AgentView from '@/sidepanel/views/AgentView'
@@ -182,12 +182,14 @@ function SortablePromptItem({
   const [showPreview, setShowPreview] = useState(false)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
 
-  // Load image from local folder when prompt has localImage
+  const hasPromptImage = Boolean(prompt.imageId || prompt.localImage || prompt.remoteImageUrl)
+
+  // Load image from asset metadata, local cache, or remote fallback
   useEffect(() => {
-    if (!prompt.localImage || imageLoaded) return
+    if (!hasPromptImage || imageLoaded) return
 
     const loadImage = async () => {
-      const url = await queueImageLoad(prompt.localImage!)
+      const url = await getDisplayUrl(prompt)
       if (url) {
         setImageUrl(url)
       }
@@ -195,7 +197,7 @@ function SortablePromptItem({
     }
 
     loadImage()
-  }, [prompt.localImage, imageLoaded])
+  }, [hasPromptImage, imageLoaded, prompt])
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -325,7 +327,7 @@ function SortablePromptItem({
         )}
         <IconComponent className="prompt-item-icon" />
       </div>
-      {prompt.localImage && (
+      {hasPromptImage && (
         imageUrl ? (
           <img
             src={imageUrl}
@@ -1698,10 +1700,19 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       try {
         const downloadResult = await downloadImageFromUrl(resourcePrompt.previewImage)
         if (downloadResult.success && downloadResult.blob) {
-          const saveResult = await saveImage(newPrompt.id, downloadResult.blob)
-          if (saveResult.success && saveResult.relativePath) {
+          const saveResult = await savePromptImageAsset({
+            promptId: newPrompt.id,
+            blob: downloadResult.blob,
+            sourceUrl: resourcePrompt.previewImage,
+            canUseCloud: authState?.status === 'logged_in' && Boolean(authState.cloudSyncEnabled)
+          })
+          if (saveResult.success && saveResult.localPath) {
             // Update prompt with localImage path
-            store.updatePrompt(newPrompt.id, { localImage: saveResult.relativePath })
+            store.updatePrompt(newPrompt.id, {
+              imageId: saveResult.imageId,
+              localImage: saveResult.localPath,
+              remoteImageUrl: resourcePrompt.previewImage
+            })
           }
         }
       } catch (error) {
@@ -1717,7 +1728,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     closeModal('isCategoryDialog')
     closeModal('isPreview')
     clearEditingItem('resourcePrompt')
-  }, [editingStates.resourcePrompt, editingStates.teamPrompt, setToastMessage, hideToast, closeModal, clearEditingItem])
+  }, [authState, editingStates.resourcePrompt, editingStates.teamPrompt, setToastMessage, hideToast, closeModal, clearEditingItem])
 
   // Handle drag end for category reorder
   const handleCategoryDragEnd = useCallback(async (event: DragEndEvent) => {
@@ -1816,6 +1827,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     content: string
     contentEn?: string
     categoryId: string
+    imageId?: string
     localImage?: string
     remoteImageUrl?: string
   }) => {
@@ -1847,6 +1859,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       content: data.content,
       contentEn: data.contentEn,
       categoryId: data.categoryId,
+      imageId: data.imageId,
       localImage: data.localImage,
       remoteImageUrl: data.remoteImageUrl,
       order: prompts.filter(p => p.categoryId === data.categoryId).length,
@@ -1864,6 +1877,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     content: string
     contentEn?: string
     categoryId: string
+    imageId?: string
     localImage?: string
     remoteImageUrl?: string
   }) => {
@@ -1894,6 +1908,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       content: data.content,
       contentEn: data.contentEn,
       categoryId: data.categoryId,
+      imageId: data.imageId,
       localImage: data.localImage,
       remoteImageUrl: data.remoteImageUrl,
     })

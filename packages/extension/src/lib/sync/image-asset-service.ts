@@ -2,19 +2,34 @@ import type { ImageAsset, PendingImageDelete, Prompt, StorageSchema } from '@oh-
 import { STORAGE_KEY } from '@oh-my-prompt/shared/constants'
 import { saveImage, deleteImageByPath, getCachedImageUrl } from './image-sync'
 import { deleteCloudImage, uploadCloudImage } from './image-cloud-client'
+import {
+  HARD_IMAGE_SIZE_LIMIT,
+  INITIAL_WEBP_QUALITY,
+  MAX_IMAGE_SIDE,
+  MIN_WEBP_QUALITY,
+  TARGET_IMAGE_SIZE,
+  computeBlobSha256
+} from './image-processing'
 
 export interface SavePromptImageAssetInput {
   promptId: string
   blob: Blob
   sourceUrl?: string
   canUseCloud: boolean
+  width?: number
+  height?: number
+  size?: number
+  hash?: string
+}
+
+type DeletePromptImageAssetResult = { success: boolean; error?: string }
+type PreparedImageAssetBlob = {
+  blob: Blob
   width: number
   height: number
   size: number
   hash: string
 }
-
-type DeletePromptImageAssetResult = { success: boolean; error?: string }
 
 async function readStorage(): Promise<StorageSchema> {
   const result = await chrome.storage.local.get(STORAGE_KEY)
@@ -42,6 +57,83 @@ function findPrompt(data: StorageSchema, promptId: string): Prompt | undefined {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error || 'UNKNOWN_ERROR')
+}
+
+async function canvasToWebpBlob(
+  canvas: OffscreenCanvas | HTMLCanvasElement,
+  quality: number
+): Promise<Blob> {
+  if ('convertToBlob' in canvas) {
+    return canvas.convertToBlob({ type: 'image/webp', quality })
+  }
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      blob => blob ? resolve(blob) : reject(new Error('CANVAS_EXPORT_FAILED')),
+      'image/webp',
+      quality
+    )
+  })
+}
+
+async function normalizeImageBlob(blob: Blob): Promise<PreparedImageAssetBlob> {
+  if (typeof createImageBitmap !== 'function') {
+    throw new Error('NORMALIZE_UNAVAILABLE')
+  }
+
+  const bitmap = await createImageBitmap(blob)
+  try {
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height))
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(width, height)
+      : Object.assign(document.createElement('canvas'), { width, height })
+    const context = canvas.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
+
+    if (!context) {
+      throw new Error('CANVAS_UNAVAILABLE')
+    }
+
+    context.drawImage(bitmap, 0, 0, width, height)
+
+    let output = await canvasToWebpBlob(canvas, INITIAL_WEBP_QUALITY)
+    if (output.size > TARGET_IMAGE_SIZE) {
+      output = await canvasToWebpBlob(canvas, MIN_WEBP_QUALITY)
+    }
+    if (output.size > HARD_IMAGE_SIZE_LIMIT) {
+      throw new Error('FILE_TOO_LARGE')
+    }
+
+    return {
+      blob: output,
+      width,
+      height,
+      size: output.size,
+      hash: await computeBlobSha256(output)
+    }
+  } finally {
+    bitmap.close()
+  }
+}
+
+async function prepareImageAssetBlob(input: SavePromptImageAssetInput): Promise<PreparedImageAssetBlob> {
+  if (
+    input.width &&
+    input.height &&
+    input.size &&
+    input.hash
+  ) {
+    return {
+      blob: input.blob,
+      width: input.width,
+      height: input.height,
+      size: input.size,
+      hash: input.hash
+    }
+  }
+
+  return normalizeImageBlob(input.blob)
 }
 
 async function markImageAssetStatus(
@@ -95,8 +187,15 @@ export async function queuePendingImageDelete(imageId: string, cloudPath: string
 export async function savePromptImageAsset(
   input: SavePromptImageAssetInput
 ): Promise<{ success: boolean; imageId?: string; localPath?: string; error?: string }> {
+  let prepared: PreparedImageAssetBlob
+  try {
+    prepared = await prepareImageAssetBlob(input)
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) }
+  }
+
   const imageId = crypto.randomUUID()
-  const saveResult = await saveImage(imageId, input.blob, `${imageId}.webp`)
+  const saveResult = await saveImage(imageId, prepared.blob, `${imageId}.webp`)
   if (!saveResult.success || !saveResult.relativePath) {
     return { success: false, error: saveResult.error || 'WRITE_FAILED' }
   }
@@ -108,10 +207,10 @@ export async function savePromptImageAsset(
     localPath: saveResult.relativePath,
     sourceUrl: input.sourceUrl,
     mimeType: 'image/webp',
-    width: input.width,
-    height: input.height,
-    size: input.size,
-    hash: input.hash,
+    width: prepared.width,
+    height: prepared.height,
+    size: prepared.size,
+    hash: prepared.hash,
     status: input.canUseCloud ? 'pending_upload' : 'local_only',
     updatedAt: now
   }
@@ -166,6 +265,25 @@ export async function savePromptImageAsset(
   }
 
   return { success: true, imageId, localPath: saveResult.relativePath }
+}
+
+export async function getDisplayUrl(prompt: Prompt): Promise<string | null> {
+  if (prompt.imageId) {
+    const data = await readStorage()
+    const asset = data.imageAssets?.[prompt.imageId]
+    if (asset?.localPath) {
+      const localUrl = await getCachedImageUrl(asset.localPath)
+      if (localUrl) return localUrl
+      if (asset.cloudUrl) return asset.cloudUrl
+    }
+  }
+
+  if (prompt.localImage) {
+    const legacyUrl = await getCachedImageUrl(prompt.localImage)
+    if (legacyUrl) return legacyUrl
+  }
+
+  return prompt.remoteImageUrl || null
 }
 
 export async function retryImageUpload(imageId: string): Promise<void> {
@@ -251,7 +369,7 @@ export async function retryImageUpload(imageId: string): Promise<void> {
 export async function deletePromptImageAsset(promptId: string): Promise<DeletePromptImageAssetResult> {
   const data = await readStorage()
   const prompt = findPrompt(data, promptId)
-  const imageId = prompt?.imageId
+  const imageId = prompt?.imageId || data.imageAssets?.[promptId]?.id || Object.values(data.imageAssets || {}).find(asset => asset.promptId === promptId)?.id
   if (!imageId) return { success: true }
 
   const asset = data.imageAssets?.[imageId]
