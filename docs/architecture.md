@@ -87,6 +87,8 @@ interface StorageSchema {
   userData: UserData           // 用户数据（嵌套结构）
   settings: SyncSettings       // 同步和显示设置
   temporaryPrompts?: Prompt[]  // 临时库提示词（独立存储）
+  imageAssets?: Record<string, ImageAsset>
+  pendingImageDeletes?: PendingImageDelete[]
   _migrationComplete?: boolean // 防止重复迁移
 }
 
@@ -112,8 +114,35 @@ interface Prompt {
   description?: string         // 可选描述
   descriptionEn?: string       // 英文描述
   order: number                // 分类内排序
+  imageId?: string             // 图片资产 ID
   localImage?: string          // 本地图片路径
   remoteImageUrl?: string      // 原始网络 URL
+}
+
+interface ImageAsset {
+  id: string
+  promptId: string
+  localPath: string            // images/{imageId}.webp
+  cloudUrl?: string            // Vercel Blob recovery URL
+  cloudPath?: string           // Vercel Blob object path
+  sourceUrl?: string           // 原始图片 URL
+  mimeType: 'image/webp'
+  width: number
+  height: number
+  size: number
+  hash: string
+  status: 'local_only' | 'synced' | 'pending_upload' | 'upload_failed' | 'missing_local'
+  updatedAt: number
+  lastUploadAttemptAt?: number
+  lastError?: string
+}
+
+interface PendingImageDelete {
+  imageId: string
+  cloudPath: string
+  attempts: number
+  lastError?: string
+  updatedAt: number
 }
 
 interface SyncSettings {
@@ -127,6 +156,8 @@ interface SyncSettings {
   visionDefaultFormat?: 'natural' | 'json'
 }
 ```
+
+Prompt images are local-first assets. Prompts may reference `imageId`, while image metadata lives in top-level `imageAssets` and retryable cloud deletes live in `pendingImageDeletes`. `remoteImageUrl` remains the original source URL; Vercel Blob recovery URLs are stored as `imageAssets[imageId].cloudUrl`.
 
 ### ProviderConfigs (Multi-provider Vision API)
 
