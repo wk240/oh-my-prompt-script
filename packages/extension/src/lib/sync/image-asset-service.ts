@@ -1,5 +1,6 @@
 import type { ImageAsset, PendingImageDelete, Prompt, StorageSchema } from '@oh-my-prompt/shared/types'
 import { STORAGE_KEY } from '@oh-my-prompt/shared/constants'
+import { MessageType } from '@oh-my-prompt/shared/messages'
 import { saveImage, deleteImageByPath, getCachedImageUrl } from './image-sync'
 import { deleteCloudImage, uploadCloudImage } from './image-cloud-client'
 import {
@@ -23,7 +24,7 @@ export interface SavePromptImageAssetInput {
 }
 
 type DeletePromptImageAssetResult = { success: boolean; error?: string }
-type PreparedImageAssetBlob = {
+export type PreparedImageAssetBlob = {
   blob: Blob
   width: number
   height: number
@@ -117,6 +118,36 @@ async function normalizeImageBlob(blob: Blob): Promise<PreparedImageAssetBlob> {
   }
 }
 
+export async function normalizePromptImageBlob(blob: Blob): Promise<PreparedImageAssetBlob> {
+  const arrayBuffer = await blob.arrayBuffer()
+  const data = Array.from(new Uint8Array(arrayBuffer))
+
+  if (typeof chrome !== 'undefined' && typeof chrome.runtime?.sendMessage === 'function') {
+    const response = await chrome.runtime.sendMessage({
+      type: MessageType.OFFSCREEN_NORMALIZE_IMAGE,
+      payload: {
+        data,
+        mimeType: blob.type
+      }
+    })
+
+    if (response?.success && response.data) {
+      const normalizedData = new Uint8Array(response.data.data)
+      return {
+        blob: new Blob([normalizedData], { type: response.data.mimeType || 'image/webp' }),
+        width: response.data.width,
+        height: response.data.height,
+        size: response.data.size,
+        hash: response.data.hash
+      }
+    }
+
+    throw new Error(response?.error || 'NORMALIZE_FAILED')
+  }
+
+  return normalizeImageBlob(blob)
+}
+
 async function prepareImageAssetBlob(input: SavePromptImageAssetInput): Promise<PreparedImageAssetBlob> {
   if (
     input.width &&
@@ -133,7 +164,7 @@ async function prepareImageAssetBlob(input: SavePromptImageAssetInput): Promise<
     }
   }
 
-  return normalizeImageBlob(input.blob)
+  return normalizePromptImageBlob(input.blob)
 }
 
 async function markImageAssetStatus(

@@ -36,7 +36,7 @@ import { usePromptStore } from '../../lib/store'
 import { getResourcePrompts, getResourceCategories } from '../../lib/resource-library'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { clearImageUrlCache, isFolderConfigured, downloadImageFromUrl } from '../../lib/sync/image-sync'
-import { savePromptImageAsset } from '../../lib/sync/image-asset-service'
+import { normalizePromptImageBlob, savePromptImageAsset } from '../../lib/sync/image-asset-service'
 import { clearLoadQueue } from '../../lib/sync/image-loader-queue'
 import { clearSupabaseClient } from '../../lib/cloud-sync/supabase-client'
 import { PromptThumbnail } from './PromptThumbnail'
@@ -835,11 +835,16 @@ export function DropdownContainer({
         try {
           const downloadResult = await downloadImageFromUrl(resourcePrompt.previewImage)
           if (downloadResult.success && downloadResult.blob) {
+            const normalized = await normalizePromptImageBlob(downloadResult.blob)
             const imageResult = await savePromptImageAsset({
               promptId,
-              blob: downloadResult.blob,
+              blob: normalized.blob,
               sourceUrl: resourcePrompt.previewImage,
-              canUseCloud: authState?.status === 'logged_in' && Boolean(authState.cloudSyncEnabled)
+              canUseCloud: authState?.status === 'logged_in' && Boolean(authState.cloudSyncEnabled),
+              width: normalized.width,
+              height: normalized.height,
+              size: normalized.size,
+              hash: normalized.hash
             })
             if (imageResult.success && imageResult.localPath) {
               imageId = imageResult.imageId

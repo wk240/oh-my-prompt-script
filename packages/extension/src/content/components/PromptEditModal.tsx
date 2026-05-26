@@ -14,7 +14,7 @@ import {
   downloadImageFromUrl,
   isFolderConfigured,
 } from '../../lib/sync/image-sync'
-import { deletePromptImageAsset, getDisplayUrl, savePromptImageAsset } from '../../lib/sync/image-asset-service'
+import { deletePromptImageAsset, getDisplayUrl, normalizePromptImageBlob, savePromptImageAsset } from '../../lib/sync/image-asset-service'
 import { usePromptStore } from '../../lib/store'
 import { MAX_IMAGE_SIZE, ALLOWED_IMAGE_EXTENSIONS } from '@oh-my-prompt/shared/constants'
 
@@ -25,6 +25,25 @@ const PREVIEW_MAX_HEIGHT = 480
 
 // Fallback placeholder SVG
 const FALLBACK_IMAGE_SVG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480"%3E%3Crect fill="%23f0f0f0" width="720" height="480"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="14" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E'
+
+export async function savePromptEditModalImage(input: {
+  promptId: string
+  blob: Blob
+  sourceUrl?: string
+  canUseCloud: boolean
+}): Promise<Awaited<ReturnType<typeof savePromptImageAsset>>> {
+  const normalized = await normalizePromptImageBlob(input.blob)
+  return savePromptImageAsset({
+    promptId: input.promptId,
+    blob: normalized.blob,
+    sourceUrl: input.sourceUrl,
+    canUseCloud: input.canUseCloud,
+    width: normalized.width,
+    height: normalized.height,
+    size: normalized.size,
+    hash: normalized.hash
+  })
+}
 
 interface PromptEditModalProps {
   isOpen: boolean
@@ -224,7 +243,7 @@ export function PromptEditModal({
         // Generate temporary ID for new prompts (use timestamp)
         const tempId = prompt?.id || `temp-${Date.now()}`
 
-        const result = await savePromptImageAsset({
+        const result = await savePromptEditModalImage({
           promptId: tempId,
           blob: file,
           sourceUrl: remoteImageUrl,
@@ -271,7 +290,7 @@ export function PromptEditModal({
 
       if (downloadResult.success && downloadResult.blob) {
         const tempId = prompt?.id || `temp-${Date.now()}`
-        const result = await savePromptImageAsset({
+        const result = await savePromptEditModalImage({
           promptId: tempId,
           blob: downloadResult.blob,
           sourceUrl: imageUrlInput.trim(),

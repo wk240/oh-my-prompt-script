@@ -19,7 +19,7 @@ import { STORAGE_KEY } from '@oh-my-prompt/shared/constants'
 import { Tooltip } from '@/content/components/Tooltip'
 import { ToastNotification } from '@/sidepanel/components/ToastNotification'
 import { downloadImageFromUrl } from '@/lib/sync/image-sync'
-import { getDisplayUrl, savePromptImageAsset } from '@/lib/sync/image-asset-service'
+import { getDisplayUrl, normalizePromptImageBlob, savePromptImageAsset } from '@/lib/sync/image-asset-service'
 import { getFolderHandle } from '@/lib/sync/indexeddb'
 import { useAutoPermissionRestore } from '@/sidepanel/hooks/useAutoPermissionRestore'
 import AgentView from '@/sidepanel/views/AgentView'
@@ -1700,11 +1700,16 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
       try {
         const downloadResult = await downloadImageFromUrl(resourcePrompt.previewImage)
         if (downloadResult.success && downloadResult.blob) {
+          const normalized = await normalizePromptImageBlob(downloadResult.blob)
           const saveResult = await savePromptImageAsset({
             promptId: newPrompt.id,
-            blob: downloadResult.blob,
+            blob: normalized.blob,
             sourceUrl: resourcePrompt.previewImage,
-            canUseCloud: authState?.status === 'logged_in' && Boolean(authState.cloudSyncEnabled)
+            canUseCloud: authState?.status === 'logged_in' && Boolean(authState.cloudSyncEnabled),
+            width: normalized.width,
+            height: normalized.height,
+            size: normalized.size,
+            hash: normalized.hash
           })
           if (saveResult.success && saveResult.localPath) {
             // Update prompt with localImage path

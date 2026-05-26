@@ -5,6 +5,13 @@ import { resolve } from 'node:path'
 const repoRoot = resolve(__dirname, '../../../..')
 
 vi.mock('../../../lib/sync/image-asset-service', () => ({
+  normalizePromptImageBlob: vi.fn(async (blob: Blob) => ({
+    blob,
+    width: 100,
+    height: 80,
+    size: 1234,
+    hash: 'hash-1'
+  })),
   savePromptImageAsset: vi.fn(async () => ({
     success: true,
     imageId: 'image-1',
@@ -28,18 +35,41 @@ describe('PromptEditModal category handling', () => {
     expect(source).not.toContain('if (!trimmedName || !trimmedContent || !categoryId) return')
   })
 
-  it('uses the image asset service for upload, delete, and display URL handling', async () => {
+  it('uses the image asset service for upload, delete, and display URL handling', () => {
     const source = readFileSync(
       resolve(repoRoot, 'src/content/components/PromptEditModal.tsx'),
       'utf8',
     )
-    const { savePromptImageAsset } = await import('../../../lib/sync/image-asset-service')
 
-    expect(source).toContain('savePromptImageAsset({')
+    expect(source).toContain('savePromptEditModalImage({')
     expect(source).toContain('deletePromptImageAsset(')
     expect(source).toContain('getDisplayUrl(prompt)')
     expect(source).toContain('sourceUrl: imageUrlInput.trim()')
     expect(source).not.toContain('saveImage(')
-    expect(savePromptImageAsset).toHaveBeenCalledTimes(0)
+  })
+
+  it('normalizes uploaded images and passes metadata to the asset service', async () => {
+    const { savePromptEditModalImage } = await import('../PromptEditModal')
+    const { normalizePromptImageBlob, savePromptImageAsset } = await import('../../../lib/sync/image-asset-service')
+    const blob = new Blob(['abc'], { type: 'image/png' })
+
+    await savePromptEditModalImage({
+      promptId: 'prompt-1',
+      blob,
+      sourceUrl: 'https://example.com/source.png',
+      canUseCloud: true
+    })
+
+    expect(normalizePromptImageBlob).toHaveBeenCalledWith(blob)
+    expect(savePromptImageAsset).toHaveBeenCalledWith(expect.objectContaining({
+      promptId: 'prompt-1',
+      blob,
+      sourceUrl: 'https://example.com/source.png',
+      canUseCloud: true,
+      width: 100,
+      height: 80,
+      size: 1234,
+      hash: 'hash-1'
+    }))
   })
 })
