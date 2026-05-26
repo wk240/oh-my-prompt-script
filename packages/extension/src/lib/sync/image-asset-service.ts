@@ -402,22 +402,28 @@ export async function deletePromptImageAsset(promptId: string): Promise<DeletePr
   const data = await readStorage()
   const prompt = findPrompt(data, promptId)
   const imageId = prompt?.imageId || data.imageAssets?.[promptId]?.id || Object.values(data.imageAssets || {}).find(asset => asset.promptId === promptId)?.id
-  if (!imageId) return { success: true }
 
-  const asset = data.imageAssets?.[imageId]
+  const asset = imageId ? data.imageAssets?.[imageId] : undefined
+  const localPath = asset?.localPath || prompt?.localImage
+  if (!imageId && !localPath) return { success: true }
+
   const copiedCloudPath = asset?.cloudPath
 
-  if (asset?.localPath) {
-    const localDelete = await deleteImageByPath(asset.localPath)
+  if (localPath) {
+    const localDelete = await deleteImageByPath(localPath)
       .catch(error => ({ success: false, error: getErrorMessage(error) }))
     if (!localDelete.success) {
-      await markImageAssetStatus(imageId, asset.status, localDelete.error || 'DELETE_FAILED')
+      if (imageId && asset) {
+        await markImageAssetStatus(imageId, asset.status, localDelete.error || 'DELETE_FAILED')
+      }
       return { success: false, error: localDelete.error || 'DELETE_FAILED' }
     }
   }
 
   const nextAssets = { ...(data.imageAssets || {}) }
-  delete nextAssets[imageId]
+  if (imageId) {
+    delete nextAssets[imageId]
+  }
   const now = Date.now()
   const nextData = mapPrompt(data, promptId, item => ({
     ...item,
@@ -428,7 +434,7 @@ export async function deletePromptImageAsset(promptId: string): Promise<DeletePr
   }))
   await writeStorage({ ...nextData, imageAssets: nextAssets })
 
-  if (copiedCloudPath) {
+  if (imageId && copiedCloudPath) {
     const result = await deleteCloudImage(imageId, copiedCloudPath)
       .catch(error => ({ success: false, error: getErrorMessage(error) }))
     if (!result.success) {

@@ -1687,22 +1687,17 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     }
 
     // Add prompt first to get generated id
-    await usePromptStore.getState().addPrompt(localPrompt)
-
-    // Get the newly added prompt by matching content in the category
-    const store = usePromptStore.getState()
-    const newPrompt = store.prompts.find(p =>
-      p.content === resourcePrompt.content && p.categoryId === targetCategoryId
-    )
+    const addResult = await usePromptStore.getState().addPrompt(localPrompt)
+    const newPromptId = addResult.promptId
 
     // Download and save image locally if previewImage exists
-    if (newPrompt && resourcePrompt.previewImage) {
+    if (resourcePrompt.previewImage) {
       try {
         const downloadResult = await downloadImageFromUrl(resourcePrompt.previewImage)
         if (downloadResult.success && downloadResult.blob) {
           const normalized = await normalizePromptImageBlob(downloadResult.blob)
           const saveResult = await savePromptImageAsset({
-            promptId: newPrompt.id,
+            promptId: newPromptId,
             blob: normalized.blob,
             sourceUrl: resourcePrompt.previewImage,
             canUseCloud: authState?.status === 'logged_in' && Boolean(authState.cloudSyncEnabled),
@@ -1713,7 +1708,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
           })
           if (saveResult.success && saveResult.localPath) {
             // Update prompt with localImage path
-            store.updatePrompt(newPrompt.id, {
+            usePromptStore.getState().updatePrompt(newPromptId, {
               imageId: saveResult.imageId,
               localImage: saveResult.localPath,
               remoteImageUrl: resourcePrompt.previewImage
@@ -1812,8 +1807,17 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     setTimeout(hideToast, 2000)
   }, [editingStates.category, clearEditingItem, setToastMessage, hideToast])
 
-  const handleDeleteCategory = useCallback(() => {
+  const handleDeleteCategory = useCallback(async () => {
     if (!editingStates.deletingCategory) return
+    const promptsToDelete = prompts.filter(p => p.categoryId === editingStates.deletingCategory!.id)
+    for (const prompt of promptsToDelete) {
+      const imageDelete = await deletePromptImageAsset(prompt.id)
+      if (!imageDelete.success) {
+        setToastMessage('图片删除失败，请检查文件夹权限')
+        setTimeout(hideToast, 2000)
+        return
+      }
+    }
     usePromptStore.getState().deleteCategory(editingStates.deletingCategory.id)
     if (selectedCategoryId === editingStates.deletingCategory.id) {
       setSelectedCategoryId('all')
@@ -1822,7 +1826,7 @@ export default function PromptListView({ onOpenSettings }: PromptListViewProps) 
     closeModal('isCategoryDelete')
     setToastMessage('分类已删除')
     setTimeout(hideToast, 2000)
-  }, [editingStates.deletingCategory, selectedCategoryId, clearEditingItem, closeModal, setToastMessage, hideToast])
+  }, [editingStates.deletingCategory, selectedCategoryId, prompts, clearEditingItem, closeModal, setToastMessage, hideToast])
 
   const handleAddPrompt = useCallback(async (data: {
     name: string

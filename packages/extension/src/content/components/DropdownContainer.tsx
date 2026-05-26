@@ -1148,8 +1148,16 @@ export function DropdownContainer({
     showToast('分类已更新')
   }, [editingStates.category])
 
-  const handleDeleteCategory = useCallback(() => {
+  const handleDeleteCategory = useCallback(async () => {
     if (!editingStates.deletingCategory) return
+    const promptsToDelete = localPrompts.filter(p => p.categoryId === editingStates.deletingCategory!.id)
+    for (const prompt of promptsToDelete) {
+      const imageDelete = await deletePromptImageAsset(prompt.id)
+      if (!imageDelete.success) {
+        showToast('图片删除失败，请检查文件夹权限')
+        return
+      }
+    }
     usePromptStore.getState().deleteCategory(editingStates.deletingCategory.id)
     // Update local state
     setLocalCategories(prev => prev.filter(c => c.id !== editingStates.deletingCategory!.id))
@@ -1160,7 +1168,7 @@ export function DropdownContainer({
     }
     clearEditingItem('deletingCategory')
     showToast('分类已删除')
-  }, [editingStates.deletingCategory, selectedCategoryId])
+  }, [editingStates.deletingCategory, localPrompts, selectedCategoryId])
 
   // CRUD handlers for prompts
   const handleAddPrompt = useCallback((data: {
