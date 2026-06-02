@@ -364,6 +364,37 @@ describe('service worker message handling', () => {
     expect(sendResponse).toHaveBeenCalledWith({ success: true })
   })
 
+  it('handles GET_IMAGE_RESTORE_STATUS', async () => {
+    const { getImageRestoreStatus } = await import('../../lib/sync/image-asset-service')
+    vi.mocked(getImageRestoreStatus).mockResolvedValueOnce({ folderRequired: true, pendingCount: 2 })
+    const sendResponse = vi.fn()
+
+    dispatchRuntimeMessage({ type: MessageType.GET_IMAGE_RESTORE_STATUS }, sendResponse)
+
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        data: { folderRequired: true, pendingCount: 2 }
+      })
+    })
+  })
+
+  it('handles RESTORE_MISSING_CLOUD_IMAGES', async () => {
+    const { restoreMissingCloudImages } = await import('../../lib/sync/image-asset-service')
+    vi.mocked(restoreMissingCloudImages).mockResolvedValueOnce(true)
+    const sendResponse = vi.fn()
+
+    dispatchRuntimeMessage({ type: MessageType.RESTORE_MISSING_CLOUD_IMAGES }, sendResponse)
+
+    await vi.waitFor(() => {
+      expect(restoreMissingCloudImages).toHaveBeenCalledWith({ priority: 'background' })
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        data: { enqueued: true }
+      })
+    })
+  })
+
   it('treats local-only orchestrator sync as successful SET_STORAGE auto-sync', async () => {
     const sendResponse = await dispatchSetStorageWithSyncResult({
       cloudSynced: false,
