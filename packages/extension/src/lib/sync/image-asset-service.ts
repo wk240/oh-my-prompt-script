@@ -479,13 +479,18 @@ export async function restorePromptImageAsset(
   if (asset.localPath) {
     const localUrl = await getCachedImageUrl(asset.localPath)
     if (localUrl) {
-      if (asset.status === 'synced' && asset.lastError === undefined) return false
+      const latest = await readStorage()
+      const latestAsset = latest.imageAssets?.[imageId]
+      if (!latestAsset || hasPendingImageDelete(latest, imageId) || !isAssetReferenced(latest, imageId)) {
+        return false
+      }
+      if (latestAsset.status === 'synced' && latestAsset.lastError === undefined) return false
       await writeStorage({
-        ...data,
+        ...latest,
         imageAssets: {
-          ...(data.imageAssets || {}),
+          ...(latest.imageAssets || {}),
           [imageId]: {
-            ...asset,
+            ...latestAsset,
             status: 'synced',
             lastError: undefined,
             updatedAt: Date.now()

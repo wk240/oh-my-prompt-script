@@ -404,6 +404,24 @@ describe('image-asset-service', () => {
     })
   })
 
+  it('does not repair local status when the asset is unreferenced during cache lookup', async () => {
+    addCloudBackedMissingAsset()
+    storageData.imageAssets!['image-1'].lastError = 'LOCAL_IMAGE_MISSING'
+    vi.mocked(getCachedImageUrl).mockImplementationOnce(async () => {
+      storageData.userData.prompts[0].imageId = undefined
+      return 'blob:local'
+    })
+
+    const result = await restorePromptImageAsset('image-1')
+
+    expect(result).toBe(false)
+    expect(downloadCloudImage).not.toHaveBeenCalled()
+    expect(storageData.imageAssets?.['image-1']).toMatchObject({
+      status: 'missing_local',
+      lastError: 'LOCAL_IMAGE_MISSING'
+    })
+  })
+
   it('skips restore for an asset without cloudUrl', async () => {
     addCloudBackedMissingAsset()
     delete storageData.imageAssets?.['image-1'].cloudUrl
