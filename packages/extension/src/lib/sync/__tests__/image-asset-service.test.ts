@@ -5,7 +5,9 @@ import {
   deletePromptImageAsset,
   drainPendingImageDeletes,
   enqueueImageRestore,
+  getImageRestoreStatus,
   queuePendingImageDelete,
+  restoreMissingCloudImages,
   restorePromptImageAsset,
   retryImageUpload,
   retryPendingImageUploads,
@@ -387,6 +389,43 @@ describe('image-asset-service', () => {
     })
     expect(chrome.storage.session.set).toHaveBeenCalledWith({
       imageRestoreFolderRequiredPendingCount: 1
+    })
+  })
+
+  it('counts a queued folder permission pause once', async () => {
+    addCloudBackedMissingAsset()
+    vi.mocked(getCachedImageUrl).mockResolvedValue(null)
+    vi.mocked(chrome.runtime.sendMessage).mockResolvedValue({
+      success: true,
+      data: { hasFolder: true, permission: 'prompt' }
+    })
+
+    enqueueImageRestore('image-1', { priority: 'background' })
+
+    await vi.waitFor(() => {
+      expect(chrome.storage.session.set).toHaveBeenCalledWith({
+        imageRestoreFolderRequiredPendingCount: 1
+      })
+    })
+  })
+
+  it('clears stale folder-required status when restore scan resumes', async () => {
+    addCloudBackedMissingAsset()
+    vi.mocked(getCachedImageUrl).mockResolvedValueOnce(null)
+    vi.mocked(chrome.runtime.sendMessage).mockResolvedValueOnce({
+      success: true,
+      data: { hasFolder: true, permission: 'prompt' }
+    })
+
+    await restorePromptImageAsset('image-1')
+    storageData.imageAssets = {}
+    vi.mocked(chrome.storage.session.get).mockResolvedValueOnce({})
+
+    await restoreMissingCloudImages()
+
+    await expect(getImageRestoreStatus()).resolves.toEqual({
+      folderRequired: false,
+      pendingCount: 0
     })
   })
 

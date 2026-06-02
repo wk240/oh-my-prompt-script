@@ -257,6 +257,14 @@ async function notifyImageRestoreFolderRequired(pendingCount: number): Promise<v
   }).catch(() => undefined)
 }
 
+function getPendingRestoreCount(currentImageId?: string): number {
+  return new Set([
+    ...restoreQueue.map(item => item.imageId),
+    ...activeRestores,
+    ...(currentImageId ? [currentImageId] : [])
+  ]).size
+}
+
 function scheduleRestoreQueue(): void {
   void processRestoreQueue()
 }
@@ -460,7 +468,7 @@ export async function restorePromptImageAsset(
   if (!folder.available) {
     restoreQueuePausedForFolder = true
     await updateMissingLocal(imageId, folder.error || 'FOLDER_NOT_CONFIGURED')
-    await notifyImageRestoreFolderRequired(restoreQueue.length + activeRestores.size + 1)
+    await notifyImageRestoreFolderRequired(getPendingRestoreCount(imageId))
     return false
   }
 
@@ -518,6 +526,7 @@ export async function restoreMissingCloudImages(
   options: { priority?: RestorePriority } = {}
 ): Promise<boolean> {
   restoreQueuePausedForFolder = false
+  lastFolderRequiredPendingCount = 0
   await chrome.storage.session?.remove?.(IMAGE_RESTORE_FOLDER_REQUIRED_SESSION_KEY).catch(() => undefined)
 
   const data = await readStorage()
