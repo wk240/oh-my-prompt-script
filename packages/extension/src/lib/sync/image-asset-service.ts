@@ -3,7 +3,7 @@ import { STORAGE_KEY } from '@oh-my-prompt/shared/constants'
 import { MessageType } from '@oh-my-prompt/shared/messages'
 import { saveImage, deleteImageByPath, getCachedImageUrl } from './image-sync'
 import { queueImageLoad } from './image-loader-queue'
-import { deleteCloudImage, uploadCloudImage } from './image-cloud-client'
+import { deleteCloudImage, downloadCloudImage, uploadCloudImage } from './image-cloud-client'
 import {
   HARD_IMAGE_SIZE_LIMIT,
   INITIAL_WEBP_QUALITY,
@@ -25,6 +25,8 @@ export interface SavePromptImageAssetInput {
 }
 
 type DeletePromptImageAssetResult = { success: boolean; error?: string }
+type RestorePriority = 'visible' | 'background'
+type RestoreQueueItem = { imageId: string; priority: RestorePriority }
 export type PreparedImageAssetBlob = {
   blob: Blob
   width: number
@@ -33,6 +35,16 @@ export type PreparedImageAssetBlob = {
   hash: string
 }
 
+const IMAGE_RESTORE_FOLDER_REQUIRED_SESSION_KEY = 'imageRestoreFolderRequiredPendingCount'
+const RESTORE_CONCURRENCY = 2
+const RESTORE_FAILURE_BACKOFF_MS = 60_000
+
+const restoreQueue: RestoreQueueItem[] = []
+const activeRestores = new Set<string>()
+const restoreFailureBackoff = new Map<string, number>()
+let activeRestoreCount = 0
+let restoreQueuePausedForFolder = false
+let lastFolderRequiredPendingCount = 0
 let pendingDeleteMutation: Promise<void> = Promise.resolve()
 
 async function withPendingDeleteMutation<T>(mutation: () => Promise<T>): Promise<T> {
@@ -199,6 +211,82 @@ async function markImageAssetStatus(
   })
 }
 
+function buildRestoredLocalPath(imageId: string): string {
+  return `images/${imageId}.webp`
+}
+
+function isAssetReferenced(data: StorageSchema, imageId: string): boolean {
+  return [...data.userData.prompts, ...(data.temporaryPrompts || [])].some(prompt => prompt.imageId === imageId)
+}
+
+function hasPendingImageDelete(data: StorageSchema, imageId: string): boolean {
+  return (data.pendingImageDeletes || []).some(item => item.imageId === imageId)
+}
+
+async function checkRestoreFolderAvailable(): Promise<{ available: boolean; error?: string }> {
+  const response = await chrome.runtime.sendMessage({
+    type: MessageType.OFFSCREEN_CHECK_PERMISSION
+  }).catch(error => ({ success: false, error: getErrorMessage(error) }))
+
+  if (!response?.success || !response.data?.hasFolder) {
+    return { available: false, error: 'FOLDER_NOT_CONFIGURED' }
+  }
+
+  if (response.data.permission !== 'granted') {
+    return {
+      available: false,
+      error: response.data.permission === 'prompt' ? 'PERMISSION_PROMPT' : 'PERMISSION_DENIED'
+    }
+  }
+
+  return { available: true }
+}
+
+async function updateMissingLocal(imageId: string, error: string): Promise<void> {
+  await markImageAssetStatus(imageId, 'missing_local', error)
+}
+
+async function notifyImageRestoreFolderRequired(pendingCount: number): Promise<void> {
+  lastFolderRequiredPendingCount = pendingCount
+  await chrome.storage.session?.set?.({
+    [IMAGE_RESTORE_FOLDER_REQUIRED_SESSION_KEY]: pendingCount
+  }).catch(() => undefined)
+  chrome.runtime.sendMessage({
+    type: MessageType.IMAGE_RESTORE_FOLDER_REQUIRED,
+    payload: { pendingCount }
+  }).catch(() => undefined)
+}
+
+function scheduleRestoreQueue(): void {
+  void processRestoreQueue()
+}
+
+async function processRestoreQueue(): Promise<void> {
+  if (restoreQueuePausedForFolder) return
+
+  while (activeRestoreCount < RESTORE_CONCURRENCY && restoreQueue.length > 0) {
+    const item = restoreQueue.shift()
+    if (!item || activeRestores.has(item.imageId)) continue
+
+    const backoffUntil = restoreFailureBackoff.get(item.imageId)
+    if (backoffUntil && Date.now() < backoffUntil) continue
+
+    activeRestores.add(item.imageId)
+    activeRestoreCount++
+    void restorePromptImageAsset(item.imageId, { priority: item.priority })
+      .then(restored => {
+        if (!restored) {
+          restoreFailureBackoff.set(item.imageId, Date.now() + RESTORE_FAILURE_BACKOFF_MS)
+        }
+      })
+      .finally(() => {
+        activeRestores.delete(item.imageId)
+        activeRestoreCount--
+        scheduleRestoreQueue()
+      })
+  }
+}
+
 export async function queuePendingImageDelete(imageId: string, cloudPath: string, error?: string): Promise<void> {
   await withPendingDeleteMutation(async () => {
     const data = await readStorage()
@@ -326,6 +414,152 @@ export async function getDisplayUrl(prompt: Prompt): Promise<string | null> {
   }
 
   return prompt.remoteImageUrl || null
+}
+
+export function enqueueImageRestore(
+  imageId: string,
+  options: { priority?: RestorePriority } = {}
+): void {
+  const priority = options.priority || 'background'
+  const existingIndex = restoreQueue.findIndex(item => item.imageId === imageId)
+
+  if (existingIndex >= 0) {
+    const existing = restoreQueue[existingIndex]
+    restoreQueue.splice(existingIndex, 1)
+    restoreQueue.unshift({
+      imageId,
+      priority: existing.priority === 'visible' || priority === 'visible' ? 'visible' : 'background'
+    })
+  } else if (!activeRestores.has(imageId)) {
+    if (priority === 'visible') {
+      restoreQueue.unshift({ imageId, priority })
+    } else {
+      restoreQueue.push({ imageId, priority })
+    }
+  }
+
+  scheduleRestoreQueue()
+}
+
+export async function restorePromptImageAsset(
+  imageId: string,
+  _options: { priority?: RestorePriority } = {}
+): Promise<boolean> {
+  const data = await readStorage()
+  const asset = data.imageAssets?.[imageId]
+  if (!asset?.cloudUrl) return false
+  if (hasPendingImageDelete(data, imageId)) return false
+  if (!isAssetReferenced(data, imageId)) return false
+
+  if (asset.localPath) {
+    const localUrl = await getCachedImageUrl(asset.localPath)
+    if (localUrl) return false
+  }
+
+  const folder = await checkRestoreFolderAvailable()
+  if (!folder.available) {
+    restoreQueuePausedForFolder = true
+    await updateMissingLocal(imageId, folder.error || 'FOLDER_NOT_CONFIGURED')
+    await notifyImageRestoreFolderRequired(restoreQueue.length + activeRestores.size + 1)
+    return false
+  }
+
+  const download = await downloadCloudImage(asset.cloudUrl, {
+    size: asset.size,
+    hash: asset.hash
+  })
+
+  if (!download.success || !download.blob) {
+    await updateMissingLocal(imageId, download.error || 'DOWNLOAD_FAILED')
+    return true
+  }
+
+  const latestBeforeSave = await readStorage()
+  const latestAsset = latestBeforeSave.imageAssets?.[imageId]
+  if (
+    !latestAsset ||
+    hasPendingImageDelete(latestBeforeSave, imageId) ||
+    !isAssetReferenced(latestBeforeSave, imageId)
+  ) {
+    return false
+  }
+
+  const saveResult = await saveImage(imageId, download.blob, `${imageId}.webp`)
+  if (!saveResult.success) {
+    await updateMissingLocal(imageId, saveResult.error || 'WRITE_FAILED')
+    return true
+  }
+
+  const latest = await readStorage()
+  const assetAfterSave = latest.imageAssets?.[imageId]
+  if (!assetAfterSave || hasPendingImageDelete(latest, imageId) || !isAssetReferenced(latest, imageId)) {
+    return false
+  }
+
+  await writeStorage({
+    ...latest,
+    imageAssets: {
+      ...(latest.imageAssets || {}),
+      [imageId]: {
+        ...assetAfterSave,
+        localPath: saveResult.relativePath || buildRestoredLocalPath(imageId),
+        status: assetAfterSave.cloudUrl ? 'synced' : assetAfterSave.status,
+        lastError: undefined,
+        updatedAt: Date.now()
+      }
+    }
+  })
+
+  restoreFailureBackoff.delete(imageId)
+  return true
+}
+
+export async function restoreMissingCloudImages(
+  options: { priority?: RestorePriority } = {}
+): Promise<boolean> {
+  restoreQueuePausedForFolder = false
+  await chrome.storage.session?.remove?.(IMAGE_RESTORE_FOLDER_REQUIRED_SESSION_KEY).catch(() => undefined)
+
+  const data = await readStorage()
+  let enqueued = false
+  const referencedIds = new Set(
+    [...data.userData.prompts, ...(data.temporaryPrompts || [])]
+      .map(prompt => prompt.imageId)
+      .filter((imageId): imageId is string => Boolean(imageId))
+  )
+
+  for (const asset of Object.values(data.imageAssets || {})) {
+    if (!asset.cloudUrl) continue
+    if (!referencedIds.has(asset.id)) continue
+    if (hasPendingImageDelete(data, asset.id)) continue
+    if (asset.status !== 'missing_local') {
+      const localUrl = asset.localPath ? await getCachedImageUrl(asset.localPath) : null
+      if (localUrl) continue
+    }
+    enqueueImageRestore(asset.id, { priority: options.priority || 'background' })
+    enqueued = true
+  }
+
+  return enqueued
+}
+
+export async function getImageRestoreStatus(): Promise<{ folderRequired: boolean; pendingCount: number }> {
+  const result = await chrome.storage.session?.get?.(IMAGE_RESTORE_FOLDER_REQUIRED_SESSION_KEY)
+    .catch(() => ({})) as Record<string, unknown> | undefined
+  const pendingCount = Number(result?.[IMAGE_RESTORE_FOLDER_REQUIRED_SESSION_KEY] || lastFolderRequiredPendingCount || 0)
+  return {
+    folderRequired: pendingCount > 0 || restoreQueuePausedForFolder,
+    pendingCount
+  }
+}
+
+export function clearImageRestoreQueueForTests(): void {
+  restoreQueue.length = 0
+  activeRestores.clear()
+  restoreFailureBackoff.clear()
+  activeRestoreCount = 0
+  restoreQueuePausedForFolder = false
+  lastFolderRequiredPendingCount = 0
 }
 
 export async function retryImageUpload(imageId: string): Promise<boolean> {

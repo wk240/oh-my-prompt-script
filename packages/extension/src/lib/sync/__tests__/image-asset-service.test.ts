@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StorageSchema } from '@oh-my-prompt/shared/types'
 import {
+  clearImageRestoreQueueForTests,
   deletePromptImageAsset,
   drainPendingImageDeletes,
+  enqueueImageRestore,
   queuePendingImageDelete,
+  restorePromptImageAsset,
   retryImageUpload,
   retryPendingImageUploads,
   savePromptImageAsset
 } from '../image-asset-service'
 import { deleteImageByPath, getCachedImageUrl, saveImage } from '../image-sync'
-import { deleteCloudImage, uploadCloudImage } from '../image-cloud-client'
+import { deleteCloudImage, downloadCloudImage, uploadCloudImage } from '../image-cloud-client'
 
 vi.mock('../image-sync', () => ({
   saveImage: vi.fn(async () => ({ success: true, relativePath: 'images/image-1.webp' })),
@@ -19,6 +22,7 @@ vi.mock('../image-sync', () => ({
 
 vi.mock('../image-cloud-client', () => ({
   uploadCloudImage: vi.fn(async () => ({ success: false, error: 'NETWORK_ERROR' })),
+  downloadCloudImage: vi.fn(async () => ({ success: true, blob: new Blob(['restored'], { type: 'image/webp' }) })),
   deleteCloudImage: vi.fn(async () => ({ success: false, error: 'NETWORK_ERROR' }))
 }))
 
@@ -30,12 +34,42 @@ vi.mock('../image-processing', () => ({
 describe('image-asset-service', () => {
   let storageData: StorageSchema
 
+  function addCloudBackedMissingAsset(): void {
+    storageData.userData.prompts[0] = {
+      ...storageData.userData.prompts[0],
+      imageId: 'image-1',
+      localImage: 'images/image-1.webp',
+      remoteImageUrl: 'https://source.test/image.png'
+    }
+    storageData.imageAssets = {
+      'image-1': {
+        id: 'image-1',
+        promptId: 'prompt-1',
+        localPath: 'images/image-1.webp',
+        cloudUrl: 'https://blob.test/image-1.webp',
+        cloudPath: 'users/u/images/image-1.webp',
+        mimeType: 'image/webp',
+        width: 100,
+        height: 80,
+        size: 12,
+        hash: 'hash-1',
+        status: 'missing_local',
+        updatedAt: 1
+      }
+    }
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
+    clearImageRestoreQueueForTests()
     vi.mocked(saveImage).mockReset().mockResolvedValue({ success: true, relativePath: 'images/image-1.webp' })
     vi.mocked(deleteImageByPath).mockReset().mockResolvedValue({ success: true })
     vi.mocked(getCachedImageUrl).mockReset().mockResolvedValue('blob:local')
     vi.mocked(uploadCloudImage).mockReset().mockResolvedValue({ success: false, error: 'NETWORK_ERROR' })
+    vi.mocked(downloadCloudImage).mockReset().mockResolvedValue({
+      success: true,
+      blob: new Blob(['restored'], { type: 'image/webp' })
+    })
     vi.mocked(deleteCloudImage).mockReset().mockResolvedValue({ success: false, error: 'NETWORK_ERROR' })
     storageData = {
       version: '1.0.0',
@@ -50,12 +84,20 @@ describe('image-asset-service', () => {
     }
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('image-1' as `${string}-${string}-${string}-${string}-${string}`)
     global.chrome = {
+      runtime: {
+        sendMessage: vi.fn(async () => ({ success: true })),
+      },
       storage: {
         local: {
           get: vi.fn(async () => ({ prompt_script_data: storageData })),
           set: vi.fn(async value => {
             storageData = value.prompt_script_data
           })
+        },
+        session: {
+          get: vi.fn(async () => ({})),
+          set: vi.fn(async () => undefined),
+          remove: vi.fn(async () => undefined)
         }
       }
     } as unknown as typeof chrome
@@ -290,6 +332,112 @@ describe('image-asset-service', () => {
       status: 'synced',
       cloudUrl: 'https://blob/image-1.webp',
       cloudPath: 'users/u/images/image-1.webp'
+    })
+  })
+
+  it('restores a missing cloud-backed image and marks the asset synced', async () => {
+    addCloudBackedMissingAsset()
+    vi.mocked(getCachedImageUrl).mockResolvedValueOnce(null)
+    vi.mocked(chrome.runtime.sendMessage).mockResolvedValueOnce({
+      success: true,
+      data: { hasFolder: true, permission: 'granted' }
+    })
+
+    const result = await restorePromptImageAsset('image-1')
+
+    expect(result).toBe(true)
+    expect(downloadCloudImage).toHaveBeenCalledWith('https://blob.test/image-1.webp', {
+      size: 12,
+      hash: 'hash-1'
+    })
+    expect(saveImage).toHaveBeenCalledWith('image-1', expect.any(Blob), 'image-1.webp')
+    expect(storageData.imageAssets?.['image-1']).toMatchObject({
+      localPath: 'images/image-1.webp',
+      status: 'synced',
+      lastError: undefined
+    })
+  })
+
+  it('skips restore for an asset without cloudUrl', async () => {
+    addCloudBackedMissingAsset()
+    delete storageData.imageAssets?.['image-1'].cloudUrl
+
+    const result = await restorePromptImageAsset('image-1')
+
+    expect(result).toBe(false)
+    expect(downloadCloudImage).not.toHaveBeenCalled()
+    expect(saveImage).not.toHaveBeenCalled()
+  })
+
+  it('pauses restore and notifies UI when folder permission is prompt', async () => {
+    addCloudBackedMissingAsset()
+    vi.mocked(getCachedImageUrl).mockResolvedValueOnce(null)
+    vi.mocked(chrome.runtime.sendMessage).mockResolvedValueOnce({
+      success: true,
+      data: { hasFolder: true, permission: 'prompt' }
+    })
+
+    const result = await restorePromptImageAsset('image-1')
+
+    expect(result).toBe(false)
+    expect(downloadCloudImage).not.toHaveBeenCalled()
+    expect(storageData.imageAssets?.['image-1']).toMatchObject({
+      status: 'missing_local',
+      lastError: 'PERMISSION_PROMPT'
+    })
+    expect(chrome.storage.session.set).toHaveBeenCalledWith({
+      imageRestoreFolderRequiredPendingCount: 1
+    })
+  })
+
+  it('records missing_local when cloud download validation fails', async () => {
+    addCloudBackedMissingAsset()
+    vi.mocked(getCachedImageUrl).mockResolvedValueOnce(null)
+    vi.mocked(chrome.runtime.sendMessage).mockResolvedValueOnce({
+      success: true,
+      data: { hasFolder: true, permission: 'granted' }
+    })
+    vi.mocked(downloadCloudImage).mockResolvedValueOnce({ success: false, error: 'HASH_MISMATCH' })
+
+    const result = await restorePromptImageAsset('image-1')
+
+    expect(result).toBe(true)
+    expect(saveImage).not.toHaveBeenCalled()
+    expect(storageData.imageAssets?.['image-1']).toMatchObject({
+      status: 'missing_local',
+      lastError: 'HASH_MISMATCH'
+    })
+  })
+
+  it('skips restore while a pending cloud delete exists for the image', async () => {
+    addCloudBackedMissingAsset()
+    storageData.pendingImageDeletes = [{
+      imageId: 'image-1',
+      cloudPath: 'users/u/images/image-1.webp',
+      attempts: 1,
+      updatedAt: 1
+    }]
+
+    const result = await restorePromptImageAsset('image-1')
+
+    expect(result).toBe(false)
+    expect(downloadCloudImage).not.toHaveBeenCalled()
+    expect(saveImage).not.toHaveBeenCalled()
+  })
+
+  it('prioritizes visible restore over queued background restore', async () => {
+    addCloudBackedMissingAsset()
+    vi.mocked(getCachedImageUrl).mockResolvedValue(null)
+    vi.mocked(chrome.runtime.sendMessage).mockResolvedValue({
+      success: true,
+      data: { hasFolder: true, permission: 'granted' }
+    })
+
+    enqueueImageRestore('background-image', { priority: 'background' })
+    enqueueImageRestore('image-1', { priority: 'visible' })
+
+    await vi.waitFor(() => {
+      expect(downloadCloudImage).toHaveBeenCalledWith('https://blob.test/image-1.webp', expect.any(Object))
     })
   })
 

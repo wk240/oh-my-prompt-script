@@ -106,6 +106,7 @@ export enum MessageType {
   BACKUP_RETRY = 'BACKUP_RETRY',  // SW → UI: Notify retry attempt (with count)
   BACKUP_COMPLETE = 'BACKUP_COMPLETE',  // SW → UI: Notify backup completed (success or failure)
   EMERGENCY_EXPORT = 'EMERGENCY_EXPORT',  // UI → SW: Export all data when all backups failed
+  IMAGE_RESTORE_FOLDER_REQUIRED = 'IMAGE_RESTORE_FOLDER_REQUIRED',  // SW → UI: Folder permission needed for image restore
 
   // Official Vision API
   GET_VISION_QUOTA = 'GET_VISION_QUOTA',           // 获取 Vision 额度状态
