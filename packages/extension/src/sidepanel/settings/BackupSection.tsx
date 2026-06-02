@@ -72,6 +72,7 @@ export function BackupSection() {
   const [historyVersions, setHistoryVersions] = useState<BackupVersion[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [imageRestorePendingCount, setImageRestorePendingCount] = useState(0)
 
   // Restore decision modal state (Step 1)
   const [decisionModalOpen, setDecisionModalOpen] = useState(false)
@@ -157,11 +158,25 @@ export function BackupSection() {
     }
   }, [])
 
+  const loadImageRestoreStatus = useCallback(async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: MessageType.GET_IMAGE_RESTORE_STATUS })
+      if (response?.success && response.data?.folderRequired) {
+        setImageRestorePendingCount(response.data.pendingCount || 0)
+      } else {
+        setImageRestorePendingCount(0)
+      }
+    } catch {
+      setImageRestorePendingCount(0)
+    }
+  }, [])
+
   // Load cached status first (instant), then async refresh from network
   useEffect(() => {
     loadCachedStatus()
     loadBackupStatus()
-  }, [loadCachedStatus, loadBackupStatus])
+    loadImageRestoreStatus()
+  }, [loadCachedStatus, loadBackupStatus, loadImageRestoreStatus])
 
   // Auto-dismiss messages after 3 seconds
   useEffect(() => {
@@ -191,6 +206,17 @@ export function BackupSection() {
     chrome.runtime.onMessage.addListener(handleMessage)
     return () => chrome.runtime.onMessage.removeListener(handleMessage)
   }, [loadBackupStatus])
+
+  useEffect(() => {
+    const handleImageRestoreMessage = (message: { type?: MessageType; payload?: { pendingCount?: number } }) => {
+      if (message.type === MessageType.IMAGE_RESTORE_FOLDER_REQUIRED) {
+        setImageRestorePendingCount(message.payload?.pendingCount || 1)
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleImageRestoreMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleImageRestoreMessage)
+  }, [])
 
   // Backup mechanism: Listen for auth token storage changes directly.
   // This ensures sidepanel updates even if AUTH_STATUS_UPDATE message is lost
@@ -254,6 +280,8 @@ export function BackupSection() {
           payload: { settings: { syncEnabled: true, hasUnsyncedChanges: false } }
         })
         chrome.runtime.sendMessage({ type: MessageType.TRIGGER_SYNC }).catch(() => { /* Ignore sync errors */ })
+        chrome.runtime.sendMessage({ type: MessageType.RESTORE_MISSING_CLOUD_IMAGES }).catch(() => { /* Ignore restore retry errors */ })
+        setImageRestorePendingCount(0)
         await loadBackupStatus()
       } else {
         setError('权限恢复失败：' + (response?.error || '未知错误'))
@@ -285,6 +313,8 @@ export function BackupSection() {
           setSuccess('文件夹已更换')
         }
         await loadBackupStatus()
+        chrome.runtime.sendMessage({ type: MessageType.RESTORE_MISSING_CLOUD_IMAGES }).catch(() => { /* Ignore restore retry errors */ })
+        setImageRestorePendingCount(0)
       } else {
         setError(result.error || '更换文件夹失败')
       }
@@ -315,6 +345,8 @@ export function BackupSection() {
           setSuccess('备份已启用')
         }
         await loadBackupStatus()
+        chrome.runtime.sendMessage({ type: MessageType.RESTORE_MISSING_CLOUD_IMAGES }).catch(() => { /* Ignore restore retry errors */ })
+        setImageRestorePendingCount(0)
       } else {
         setError(result.error || '选择文件夹失败')
       }
@@ -633,6 +665,23 @@ export function BackupSection() {
           onClickError={() => setShowMoreOptions(true)}
         />
       </div>
+
+      {imageRestorePendingCount > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="font-medium">需要本地备份文件夹来恢复图片</div>
+          <div className="mt-1">
+            有 {imageRestorePendingCount} 张云端图片等待下载到本地。请配置或恢复备份文件夹权限。
+          </div>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={handleEnableFolder} disabled={loading}>
+              配置文件夹
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleRestorePermission} disabled={loading}>
+              恢复权限
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Enable local backup button (if not configured) */}
       {status?.local && !status.local.enabled && (
